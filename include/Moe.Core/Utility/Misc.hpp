@@ -32,8 +32,9 @@ namespace moe
      * @return 结果，元素个数
      */
     template <typename T>
-    constexpr size_t CountOf(T)
+    constexpr size_t CountOf(T t)
     {
+        MOE_UNUSED(t);
         return std::extent<T>::value;
     }
 
@@ -79,7 +80,8 @@ namespace moe
      * @tparam T 缓冲区类型
      */
     template <typename T>
-    class Buffer
+    class Buffer :
+        public NonCopyable
     {
     public:
         Buffer()
@@ -91,7 +93,7 @@ namespace moe
             assert(length == 0 || (length > 0 && data != nullptr));
         }
 
-        operator bool()const { return m_pBuffer != nullptr; }
+        explicit operator bool()const { return m_pBuffer != nullptr; }
 
         T& operator[](size_t index)
         {
@@ -155,7 +157,7 @@ namespace moe
         {
             assert(to <= m_iLength);
             assert(from < to);
-            ASSERT(0 <= from);
+            assert(0 <= from);
             return Buffer<T>(GetBuffer() + from, to - from);
         }
 

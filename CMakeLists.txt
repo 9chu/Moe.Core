@@ -6,9 +6,10 @@ set(CMAKE_CXX_FLAGS "-g -Wall -Wextra")
 set(CMAKE_C_FLAGS "-g -Wall -Wextra")
 
 include_directories(include)
+file(GLOB_RECURSE MOE_CORE_INCLUDE include/*.hpp)  # 无助于编译，仅帮助IDE产生代码提示
 file(GLOB_RECURSE MOE_CORE_SRC src/*.cpp)
 
-add_library(MoeCore STATIC ${MOE_CORE_SRC})
+add_library(MoeCore STATIC ${MOE_CORE_SRC} ${MOE_CORE_INCLUDE})
 
 if(MOE_ENABLE_TEST)
     enable_testing()
