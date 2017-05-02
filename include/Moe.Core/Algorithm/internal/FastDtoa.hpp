@@ -283,7 +283,7 @@ namespace moe
             }
 
             template <typename T>
-            static bool Dtoa(double v, FastDtoaMode mode, size_t requestedDigits, ArrayView<T> buffer,
+            static bool Dtoa(double v, FastDtoaMode mode, size_t requestedDigits, ArrayView<T>& buffer,
                 size_t& length, size_t& decimalPoint)
             {
                 assert(v > 0);
