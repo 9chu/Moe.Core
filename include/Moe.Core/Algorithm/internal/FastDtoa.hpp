@@ -27,8 +27,8 @@ namespace moe
             static const int kMaximalTargetExponent = -32;
 
             template <typename T>
-            static bool RoundWeed(Buffer<T>& buffer, size_t length, uint64_t distanceTooHighW, uint64_t unsafeInterval,
-                uint64_t rest, uint64_t tenKappa, uint64_t unit)
+            static bool RoundWeed(ArrayView<T>& buffer, size_t length, uint64_t distanceTooHighW,
+                uint64_t unsafeInterval, uint64_t rest, uint64_t tenKappa, uint64_t unit)
             {
                 uint64_t smallDistance = distanceTooHighW - unit;
                 uint64_t bigDistance = distanceTooHighW + unit;
@@ -51,8 +51,8 @@ namespace moe
             }
 
             template <typename T>
-            static bool RoundWeedCounted(Buffer<T>& buffer, size_t length, uint64_t rest, uint64_t tenKappa,
-                uint64_t unit, int* kappa)
+            static bool RoundWeedCounted(ArrayView<T>& buffer, size_t length, uint64_t rest, uint64_t tenKappa,
+                uint64_t unit, int& kappa)
             {
                 assert(rest < tenKappa);
 
@@ -76,7 +76,7 @@ namespace moe
                     if (buffer[0] == '0' + 10)
                     {
                         buffer[0] = '1';
-                        (*kappa) += 1;
+                        kappa += 1;
                     }
 
                     return true;
@@ -85,10 +85,22 @@ namespace moe
                 return false;
             }
 
-            static void BiggestPowerTen(uint32_t number, int numberBits, uint32_t* power, int* exponentPlusOne);
+            static void BiggestPowerTen(uint32_t number, size_t numberBits, uint32_t& power, int& exponentPlusOne)
+            {
+                static unsigned int const kSmallPowersOfTen[] =
+                    { 0, 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000 };
+
+                assert(number < (1u << (numberBits + 1)));
+                int exponentPlusOneGuess = ((numberBits + 1) * 1233 >> 12);
+                exponentPlusOneGuess++;
+                if (number < kSmallPowersOfTen[exponentPlusOneGuess])
+                    --exponentPlusOneGuess;
+                power = kSmallPowersOfTen[exponentPlusOneGuess];
+                exponentPlusOne = exponentPlusOneGuess;
+            }
 
             template <typename T>
-            static bool DigitGen(DiyFp low, DiyFp w, DiyFp high, Buffer<T>& buffer, size_t* length, int* kappa)
+            static bool DigitGen(DiyFp low, DiyFp w, DiyFp high, ArrayView<T>& buffer, size_t& length, int& kappa)
             {
                 assert(low.Exponent() == w.Exponent() && w.Exponent() == high.Exponent());
                 assert(low.Significand() + 1 <= high.Significand() - 1);
@@ -104,23 +116,23 @@ namespace moe
                 uint64_t fractionals = tooHigh.Significand() & (one.Significand() - 1);
                 uint32_t divisor = 0;
                 int divisorExponentPlusOne = 0;
-                BiggestPowerTen(integrals, DiyFp::kSignificandSize - (-one.Exponent()), &divisor,
-                    &divisorExponentPlusOne);
-                *kappa = divisorExponentPlusOne;
-                *length = 0;
+                BiggestPowerTen(integrals, static_cast<size_t>(DiyFp::kSignificandSize + one.Exponent()), divisor,
+                    divisorExponentPlusOne);
+                kappa = divisorExponentPlusOne;
+                length = 0;
 
-                while (*kappa > 0)
+                while (kappa > 0)
                 {
                     int digit = integrals / divisor;
                     assert(digit <= 9);
-                    buffer[*length] = static_cast<char>('0' + digit);
-                    ++(*length);
+                    buffer[length] = static_cast<char>('0' + digit);
+                    ++(length);
                     integrals %= divisor;
-                    --(*kappa);
+                    --(kappa);
                     uint64_t rest = (static_cast<uint64_t>(integrals) << -one.Exponent()) + fractionals;
                     if (rest < unsafeInterval.Significand())
                     {
-                        return RoundWeed(buffer, *length, DiyFp::Minus(tooHigh, w).Significand(),
+                        return RoundWeed(buffer, length, DiyFp::Minus(tooHigh, w).Significand(),
                             unsafeInterval.Significand(), rest, static_cast<uint64_t>(divisor) << -one.Exponent(),
                             unit);
                     }
@@ -137,20 +149,21 @@ namespace moe
                     unsafeInterval.SetSignificand(unsafeInterval.Significand() * 10);
                     int digit = static_cast<int>(fractionals >> -one.Exponent());
                     assert(digit <= 9);
-                    buffer[*length] = static_cast<char>('0' + digit);
-                    (*length)++;
+                    buffer[length] = static_cast<char>('0' + digit);
+                    (length)++;
                     fractionals &= one.Significand() - 1;
-                    (*kappa)--;
+                    (kappa)--;
                     if (fractionals < unsafeInterval.Significand())
                     {
-                        return RoundWeed(buffer, *length, DiyFp::Minus(tooHigh, w).Significand() * unit,
+                        return RoundWeed(buffer, length, DiyFp::Minus(tooHigh, w).Significand() * unit,
                             unsafeInterval.Significand(), fractionals, one.Significand(), unit);
                     }
                 }
             }
 
             template <typename T>
-            static bool DigitGenCounted(DiyFp w, int requestedDigits, Buffer<T>& buffer, size_t* length, int* kappa)
+            static bool DigitGenCounted(DiyFp w, size_t requestedDigits, ArrayView<T>& buffer, size_t& length,
+                int& kappa)
             {
                 assert(kMinimalTargetExponent <= w.Exponent() && w.Exponent() <= kMaximalTargetExponent);
                 assert(kMinimalTargetExponent >= -60);
@@ -162,20 +175,20 @@ namespace moe
                 uint64_t fractionals = w.Significand() & (one.Significand() - 1);
                 uint32_t divisor;
                 int divisorExponentPlusOne;
-                BiggestPowerTen(integrals, DiyFp::kSignificandSize - (-one.Exponent()), &divisor,
-                    &divisorExponentPlusOne);
-                *kappa = divisorExponentPlusOne;
-                *length = 0;
+                BiggestPowerTen(integrals, static_cast<size_t>(DiyFp::kSignificandSize + one.Exponent()), divisor,
+                    divisorExponentPlusOne);
+                kappa = divisorExponentPlusOne;
+                length = 0;
 
-                while (*kappa > 0)
+                while (kappa > 0)
                 {
                     int digit = integrals / divisor;
                     assert(digit <= 9);
-                    buffer[*length] = static_cast<char>('0' + digit);
-                    ++(*length);
+                    buffer[length] = static_cast<char>('0' + digit);
+                    ++(length);
                     requestedDigits--;
                     integrals %= divisor;
-                    --(*kappa);
+                    --(kappa);
                     if (requestedDigits == 0)
                         break;
                     divisor /= 10;
@@ -184,7 +197,7 @@ namespace moe
                 if (requestedDigits == 0)
                 {
                     uint64_t rest = (static_cast<uint64_t>(integrals) << -one.Exponent()) + fractionals;
-                    return RoundWeedCounted(buffer, *length, rest, static_cast<uint64_t>(divisor) << -one.Exponent(),
+                    return RoundWeedCounted(buffer, length, rest, static_cast<uint64_t>(divisor) << -one.Exponent(),
                         wError, kappa);
                 }
 
@@ -198,21 +211,21 @@ namespace moe
 
                     int digit = static_cast<int>(fractionals >> -one.Exponent());
                     assert(digit <= 9);
-                    buffer[*length] = static_cast<char>('0' + digit);
-                    (*length)++;
+                    buffer[length] = static_cast<char>('0' + digit);
+                    (length)++;
                     requestedDigits--;
                     fractionals &= one.Significand() - 1;
-                    (*kappa)--;
+                    (kappa)--;
                 }
 
                 if (requestedDigits != 0)
                     return false;
 
-                return RoundWeedCounted(buffer, *length, fractionals, one.Significand(), wError, kappa);
+                return RoundWeedCounted(buffer, length, fractionals, one.Significand(), wError, kappa);
             }
 
             template <typename T>
-            static bool Grisu3(double v, FastDtoaMode mode, Buffer<T>& buffer, size_t* length, int* decimalExponent)
+            static bool Grisu3(double v, FastDtoaMode mode, ArrayView<T>& buffer, size_t& length, int& decimalExponent)
             {
                 DiyFp w = Double(v).ToNormalizedDiyFp();
                 DiyFp boundaryMinus, boundaryPlus;
@@ -242,14 +255,14 @@ namespace moe
                 DiyFp scaledBoundaryPlus  = DiyFp::Times(boundaryPlus, tenMk);
 
                 int kappa = 0;
-                bool result = DigitGen(scaledBoundaryMinus, scaledW, scaledBoundaryPlus, buffer, length, &kappa);
-                *decimalExponent = -mk + kappa;
+                bool result = DigitGen(scaledBoundaryMinus, scaledW, scaledBoundaryPlus, buffer, length, kappa);
+                decimalExponent = -mk + kappa;
                 return result;
             }
 
             template <typename T>
-            static bool Grisu3Counted(double v, int requestedDigits, Buffer<T>& buffer, size_t* length,
-                int* decimalExponent)
+            static bool Grisu3Counted(double v, size_t requestedDigits, ArrayView<T>& buffer, size_t& length,
+                int& decimalExponent)
             {
                 DiyFp w = Double(v).ToNormalizedDiyFp();
                 DiyFp tenMk;
@@ -264,14 +277,14 @@ namespace moe
                 DiyFp scaledW = DiyFp::Times(w, tenMk);
 
                 int kappa = 0;
-                bool result = DigitGenCounted(scaledW, requestedDigits, buffer, length, &kappa);
-                *decimalExponent = -mk + kappa;
+                bool result = DigitGenCounted(scaledW, requestedDigits, buffer, length, kappa);
+                decimalExponent = -mk + kappa;
                 return result;
             }
 
             template <typename T>
-            static bool FastDtoa(double v, FastDtoaMode mode, int requestedDigits, Buffer<T> buffer, size_t* length,
-                int* decimalPoint)
+            static bool Dtoa(double v, FastDtoaMode mode, size_t requestedDigits, ArrayView<T> buffer,
+                size_t& length, size_t& decimalPoint)
             {
                 assert(v > 0);
                 assert(!Double(v).IsSpecial());
@@ -282,19 +295,20 @@ namespace moe
                 {
                     case FastDtoaMode::Shortest:
                     case FastDtoaMode::ShortestSingle:
-                        result = Grisu3(v, mode, buffer, length, &decimalExponent);
+                        result = Grisu3(v, mode, buffer, length, decimalExponent);
                         break;
                     case FastDtoaMode::Precision:
-                        result = Grisu3Counted(v, requestedDigits, buffer, length, &decimalExponent);
+                        result = Grisu3Counted(v, requestedDigits, buffer, length, decimalExponent);
                         break;
                     default:
                         MOE_UNREACHABLE();
+                        break;
                 }
 
                 if (result)
                 {
-                    *decimalPoint = *length + decimalExponent;
-                    buffer[*length] = '\0';
+                    decimalPoint = length + decimalExponent;
+                    buffer[length] = '\0';
                 }
 
                 return result;

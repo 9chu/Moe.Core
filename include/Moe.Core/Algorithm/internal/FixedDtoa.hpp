@@ -6,6 +6,7 @@
 #pragma once
 #include "DiyFp.hpp"
 
+#if 0
 namespace moe
 {
     namespace internal
@@ -403,3 +404,4 @@ namespace moe
 
     }
 }
+#endif

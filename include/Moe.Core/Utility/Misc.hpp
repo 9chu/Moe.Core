@@ -14,7 +14,7 @@
 #define MOE_UNREACHABLE() \
     do { \
         assert(false); \
-        abort(); \
+        ::abort(); \
     } while (false)
 
 /**
@@ -32,9 +32,8 @@ namespace moe
      * @return 结果，元素个数
      */
     template <typename T>
-    constexpr size_t CountOf(T t)
+    constexpr size_t CountOf(T)
     {
-        MOE_UNUSED(t);
         return std::extent<T>::value;
     }
 
@@ -67,7 +66,7 @@ namespace moe
      * 下述方法基于char、unsigned char类型的特殊规则，从而保证不会出现上述情况。
      */
     template <typename T, typename P>
-    inline T BitCast(const P& source)
+    constexpr T BitCast(const P& source)
     {
         static_assert(sizeof(T) == sizeof(P), "Type size mismatched");
         static_assert(std::is_same<uint8_t, unsigned char>::value, "Bad compiler");
@@ -76,34 +75,35 @@ namespace moe
     }
 
     /**
-     * @brief 缓冲区
-     * @tparam T 缓冲区类型
+     * @brief 数组视图
+     * @tparam T 元素类型
+     *
+     * 用来指示一段具有T类型的数组，不托管所有权。
      */
     template <typename T>
-    class Buffer :
-        public NonCopyable
+    class ArrayView
     {
     public:
-        Buffer()
-            : m_pBuffer(nullptr), m_iLength(0) {}
+        ArrayView()
+            : m_pBuffer(nullptr), m_uSize(0) {}
 
-        Buffer(T* data, size_t length)
-            : m_pBuffer(data), m_iLength(length)
+        ArrayView(T* data, size_t size)
+            : m_pBuffer(data), m_uSize(size)
         {
-            assert(length == 0 || (length > 0 && data != nullptr));
+            assert(size == 0 || (size > 0 && data != nullptr));
         }
 
         explicit operator bool()const { return m_pBuffer != nullptr; }
 
         T& operator[](size_t index)
         {
-            assert(0 <= index && index < m_iLength);
+            assert(0 <= index && index < m_uSize);
             return m_pBuffer[index];
         }
 
         const T& operator[](size_t index)const
         {
-            assert(0 <= index && index < m_iLength);
+            assert(0 <= index && index < m_uSize);
             return m_pBuffer[index];
         }
 
@@ -112,13 +112,13 @@ namespace moe
          * @brief 获取缓冲区大小
          * @return 缓冲区元素个数
          */
-        size_t Length()const { return m_iLength; }
+        size_t Size()const { return m_uSize; }
 
         /**
          * @brief 缓冲区是否为空
          * @return 是否空
          */
-        bool IsEmpty()const { return m_iLength == 0; }
+        bool IsEmpty()const { return m_uSize == 0; }
 
         /**
          * @brief 获取缓冲区
@@ -144,7 +144,7 @@ namespace moe
         T& Last()
         {
             assert(!IsEmpty());
-            return m_pBuffer[m_iLength - 1];
+            return m_pBuffer[m_uSize - 1];
         }
 
         /**
@@ -153,16 +153,16 @@ namespace moe
          * @param to 结束位置
          * @return 具有相同内存位置的片段
          */
-        Buffer<T> Slice(size_t from, size_t to)
+        ArrayView<T> Slice(size_t from, size_t to)
         {
-            assert(to <= m_iLength);
+            assert(to <= m_uSize);
             assert(from < to);
             assert(0 <= from);
-            return Buffer<T>(GetBuffer() + from, to - from);
+            return ArrayView<T>(GetBuffer() + from, to - from);
         }
 
     private:
         T* m_pBuffer;
-        size_t m_iLength;
+        size_t m_uSize;
     };
 }
