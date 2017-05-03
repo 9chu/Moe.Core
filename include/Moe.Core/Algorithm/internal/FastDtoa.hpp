@@ -284,7 +284,7 @@ namespace moe
 
             template <typename T>
             static bool Dtoa(double v, FastDtoaMode mode, size_t requestedDigits, ArrayView<T>& buffer,
-                size_t& length, size_t& decimalPoint)
+                size_t& length, int& decimalPoint)
             {
                 assert(v > 0);
                 assert(!Double(v).IsSpecial());

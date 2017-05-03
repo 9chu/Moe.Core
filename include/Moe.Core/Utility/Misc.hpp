@@ -31,10 +31,10 @@ namespace moe
      * @tparam T 数组类型
      * @return 结果，元素个数
      */
-    template <typename T>
-    constexpr size_t CountOf(T)
+    template <typename T, size_t S>
+    constexpr size_t CountOf(T(&)[S])
     {
-        return std::extent<T>::value;
+        return S;
     }
 
     /**
