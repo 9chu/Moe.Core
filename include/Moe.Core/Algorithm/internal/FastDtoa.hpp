@@ -27,7 +27,7 @@ namespace moe
             static const int kMaximalTargetExponent = -32;
 
             template <typename T>
-            static bool RoundWeed(ArrayView<T>& buffer, size_t length, uint64_t distanceTooHighW,
+            static bool RoundWeed(MutableArrayView<T>& buffer, size_t length, uint64_t distanceTooHighW,
                 uint64_t unsafeInterval, uint64_t rest, uint64_t tenKappa, uint64_t unit)
             {
                 uint64_t smallDistance = distanceTooHighW - unit;
@@ -51,7 +51,7 @@ namespace moe
             }
 
             template <typename T>
-            static bool RoundWeedCounted(ArrayView<T>& buffer, size_t length, uint64_t rest, uint64_t tenKappa,
+            static bool RoundWeedCounted(MutableArrayView<T>& buffer, size_t length, uint64_t rest, uint64_t tenKappa,
                 uint64_t unit, int& kappa)
             {
                 assert(rest < tenKappa);
@@ -100,7 +100,8 @@ namespace moe
             }
 
             template <typename T>
-            static bool DigitGen(DiyFp low, DiyFp w, DiyFp high, ArrayView<T>& buffer, size_t& length, int& kappa)
+            static bool DigitGen(DiyFp low, DiyFp w, DiyFp high, MutableArrayView<T>& buffer, size_t& length,
+                int& kappa)
             {
                 assert(low.Exponent() == w.Exponent() && w.Exponent() == high.Exponent());
                 assert(low.Significand() + 1 <= high.Significand() - 1);
@@ -162,7 +163,7 @@ namespace moe
             }
 
             template <typename T>
-            static bool DigitGenCounted(DiyFp w, size_t requestedDigits, ArrayView<T>& buffer, size_t& length,
+            static bool DigitGenCounted(DiyFp w, size_t requestedDigits, MutableArrayView<T>& buffer, size_t& length,
                 int& kappa)
             {
                 assert(kMinimalTargetExponent <= w.Exponent() && w.Exponent() <= kMaximalTargetExponent);
@@ -225,7 +226,8 @@ namespace moe
             }
 
             template <typename T>
-            static bool Grisu3(double v, FastDtoaMode mode, ArrayView<T>& buffer, size_t& length, int& decimalExponent)
+            static bool Grisu3(double v, FastDtoaMode mode, MutableArrayView<T>& buffer, size_t& length,
+                int& decimalExponent)
             {
                 DiyFp w = Double(v).ToNormalizedDiyFp();
                 DiyFp boundaryMinus, boundaryPlus;
@@ -261,7 +263,7 @@ namespace moe
             }
 
             template <typename T>
-            static bool Grisu3Counted(double v, size_t requestedDigits, ArrayView<T>& buffer, size_t& length,
+            static bool Grisu3Counted(double v, size_t requestedDigits, MutableArrayView<T>& buffer, size_t& length,
                 int& decimalExponent)
             {
                 DiyFp w = Double(v).ToNormalizedDiyFp();
@@ -283,7 +285,7 @@ namespace moe
             }
 
             template <typename T>
-            static bool Dtoa(double v, FastDtoaMode mode, size_t requestedDigits, ArrayView<T>& buffer,
+            static bool Dtoa(double v, FastDtoaMode mode, size_t requestedDigits, MutableArrayView<T>& buffer,
                 size_t& length, int& decimalPoint)
             {
                 assert(v > 0);

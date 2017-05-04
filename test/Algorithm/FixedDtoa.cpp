@@ -17,7 +17,7 @@ static const int kBufferSize = 500;
 TEST(FixedDtoa, FastFixedVariousDoubles)
 {
     char bufferContainer[kBufferSize];
-    ArrayView<char> buffer(bufferContainer, kBufferSize);
+    MutableArrayView<char> buffer(bufferContainer, kBufferSize);
     size_t length;
     int point;
 
@@ -465,12 +465,12 @@ TEST(FixedDtoa, FastFixedVariousDoubles)
 TEST(FixedDtoa, FastFixedDtoaGayFixed)
 {
     char bufferContainer[kBufferSize];
-    ArrayView<char> buffer(bufferContainer, kBufferSize);
+    MutableArrayView<char> buffer(bufferContainer, kBufferSize);
     bool status;
     size_t length;
     int point;
 
-    ArrayView<const Testing::PrecomputedFixed> precomputed = Testing::PrecomputedFixedRepresentations();
+    const ArrayView<Testing::PrecomputedFixed> precomputed = Testing::PrecomputedFixedRepresentations();
     for (size_t i = 0; i < precomputed.Size(); ++i)
     {
         ::memset(bufferContainer, 0, sizeof(bufferContainer));

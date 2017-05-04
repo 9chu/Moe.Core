@@ -15,5 +15,5 @@ namespace Testing
         int decimalPoint;
     };
 
-    moe::ArrayView<const PrecomputedFixed> PrecomputedFixedRepresentations();
+    const moe::ArrayView<PrecomputedFixed> PrecomputedFixedRepresentations();
 }

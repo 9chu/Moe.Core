@@ -87,19 +87,13 @@ namespace moe
         ArrayView()
             : m_pBuffer(nullptr), m_uSize(0) {}
 
-        ArrayView(T* data, size_t size)
+        ArrayView(const T* data, size_t size)
             : m_pBuffer(data), m_uSize(size)
         {
             assert(size == 0 || (size > 0 && data != nullptr));
         }
 
         explicit operator bool()const { return m_pBuffer != nullptr; }
-
-        T& operator[](size_t index)
-        {
-            assert(0 <= index && index < m_uSize);
-            return m_pBuffer[index];
-        }
 
         const T& operator[](size_t index)const
         {
@@ -124,14 +118,13 @@ namespace moe
          * @brief 获取缓冲区
          * @return 缓冲区指针
          */
-        T* GetBuffer() { return m_pBuffer; }
         const T* GetBuffer()const { return m_pBuffer; }
 
         /**
          * @brief 获取第一个元素
          * @return 第一个元素
          */
-        T& First()
+        const T& First()const
         {
             assert(!IsEmpty());
             return m_pBuffer[0];
@@ -141,7 +134,7 @@ namespace moe
          * @brief 获取最后一个元素
          * @return 最后一个元素
          */
-        T& Last()
+        const T& Last()const
         {
             assert(!IsEmpty());
             return m_pBuffer[m_uSize - 1];
@@ -153,7 +146,7 @@ namespace moe
          * @param to 结束位置
          * @return 具有相同内存位置的片段
          */
-        ArrayView<T> Slice(size_t from, size_t to)
+        ArrayView<T> Slice(size_t from, size_t to)const
         {
             assert(to <= m_uSize);
             assert(from < to);
@@ -161,8 +154,78 @@ namespace moe
             return ArrayView<T>(GetBuffer() + from, to - from);
         }
 
-    private:
-        T* m_pBuffer;
+    protected:
+        const T* m_pBuffer;
         size_t m_uSize;
+    };
+
+    /**
+     * @brief 可变数组视图
+     * @tparam T 元素类型
+     *
+     * 用来指示一段具有T类型的数组，不托管所有权。
+     */
+    template <typename T>
+    class MutableArrayView :
+        public ArrayView<T>
+    {
+    public:
+        MutableArrayView()
+            : ArrayView<T>() {}
+
+        MutableArrayView(T* data, size_t size)
+            : ArrayView<T>(data, size) {}
+
+        const T& operator[](size_t index)const
+        {
+            return ArrayView<T>::operator[](index);
+        }
+
+        T& operator[](size_t index)
+        {
+            assert(0 <= index && index < ArrayView<T>::m_uSize);
+            return const_cast<T*>(ArrayView<T>::m_pBuffer)[index];
+        }
+
+    public:
+        /**
+         * @brief 获取缓冲区
+         * @return 缓冲区指针
+         */
+        T* GetBuffer() { return const_cast<T*>(ArrayView<T>::m_pBuffer); }
+
+        /**
+         * @brief 获取第一个元素
+         * @return 第一个元素
+         */
+        T& First()
+        {
+            assert(!ArrayView<T>::IsEmpty());
+            return const_cast<T*>(ArrayView<T>::m_pBuffer)[0];
+        }
+
+        /**
+         * @brief 获取最后一个元素
+         * @return 最后一个元素
+         */
+        T& Last()
+        {
+            assert(!ArrayView<T>::IsEmpty());
+            return const_cast<T*>(ArrayView<T>::m_pBuffer)[ArrayView<T>::m_uSize - 1];
+        }
+
+        /**
+         * @brief 原地截取一段缓冲区
+         * @param from 起始位置
+         * @param to 结束位置
+         * @return 具有相同内存位置的片段
+         */
+        MutableArrayView<T> Slice(size_t from, size_t to)
+        {
+            assert(to <= ArrayView<T>::m_uSize);
+            assert(from < to);
+            assert(0 <= from);
+            return MutableArrayView<T>(GetBuffer() + from, to - from);
+        }
     };
 }

@@ -108,24 +108,21 @@ namespace moe
             static const int kDoubleSignificandSize = 53;
 
             template <typename T>
-            static void FillDigits32FixedLength(uint32_t number, size_t requestedLength, ArrayView<T>& buffer,
+            static void FillDigits32FixedLength(uint32_t number, size_t requestedLength, MutableArrayView<T>& buffer,
                 size_t& length)
             {
                 // for (int i = requestedLength - 1; i >= 0; --i)
-                if (requestedLength > 0)
+                for (size_t i = requestedLength; i-- > 0;)
                 {
-                    for (size_t i = requestedLength; i-- > 0;)
-                    {
-                        buffer[length + i] = '0' + number % 10;
-                        number /= 10;
-                    }
+                    buffer[length + i] = '0' + number % 10;
+                    number /= 10;
                 }
 
                 length += requestedLength;
             }
 
             template <typename T>
-            static void FillDigits32(uint32_t number, ArrayView<T>& buffer, size_t& length)
+            static void FillDigits32(uint32_t number, MutableArrayView<T>& buffer, size_t& length)
             {
                 size_t numberLength = 0;
                 while (number != 0)
@@ -151,7 +148,7 @@ namespace moe
             }
 
             template <typename T>
-            static void FillDigits64FixedLength(uint64_t number, ArrayView<T>& buffer, size_t& length)
+            static void FillDigits64FixedLength(uint64_t number, MutableArrayView<T>& buffer, size_t& length)
             {
                 const uint32_t kTen7 = 10000000;
 
@@ -166,7 +163,7 @@ namespace moe
             }
 
             template <typename T>
-            static void FillDigits64(uint64_t number, ArrayView<T>& buffer, size_t& length)
+            static void FillDigits64(uint64_t number, MutableArrayView<T>& buffer, size_t& length)
             {
                 const uint32_t kTen7 = 10000000;
 
@@ -191,7 +188,7 @@ namespace moe
             }
 
             template <typename T>
-            static void RoundUp(ArrayView<T>& buffer, size_t& length, int& decimalPoint)
+            static void RoundUp(MutableArrayView<T>& buffer, size_t& length, int& decimalPoint)
             {
                 if (length == 0)
                 {
@@ -219,7 +216,7 @@ namespace moe
 
             template <typename T>
             static void FillFractionals(uint64_t fractionals, int exponent, size_t fractionalCount,
-                ArrayView<T>& buffer, size_t& length, int& decimalPoint)
+                MutableArrayView<T>& buffer, size_t& length, int& decimalPoint)
             {
                 assert(-128 <= exponent && exponent <= 0);
 
@@ -269,7 +266,7 @@ namespace moe
             }
 
             template <typename T>
-            static void TrimZeros(ArrayView<T>& buffer, size_t& length, int& decimalPoint)
+            static void TrimZeros(MutableArrayView<T>& buffer, size_t& length, int& decimalPoint)
             {
                 while (length > 0 && buffer[length - 1] == '0')
                     --length;
@@ -289,7 +286,8 @@ namespace moe
             }
 
             template <typename T>
-            static bool Dtoa(double v, size_t fractionalCount, ArrayView<T>& buffer, size_t& length, int& decimalPoint)
+            static bool Dtoa(double v, size_t fractionalCount, MutableArrayView<T>& buffer, size_t& length,
+                int& decimalPoint)
             {
                 const uint32_t kMaxUInt32 = 0xFFFFFFFF;
                 uint64_t significand = Double(v).Significand();

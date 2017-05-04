@@ -19,7 +19,7 @@ static const int kBufferSize = 100;
 namespace
 {
     template <typename T>
-    inline void TrimRepresentation(ArrayView<T>& representation)
+    inline void TrimRepresentation(MutableArrayView<T>& representation)
     {
         size_t i;
         size_t len = strlen(representation.GetBuffer());
@@ -42,7 +42,7 @@ namespace
 TEST(FastDtoa, FastDtoaShortestVariousDoubles)
 {
     char bufferContainer[kBufferSize];
-    ArrayView<char> buffer(bufferContainer, kBufferSize);
+    MutableArrayView<char> buffer(bufferContainer, kBufferSize);
     size_t length;
     int point;
     bool status;
@@ -108,7 +108,7 @@ TEST(FastDtoa, FastDtoaShortestVariousDoubles)
 TEST(FastDtoa, FastDtoaShortestVariousFloats)
 {
     char bufferContainer[kBufferSize];
-    ArrayView<char> buffer(bufferContainer, kBufferSize);
+    MutableArrayView<char> buffer(bufferContainer, kBufferSize);
     size_t length;
     int point;
     bool status;
@@ -177,7 +177,7 @@ TEST(FastDtoa, FastDtoaShortestVariousFloats)
 TEST(FastDtoa, FastDtoaPrecisionVariousDoubles)
 {
     char bufferContainer[kBufferSize];
-    ArrayView<char> buffer(bufferContainer, kBufferSize);
+    MutableArrayView<char> buffer(bufferContainer, kBufferSize);
     size_t length;
     int point;
     bool status;
@@ -273,7 +273,7 @@ TEST(FastDtoa, FastDtoaPrecisionVariousDoubles)
 TEST(FastDtoa, FastDtoaGayShortest)
 {
     char bufferContainer[kBufferSize];
-    ArrayView<char> buffer(bufferContainer, kBufferSize);
+    MutableArrayView<char> buffer(bufferContainer, kBufferSize);
     bool status;
     size_t length;
     int point;
@@ -281,7 +281,7 @@ TEST(FastDtoa, FastDtoaGayShortest)
     int total = 0;
     bool neededMaxLength = false;
 
-    ArrayView<const Testing::PrecomputedShortest> precomputed = Testing::PrecomputedShortestRepresentations();
+    const ArrayView<Testing::PrecomputedShortest> precomputed = Testing::PrecomputedShortestRepresentations();
     for (size_t i = 0; i < precomputed.Size(); ++i)
     {
         const Testing::PrecomputedShortest currentTest = precomputed[i];
@@ -305,7 +305,7 @@ TEST(FastDtoa, FastDtoaGayShortest)
 TEST(FastDtoa, FastDtoaGayShortestSingle)
 {
     char bufferContainer[kBufferSize];
-    ArrayView<char> buffer(bufferContainer, kBufferSize);
+    MutableArrayView<char> buffer(bufferContainer, kBufferSize);
     bool status;
     size_t length;
     int point;
@@ -313,7 +313,7 @@ TEST(FastDtoa, FastDtoaGayShortestSingle)
     int total = 0;
     bool neededMaxLength = false;
 
-    ArrayView<const Testing::PrecomputedShortestSingle> precomputed =
+    const ArrayView<Testing::PrecomputedShortestSingle> precomputed =
         Testing::PrecomputedShortestSingleRepresentations();
     for (size_t i = 0; i < precomputed.Size(); ++i)
     {
@@ -337,7 +337,7 @@ TEST(FastDtoa, FastDtoaGayShortestSingle)
 TEST(FastDtoa, FastDtoaGayPrecision)
 {
     char bufferContainer[kBufferSize];
-    ArrayView<char> buffer(bufferContainer, kBufferSize);
+    MutableArrayView<char> buffer(bufferContainer, kBufferSize);
     bool status;
     size_t length;
     int point;
@@ -346,7 +346,7 @@ TEST(FastDtoa, FastDtoaGayPrecision)
     int succeeded15 = 0;
     int total15 = 0;
 
-    ArrayView<const Testing::PrecomputedPrecision> precomputed = Testing::PrecomputedPrecisionRepresentations();
+    const ArrayView<Testing::PrecomputedPrecision> precomputed = Testing::PrecomputedPrecisionRepresentations();
     for (size_t i = 0; i < precomputed.Size(); ++i) {
         const Testing::PrecomputedPrecision currentTest = precomputed[i];
         double v = currentTest.v;
