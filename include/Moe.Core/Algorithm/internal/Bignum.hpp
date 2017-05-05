@@ -55,11 +55,12 @@ namespace moe
             static size_t SizeInHexChars(T number)
             {
                 assert(number > 0);
+                T val = number;
                 size_t result = 0;
 
-                while (number != 0)
+                while (val != 0)
                 {
-                    number >>= 4;
+                    val >>= 4;
                     result++;
                 }
 

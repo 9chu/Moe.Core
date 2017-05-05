@@ -170,16 +170,8 @@ namespace moe
         public ArrayView<T>
     {
     public:
-        MutableArrayView()
-            : ArrayView<T>() {}
-
-        MutableArrayView(T* data, size_t size)
-            : ArrayView<T>(data, size) {}
-
-        const T& operator[](size_t index)const
-        {
-            return ArrayView<T>::operator[](index);
-        }
+        using ArrayView<T>::ArrayView;
+        using ArrayView<T>::operator[];
 
         T& operator[](size_t index)
         {
