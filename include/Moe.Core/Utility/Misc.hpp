@@ -180,6 +180,11 @@ namespace moe
         }
 
     public:
+        using ArrayView<T>::GetBuffer;
+        using ArrayView<T>::First;
+        using ArrayView<T>::Last;
+        using ArrayView<T>::Slice;
+
         /**
          * @brief 获取缓冲区
          * @return 缓冲区指针
