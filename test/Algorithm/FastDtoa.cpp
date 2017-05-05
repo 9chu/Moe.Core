@@ -284,7 +284,7 @@ TEST(FastDtoa, FastDtoaGayShortest)
     const ArrayView<Testing::PrecomputedShortest> precomputed = Testing::PrecomputedShortestRepresentations();
     for (size_t i = 0; i < precomputed.Size(); ++i)
     {
-        const Testing::PrecomputedShortest currentTest = precomputed[i];
+        const Testing::PrecomputedShortest& currentTest = precomputed[i];
         ++total;
         double v = currentTest.v;
         status = FastDtoa::Dtoa(v, FastDtoaMode::Shortest, 0, buffer, length, point);
@@ -317,7 +317,7 @@ TEST(FastDtoa, FastDtoaGayShortestSingle)
         Testing::PrecomputedShortestSingleRepresentations();
     for (size_t i = 0; i < precomputed.Size(); ++i)
     {
-        const Testing::PrecomputedShortestSingle currentTest = precomputed[i];
+        const Testing::PrecomputedShortestSingle& currentTest = precomputed[i];
         total++;
         float v = currentTest.v;
         status = FastDtoa::Dtoa(v, FastDtoaMode::ShortestSingle, 0, buffer, length, point);
@@ -348,7 +348,7 @@ TEST(FastDtoa, FastDtoaGayPrecision)
 
     const ArrayView<Testing::PrecomputedPrecision> precomputed = Testing::PrecomputedPrecisionRepresentations();
     for (size_t i = 0; i < precomputed.Size(); ++i) {
-        const Testing::PrecomputedPrecision currentTest = precomputed[i];
+        const Testing::PrecomputedPrecision& currentTest = precomputed[i];
         double v = currentTest.v;
         size_t numberDigits = static_cast<size_t>(currentTest.numberDigits);
         total++;

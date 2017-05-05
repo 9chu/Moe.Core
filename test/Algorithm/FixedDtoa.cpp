@@ -475,7 +475,7 @@ TEST(FixedDtoa, FastFixedDtoaGayFixed)
     {
         ::memset(bufferContainer, 0, sizeof(bufferContainer));
 
-        const Testing::PrecomputedFixed currentTest = precomputed[i];
+        const Testing::PrecomputedFixed& currentTest = precomputed[i];
         double v = currentTest.v;
         size_t numberDigits = static_cast<size_t>(currentTest.numberDigits);
         status = FixedDtoa::Dtoa(v, numberDigits, buffer, length, point);

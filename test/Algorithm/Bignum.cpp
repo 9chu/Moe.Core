@@ -8,8 +8,7 @@
 
 using namespace std;
 using namespace moe;
-
-using Bignum = internal::Bignum;
+using namespace internal;
 
 template <typename T = char>
 static void AssignHexString(Bignum& bignum, const T* str)
