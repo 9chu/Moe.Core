@@ -6,6 +6,8 @@
 #pragma once
 #include "../Utility/Misc.hpp"
 
+#include <string>
+
 namespace moe
 {
     namespace internal
@@ -1733,13 +1735,755 @@ namespace moe
         };
         
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        
-        class Dtoa
+
+        template <typename T>
+        class StringBuilder :
+            public NonCopyable
         {
         public:
+            StringBuilder(T* buffer, size_t bufferSize)
+                : m_stBuffer(buffer, bufferSize) {}
+
+            ~StringBuilder()
+            {
+                if (!isFinalized())
+                    Finalize();
+            }
+
+        public:
+            size_t Size()const
+            {
+                return m_stBuffer.Size();
+            }
+
+            size_t Position()const
+            {
+                return m_uPosition;
+            }
+
+            void Reset()
+            {
+                m_uPosition = 0;
+                m_bFinalized = false;
+            }
+
+            void AddCharacter(T c)
+            {
+                assert(c != '\0');
+                assert(!isFinalized() && m_uPosition < m_stBuffer.Size());
+                m_stBuffer[m_uPosition++] = c;
+            }
+
+            void AddString(const T* s)
+            {
+                AddSubstring(s, std::char_traits<T>::length(s));
+            }
+
+            void AddSubstring(const T* s, size_t n)
+            {
+                assert(!isFinalized() && m_uPosition + n < m_stBuffer.Size());
+                assert(n <= std::char_traits<T>::length(s));
+                ::memmove(&m_stBuffer[m_uPosition], s, n * sizeof(T));
+                m_uPosition += n;
+            }
+
+            void AddPadding(T c, size_t count)
+            {
+                for (size_t i = 0; i < count; i++)
+                    AddCharacter(c);
+            }
+
+            bool isFinalized()const
+            {
+                return m_bFinalized;
+            }
+
+            char* Finalize()
+            {
+                assert(!isFinalized() && m_uPosition < m_stBuffer.Size());
+                m_stBuffer[m_uPosition] = static_cast<T>('\0');
+                // Make sure nobody managed to add a 0-character to the
+                // buffer while building the string.
+                assert(std::char_traits<T>::length(m_stBuffer.GetBuffer()) == static_cast<size_t>(m_uPosition));
+                m_bFinalized = true;
+                return m_stBuffer.GetBuffer();
+            }
+
+        private:
+            MutableArrayView<T> m_stBuffer;
+            size_t m_uPosition = 0;
+            bool m_bFinalized = false;
+        };
         
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+        template <typename T = char>
+        class DoubleToStringConverter :
+            public NonCopyable
+        {
+        public:
+            // When calling ToFixed with a double > 10^kMaxFixedDigitsBeforePoint
+            // or a requested_digits parameter > kMaxFixedDigitsAfterPoint then the
+            // function returns false.
+            static const int kMaxFixedDigitsBeforePoint = 60;
+            static const int kMaxFixedDigitsAfterPoint = 60;
+
+            // When calling ToExponential with a requested_digits
+            // parameter > kMaxExponentialDigits then the function returns false.
+            static const int kMaxExponentialDigits = 120;
+
+            // When calling ToPrecision with a requested_digits
+            // parameter < kMinPrecisionDigits or requested_digits > kMaxPrecisionDigits
+            // then the function returns false.
+            static const int kMinPrecisionDigits = 1;
+            static const int kMaxPrecisionDigits = 120;
+
+            // The maximal number of digits that are needed to emit a double in base 10.
+            // A higher precision can be achieved by using more digits, but the shortest
+            // accurate representation of any double will never use more digits than
+            // kBase10MaximalLength.
+            // Note that DoubleToAscii null-terminates its input. So the given buffer
+            // should be at least kBase10MaximalLength + 1 characters long.
+            static const int kBase10MaximalLength = 17;
+
+            enum DtoaFlags
+            {
+                Default = 0,
+                EmitPositiveExponentSign = 1,
+                EmitTrailingDecimalPoint = 2,
+                EmitTrailingZeroAfterPoint = 4,
+                UniqueZero = 8,
+            };
+
+            enum DtoaMode
+            {
+                // Produce the shortest correct representation.
+                // For example the output of 0.299999999999999988897 is (the less accurate
+                // but correct) 0.3.
+                    Shortest,
+                // Same as SHORTEST, but for single-precision floats.
+                    ShortestSingle,
+                // Produce a fixed number of digits after the decimal point.
+                // For instance fixed(0.1, 4) becomes 0.1000
+                // If the input number is big, the output will be big.
+                    Fixed,
+                // Fixed number of digits (independent of the decimal point).
+                    Precision
+            };
+
+            // Returns a converter following the EcmaScript specification.
+            static const DoubleToStringConverter& EcmaScriptConverter()
+            {
+                static DoubleToStringConverter s_stConverter(
+                    static_cast<DtoaFlags>(DtoaFlags::UniqueZero | DtoaFlags::EmitPositiveExponentSign),
+                    "Infinity",
+                    "NaN",
+                    'e',
+                    -6, 21,
+                    6, 0);
+                return s_stConverter;
+            }
+
+        public:
+            // Flags should be a bit-or combination of the possible Flags-enum.
+            //  - NO_FLAGS: no special flags.
+            //  - EMIT_POSITIVE_EXPONENT_SIGN: when the number is converted into exponent
+            //    form, emits a '+' for positive exponents. Example: 1.2e+2.
+            //  - EMIT_TRAILING_DECIMAL_POINT: when the input number is an integer and is
+            //    converted into decimal format then a trailing decimal point is appended.
+            //    Example: 2345.0 is converted to "2345.".
+            //  - EMIT_TRAILING_ZERO_AFTER_POINT: in addition to a trailing decimal point
+            //    emits a trailing '0'-character. This flag requires the
+            //    EXMIT_TRAILING_DECIMAL_POINT flag.
+            //    Example: 2345.0 is converted to "2345.0".
+            //  - UNIQUE_ZERO: "-0.0" is converted to "0.0".
+            //
+            // Infinity symbol and nan_symbol provide the string representation for these
+            // special values. If the string is NULL and the special value is encountered
+            // then the conversion functions return false.
+            //
+            // The exponent_character is used in exponential representations. It is
+            // usually 'e' or 'E'.
+            //
+            // When converting to the shortest representation the converter will
+            // represent input numbers in decimal format if they are in the interval
+            // [10^decimal_in_shortest_low; 10^decimal_in_shortest_high[
+            //    (lower boundary included, greater boundary excluded).
+            // Example: with decimal_in_shortest_low = -6 and
+            //               decimal_in_shortest_high = 21:
+            //   ToShortest(0.000001)  -> "0.000001"
+            //   ToShortest(0.0000001) -> "1e-7"
+            //   ToShortest(111111111111111111111.0)  -> "111111111111111110000"
+            //   ToShortest(100000000000000000000.0)  -> "100000000000000000000"
+            //   ToShortest(1111111111111111111111.0) -> "1.1111111111111111e+21"
+            //
+            // When converting to precision mode the converter may add
+            // max_leading_padding_zeroes before returning the number in exponential
+            // format.
+            // Example with max_leading_padding_zeroes_in_precision_mode = 6.
+            //   ToPrecision(0.0000012345, 2) -> "0.0000012"
+            //   ToPrecision(0.00000012345, 2) -> "1.2e-7"
+            // Similarily the converter may add up to
+            // max_trailing_padding_zeroes_in_precision_mode in precision mode to avoid
+            // returning an exponential representation. A zero added by the
+            // EMIT_TRAILING_ZERO_AFTER_POINT flag is counted for this limit.
+            // Examples for max_trailing_padding_zeroes_in_precision_mode = 1:
+            //   ToPrecision(230.0, 2) -> "230"
+            //   ToPrecision(230.0, 2) -> "230."  with EMIT_TRAILING_DECIMAL_POINT.
+            //   ToPrecision(230.0, 2) -> "2.3e2" with EMIT_TRAILING_ZERO_AFTER_POINT.
+            DoubleToStringConverter(DtoaFlags flags, const T* infinitySymbol, const T* nanSymbol, T exponentCharacter,
+                int decimalInShortestLow, int decimalInShortestHigh, int maxLeadingPaddingZeroesInPrecisionMode,
+                int maxTrailingPaddingZeroesInPrecisionMode)
+                : m_iFlags(flags), m_szInfinitySymbol(infinitySymbol), m_szNanSymbol(nanSymbol),
+                m_cExponentCharacter(exponentCharacter), m_iDecimalInShortestLow(decimalInShortestLow),
+                m_iDecimalInShortestHigh(decimalInShortestHigh),
+                m_iMaxLeadingPaddingZeroesInPrecisionMode(maxLeadingPaddingZeroesInPrecisionMode),
+                m_iMaxTrailingPaddingZeroesInPrecisionMode(maxTrailingPaddingZeroesInPrecisionMode)
+            {
+                assert(((flags & DtoaFlags::EmitTrailingDecimalPoint) != 0) ||
+                    !((flags & DtoaFlags::EmitTrailingZeroAfterPoint) != 0));
+            }
+
+            // Computes the shortest string of digits that correctly represent the input
+            // number. Depending on decimal_in_shortest_low and decimal_in_shortest_high
+            // (see constructor) it then either returns a decimal representation, or an
+            // exponential representation.
+            // Example with decimal_in_shortest_low = -6,
+            //              decimal_in_shortest_high = 21,
+            //              EMIT_POSITIVE_EXPONENT_SIGN activated, and
+            //              EMIT_TRAILING_DECIMAL_POINT deactived:
+            //   ToShortest(0.000001)  -> "0.000001"
+            //   ToShortest(0.0000001) -> "1e-7"
+            //   ToShortest(111111111111111111111.0)  -> "111111111111111110000"
+            //   ToShortest(100000000000000000000.0)  -> "100000000000000000000"
+            //   ToShortest(1111111111111111111111.0) -> "1.1111111111111111e+21"
+            //
+            // Note: the conversion may round the output if the returned string
+            // is accurate enough to uniquely identify the input-number.
+            // For example the most precise representation of the double 9e59 equals
+            // "899999999999999918767229449717619953810131273674690656206848", but
+            // the converter will return the shorter (but still correct) "9e59".
+            //
+            // Returns true if the conversion succeeds. The conversion always succeeds
+            // except when the input value is special and no infinity_symbol or
+            // nan_symbol has been given to the constructor.
+            bool ToShortest(double value, StringBuilder<T>& resultBuilder)const
+            {
+                return ToShortestIeeeNumber(value, resultBuilder, DtoaMode::Shortest);
+            }
+
+            // Same as ToShortest, but for single-precision floats.
+            bool ToShortestSingle(float value, StringBuilder<T>& resultBuilder)const
+            {
+                return ToShortestIeeeNumber(value, resultBuilder, DtoaMode::ShortestSingle);
+            }
+
+            // Computes a decimal representation with a fixed number of digits after the
+            // decimal point. The last emitted digit is rounded.
+            //
+            // Examples:
+            //   ToFixed(3.12, 1) -> "3.1"
+            //   ToFixed(3.1415, 3) -> "3.142"
+            //   ToFixed(1234.56789, 4) -> "1234.5679"
+            //   ToFixed(1.23, 5) -> "1.23000"
+            //   ToFixed(0.1, 4) -> "0.1000"
+            //   ToFixed(1e30, 2) -> "1000000000000000019884624838656.00"
+            //   ToFixed(0.1, 30) -> "0.100000000000000005551115123126"
+            //   ToFixed(0.1, 17) -> "0.10000000000000001"
+            //
+            // If requested_digits equals 0, then the tail of the result depends on
+            // the EMIT_TRAILING_DECIMAL_POINT and EMIT_TRAILING_ZERO_AFTER_POINT.
+            // Examples, for requested_digits == 0,
+            //   let EMIT_TRAILING_DECIMAL_POINT and EMIT_TRAILING_ZERO_AFTER_POINT be
+            //    - false and false: then 123.45 -> 123
+            //                             0.678 -> 1
+            //    - true and false: then 123.45 -> 123.
+            //                            0.678 -> 1.
+            //    - true and true: then 123.45 -> 123.0
+            //                           0.678 -> 1.0
+            //
+            // Returns true if the conversion succeeds. The conversion always succeeds
+            // except for the following cases:
+            //   - the input value is special and no infinity_symbol or nan_symbol has
+            //     been provided to the constructor,
+            //   - 'value' > 10^kMaxFixedDigitsBeforePoint, or
+            //   - 'requested_digits' > kMaxFixedDigitsAfterPoint.
+            // The last two conditions imply that the result will never contain more than
+            // 1 + kMaxFixedDigitsBeforePoint + 1 + kMaxFixedDigitsAfterPoint characters
+            // (one additional character for the sign, and one for the decimal point).
+            bool ToFixed(double value, size_t requestedDigits, StringBuilder<T>& resultBuilder)const
+            {
+                assert(kMaxFixedDigitsBeforePoint == 60);
+                const double kFirstNonFixed = 1e60;
+
+                if (Double(value).IsSpecial())
+                    return HandleSpecialValues(value, resultBuilder);
+
+                if (requestedDigits > kMaxFixedDigitsAfterPoint)
+                    return false;
+                if (value >= kFirstNonFixed || value <= -kFirstNonFixed)
+                    return false;
+
+                // Find a sufficiently precise decimal representation of n.
+                int decimalPoint;
+                bool sign;
+                // Add space for the '\0' byte.
+                const size_t kDecimalRepCapacity = kMaxFixedDigitsBeforePoint + kMaxFixedDigitsAfterPoint + 1;
+                T decimalRep[kDecimalRepCapacity];
+                size_t decimalRepLength;
+                DoubleToAscii(value, DtoaMode::Fixed, requestedDigits, decimalRep, kDecimalRepCapacity, sign,
+                    decimalRepLength, decimalPoint);
+
+                bool uniqueZero = ((m_iFlags & DtoaFlags::UniqueZero) != 0);
+                if (sign && (value != 0.0 || !uniqueZero))
+                    resultBuilder.AddCharacter('-');
+
+                CreateDecimalRepresentation(decimalRep, decimalRepLength, decimalPoint, requestedDigits, resultBuilder);
+                return true;
+            }
+
+            // Computes a representation in exponential format with requested_digits
+            // after the decimal point. The last emitted digit is rounded.
+            // If requested_digits equals -1, then the shortest exponential representation
+            // is computed.
+            //
+            // Examples with EMIT_POSITIVE_EXPONENT_SIGN deactivated, and
+            //               exponent_character set to 'e'.
+            //   ToExponential(3.12, 1) -> "3.1e0"
+            //   ToExponential(5.0, 3) -> "5.000e0"
+            //   ToExponential(0.001, 2) -> "1.00e-3"
+            //   ToExponential(3.1415, -1) -> "3.1415e0"
+            //   ToExponential(3.1415, 4) -> "3.1415e0"
+            //   ToExponential(3.1415, 3) -> "3.142e0"
+            //   ToExponential(123456789000000, 3) -> "1.235e14"
+            //   ToExponential(1000000000000000019884624838656.0, -1) -> "1e30"
+            //   ToExponential(1000000000000000019884624838656.0, 32) ->
+            //                     "1.00000000000000001988462483865600e30"
+            //   ToExponential(1234, 0) -> "1e3"
+            //
+            // Returns true if the conversion succeeds. The conversion always succeeds
+            // except for the following cases:
+            //   - the input value is special and no infinity_symbol or nan_symbol has
+            //     been provided to the constructor,
+            //   - 'requested_digits' > kMaxExponentialDigits.
+            // The last condition implies that the result will never contain more than
+            // kMaxExponentialDigits + 8 characters (the sign, the digit before the
+            // decimal point, the decimal point, the exponent character, the
+            // exponent's sign, and at most 3 exponent digits).
+            bool ToExponential(double value, int requestedDigits, StringBuilder<T>& resultBuilder)const
+            {
+                if (Double(value).IsSpecial())
+                    return HandleSpecialValues(value, resultBuilder);
+
+                if (requestedDigits < -1)
+                    return false;
+                if (requestedDigits > kMaxExponentialDigits)
+                    return false;
+
+                int decimalPoint;
+                bool sign;
+                // Add space for digit before the decimal point and the '\0' character.
+                const size_t kDecimalRepCapacity = kMaxExponentialDigits + 2;
+                assert(kDecimalRepCapacity > kBase10MaximalLength);
+                T decimalRep[kDecimalRepCapacity];
+                size_t decimalRepLength;
+
+                if (requestedDigits == -1)
+                {
+                    DoubleToAscii(value, DtoaMode::Shortest, 0, decimalRep, kDecimalRepCapacity, sign, decimalRepLength,
+                        decimalPoint);
+                }
+                else
+                {
+                    DoubleToAscii(value, DtoaMode::Precision, static_cast<size_t>(requestedDigits + 1), decimalRep,
+                        kDecimalRepCapacity, sign, decimalRepLength, decimalPoint);
+                    assert(decimalRepLength <= requestedDigits + 1);
+
+                    for (int i = decimalRepLength; i < requestedDigits + 1; ++i)
+                        decimalRep[i] = '0';
+
+                    decimalRepLength = static_cast<size_t>(requestedDigits + 1);
+                }
+
+                bool uniqueZero = ((m_iFlags & DtoaFlags::UniqueZero) != 0);
+                if (sign && (value != 0.0 || !uniqueZero))
+                    resultBuilder.AddCharacter('-');
+
+                int exponent = decimalPoint - 1;
+                CreateExponentialRepresentation(decimalRep, decimalRepLength, exponent, resultBuilder);
+                return true;
+            }
+
+            // Computes 'precision' leading digits of the given 'value' and returns them
+            // either in exponential or decimal format, depending on
+            // max_{leading|trailing}_padding_zeroes_in_precision_mode (given to the
+            // constructor).
+            // The last computed digit is rounded.
+            //
+            // Example with max_leading_padding_zeroes_in_precision_mode = 6.
+            //   ToPrecision(0.0000012345, 2) -> "0.0000012"
+            //   ToPrecision(0.00000012345, 2) -> "1.2e-7"
+            // Similarily the converter may add up to
+            // max_trailing_padding_zeroes_in_precision_mode in precision mode to avoid
+            // returning an exponential representation. A zero added by the
+            // EMIT_TRAILING_ZERO_AFTER_POINT flag is counted for this limit.
+            // Examples for max_trailing_padding_zeroes_in_precision_mode = 1:
+            //   ToPrecision(230.0, 2) -> "230"
+            //   ToPrecision(230.0, 2) -> "230."  with EMIT_TRAILING_DECIMAL_POINT.
+            //   ToPrecision(230.0, 2) -> "2.3e2" with EMIT_TRAILING_ZERO_AFTER_POINT.
+            // Examples for max_trailing_padding_zeroes_in_precision_mode = 3, and no
+            //    EMIT_TRAILING_ZERO_AFTER_POINT:
+            //   ToPrecision(123450.0, 6) -> "123450"
+            //   ToPrecision(123450.0, 5) -> "123450"
+            //   ToPrecision(123450.0, 4) -> "123500"
+            //   ToPrecision(123450.0, 3) -> "123000"
+            //   ToPrecision(123450.0, 2) -> "1.2e5"
+            //
+            // Returns true if the conversion succeeds. The conversion always succeeds
+            // except for the following cases:
+            //   - the input value is special and no infinity_symbol or nan_symbol has
+            //     been provided to the constructor,
+            //   - precision < kMinPericisionDigits
+            //   - precision > kMaxPrecisionDigits
+            // The last condition implies that the result will never contain more than
+            // kMaxPrecisionDigits + 7 characters (the sign, the decimal point, the
+            // exponent character, the exponent's sign, and at most 3 exponent digits).
+            bool ToPrecision(double value, size_t precision, StringBuilder<T>& resultBuilder)const
+            {
+                if (Double(value).IsSpecial())
+                    return HandleSpecialValues(value, resultBuilder);
+
+                if (precision < kMinPrecisionDigits || precision > kMaxPrecisionDigits)
+                    return false;
+
+                // Find a sufficiently precise decimal representation of n.
+                int decimalPoint;
+                bool sign;
+                // Add one for the terminating null character.
+                const size_t kDecimalRepCapacity = kMaxPrecisionDigits + 1;
+                T decimalRep[kDecimalRepCapacity];
+                size_t decimalRepLength;
+
+                DoubleToAscii(value, DtoaMode::Precision, precision, decimalRep, kDecimalRepCapacity, sign,
+                    decimalRepLength, decimalPoint);
+                assert(decimalRepLength <= precision);
+
+                bool uniqueZero = ((m_iFlags & DtoaFlags::UniqueZero) != 0);
+                if (sign && (value != 0.0 || !uniqueZero))
+                    resultBuilder.AddCharacter('-');
+
+                // The exponent if we print the number as x.xxeyyy. That is with the
+                // decimal point after the first digit.
+                int exponent = decimalPoint - 1;
+
+                int extraZero = ((m_iFlags & DtoaFlags::EmitTrailingZeroAfterPoint) != 0) ? 1 : 0;
+                if ((-decimalPoint + 1 > m_iMaxLeadingPaddingZeroesInPrecisionMode) ||
+                    (decimalPoint - precision + extraZero > m_iMaxTrailingPaddingZeroesInPrecisionMode))
+                {
+                    // Fill buffer to contain 'precision' digits.
+                    // Usually the buffer is already at the correct length, but 'DoubleToAscii'
+                    // is allowed to return less characters.
+                    for (int i = decimalRepLength; i < precision; ++i)
+                        decimalRep[i] = '0';
+
+                    CreateExponentialRepresentation(decimalRep, precision, exponent, resultBuilder);
+                }
+                else
+                {
+                    CreateDecimalRepresentation(decimalRep, decimalRepLength, decimalPoint,
+                        std::max(0u, precision - decimalPoint), resultBuilder);
+                }
+
+                return true;
+            }
+
+            // Converts the given double 'v' to ascii. 'v' must not be NaN, +Infinity, or
+            // -Infinity. In SHORTEST_SINGLE-mode this restriction also applies to 'v'
+            // after it has been casted to a single-precision float. That is, in this
+            // mode static_cast<float>(v) must not be NaN, +Infinity or -Infinity.
+            //
+            // The result should be interpreted as buffer * 10^(point-length).
+            //
+            // The output depends on the given mode:
+            //  - SHORTEST: produce the least amount of digits for which the internal
+            //   identity requirement is still satisfied. If the digits are printed
+            //   (together with the correct exponent) then reading this number will give
+            //   'v' again. The buffer will choose the representation that is closest to
+            //   'v'. If there are two at the same distance, than the one farther away
+            //   from 0 is chosen (halfway cases - ending with 5 - are rounded up).
+            //   In this mode the 'requested_digits' parameter is ignored.
+            //  - SHORTEST_SINGLE: same as SHORTEST but with single-precision.
+            //  - FIXED: produces digits necessary to print a given number with
+            //   'requested_digits' digits after the decimal point. The produced digits
+            //   might be too short in which case the caller has to fill the remainder
+            //   with '0's.
+            //   Example: toFixed(0.001, 5) is allowed to return buffer="1", point=-2.
+            //   Halfway cases are rounded towards +/-Infinity (away from 0). The call
+            //   toFixed(0.15, 2) thus returns buffer="2", point=0.
+            //   The returned buffer may contain digits that would be truncated from the
+            //   shortest representation of the input.
+            //  - PRECISION: produces 'requested_digits' where the first digit is not '0'.
+            //   Even though the length of produced digits usually equals
+            //   'requested_digits', the function is allowed to return fewer digits, in
+            //   which case the caller has to fill the missing digits with '0's.
+            //   Halfway cases are again rounded away from 0.
+            // DoubleToAscii expects the given buffer to be big enough to hold all
+            // digits and a terminating null-character. In SHORTEST-mode it expects a
+            // buffer of at least kBase10MaximalLength + 1. In all other modes the
+            // requested_digits parameter and the padding-zeroes limit the size of the
+            // output. Don't forget the decimal point, the exponent character and the
+            // terminating null-character when computing the maximal output size.
+            // The given length is only used in debug mode to ensure the buffer is big
+            // enough.
+            static void DoubleToAscii(double v, DtoaMode mode, size_t requestedDigits, T* buffer, size_t bufferLength,
+                bool& sign, size_t& length, int& point)
+            {
+                MutableArrayView<T> vector(buffer, bufferLength);
+                assert(!Double(v).IsSpecial());
+                assert(mode == DtoaMode::Shortest || mode == DtoaMode::ShortestSingle || requestedDigits >= 0);
+
+                if (Double(v).Sign() < 0)
+                {
+                    sign = true;
+                    v = -v;
+                }
+                else
+                    sign = false;
+
+                if (mode == DtoaMode::Precision && requestedDigits == 0)
+                {
+                    vector[0] = '\0';
+                    length = 0;
+                    return;
+                }
+
+                if (v == 0)
+                {
+                    vector[0] = '0';
+                    vector[1] = '\0';
+                    length = 1;
+                    point = 1;
+                    return;
+                }
+
+                bool fastWorked;
+                switch (mode)
+                {
+                    case DtoaMode::Shortest:
+                        fastWorked = FastDtoa::Dtoa(v, FastDtoaMode::Shortest, 0, vector, length, point);
+                        break;
+                    case DtoaMode::ShortestSingle:
+                        fastWorked = FastDtoa::Dtoa(v, FastDtoaMode::ShortestSingle, 0, vector, length, point);
+                        break;
+                    case DtoaMode::Fixed:
+                        fastWorked = FixedDtoa::Dtoa(v, requestedDigits, vector, length, point);
+                        break;
+                    case DtoaMode::Precision:
+                        fastWorked = FastDtoa::Dtoa(v, FastDtoaMode::Precision, requestedDigits, vector, length, point);
+                        break;
+                    default:
+                        fastWorked = false;
+                        MOE_UNREACHABLE();
+                        break;
+                }
+                if (fastWorked)
+                    return;
+
+                // If the fast dtoa didn't succeed use the slower bignum version.
+                BignumDtoaMode bignumMode;
+                switch (mode)
+                {
+                    case DtoaMode::Shortest:
+                        bignumMode = BignumDtoaMode::Shortest;
+                        break;
+                    case DtoaMode::ShortestSingle:
+                        bignumMode = BignumDtoaMode::ShortestSingle;
+                        break;
+                    case DtoaMode::Fixed:
+                        bignumMode = BignumDtoaMode::Fixed;
+                        break;
+                    case DtoaMode::Precision:
+                        bignumMode = BignumDtoaMode::Precision;
+                        break;
+                    default:
+                        MOE_UNREACHABLE();
+                        break;
+                }
+
+                BignumDtoa::Dtoa(v, bignumMode, requestedDigits, vector, length, point);
+                vector[length] = '\0';
+            }
+
+        private:
+            // Implementation for ToShortest and ToShortestSingle.
+            bool ToShortestIeeeNumber(double value, StringBuilder<T>& resultBuilder, DtoaMode mode)const
+            {
+                assert(mode == DtoaMode::Shortest || mode == DtoaMode::ShortestSingle);
+                if (Double(value).IsSpecial())
+                    return HandleSpecialValues(value, resultBuilder);
+
+                int decimalPoint;
+                bool sign;
+                const size_t kDecimalRepCapacity = kBase10MaximalLength + 1;
+                T decimalRep[kDecimalRepCapacity];
+                size_t decimalRepLength;
+
+                DoubleToAscii(value, mode, 0, decimalRep, kDecimalRepCapacity, sign, decimalRepLength, decimalPoint);
+
+                bool uniqueZero = (m_iFlags & DtoaFlags::UniqueZero) != 0;
+                if (sign && (value != 0.0 || !uniqueZero))
+                    resultBuilder.AddCharacter('-');
+
+                int exponent = decimalPoint - 1;
+                if ((m_iDecimalInShortestLow <= exponent) && (exponent < m_iDecimalInShortestHigh))
+                {
+                    CreateDecimalRepresentation(decimalRep, decimalRepLength, decimalPoint,
+                        std::max(0u, decimalRepLength - decimalPoint), resultBuilder);
+                }
+                else
+                    CreateExponentialRepresentation(decimalRep, decimalRepLength, exponent, resultBuilder);
+
+                return true;
+            }
+
+            // If the value is a special value (NaN or Infinity) constructs the
+            // corresponding string using the configured infinity/nan-symbol.
+            // If either of them is NULL or the value is not special then the
+            // function returns false.
+            bool HandleSpecialValues(double value, StringBuilder<T>& resultBuilder)const
+            {
+                Double doubleInspect(value);
+                if (doubleInspect.IsInfinite())
+                {
+                    if (m_szInfinitySymbol == nullptr)
+                        return false;
+                    if (value < 0)
+                        resultBuilder.AddCharacter('-');
+
+                    resultBuilder.AddString(m_szInfinitySymbol);
+                    return true;
+                }
+
+                if (doubleInspect.IsNan())
+                {
+                    if (m_szNanSymbol == nullptr)
+                        return false;
+
+                    resultBuilder.AddString(m_szNanSymbol);
+                    return true;
+                }
+
+                return false;
+            }
+
+            // Constructs an exponential representation (i.e. 1.234e56).
+            // The given exponent assumes a decimal point after the first decimal digit.
+            void CreateExponentialRepresentation(const T* decimalDigits, size_t length, int exponent,
+                StringBuilder<T>& resultBuilder)const
+            {
+                assert(length != 0);
+                resultBuilder.AddCharacter(decimalDigits[0]);
+                if (length != 1)
+                {
+                    resultBuilder.AddCharacter('.');
+                    resultBuilder.AddSubstring(&decimalDigits[1], length - 1);
+                }
+
+                resultBuilder.AddCharacter(m_cExponentCharacter);
+
+                if (exponent < 0)
+                {
+                    resultBuilder.AddCharacter('-');
+                    exponent = -exponent;
+                }
+                else
+                {
+                    if ((m_iFlags & DtoaFlags::EmitPositiveExponentSign) != 0)
+                        resultBuilder.AddCharacter('+');
+                }
+
+                if (exponent == 0)
+                {
+                    resultBuilder.AddCharacter('0');
+                    return;
+                }
+
+                assert(exponent < 1e4);
+                const size_t kMaxExponentLength = 5;
+                T buffer[kMaxExponentLength + 1];
+                buffer[kMaxExponentLength] = '\0';
+                size_t firstCharPos = kMaxExponentLength;
+                while (exponent > 0)
+                {
+                    buffer[--firstCharPos] = static_cast<T>('0' + (exponent % 10));
+                    exponent /= 10;
+                }
+
+                resultBuilder.AddSubstring(&buffer[firstCharPos], kMaxExponentLength - firstCharPos);
+            }
+
+            // Creates a decimal representation (i.e 1234.5678).
+            void CreateDecimalRepresentation(const T* decimalDigits, size_t length, int decimalPoint,
+                int digitsAfterPoint, StringBuilder<T>& resultBuilder)const
+            {
+                // Create a representation that is padded with zeros if needed.
+                if (decimalPoint <= 0)
+                {
+                    // "0.00000decimal_rep" or "0.000decimal_rep00".
+                    resultBuilder.AddCharacter('0');
+                    if (digitsAfterPoint > 0)
+                    {
+                        resultBuilder.AddCharacter('.');
+                        assert(-decimalPoint >= 0);
+                        resultBuilder.AddPadding('0', static_cast<size_t>(-decimalPoint));
+                        assert(length <= digitsAfterPoint - (-decimalPoint));
+                        resultBuilder.AddSubstring(decimalDigits, length);
+                        int remainingDigits = digitsAfterPoint - (-decimalPoint) - length;
+                        resultBuilder.AddPadding('0', static_cast<size_t>(remainingDigits));
+                    }
+                }
+                else if (decimalPoint >= length)
+                {
+                    // "decimal_rep0000.00000" or "decimal_rep.0000".
+                    resultBuilder.AddSubstring(decimalDigits, length);
+                    resultBuilder.AddPadding('0', decimalPoint - length);
+                    if (digitsAfterPoint > 0)
+                    {
+                        resultBuilder.AddCharacter('.');
+                        resultBuilder.AddPadding('0', static_cast<size_t>(digitsAfterPoint));
+                    }
+                }
+                else
+                {
+                    // "decima.l_rep000".
+                    assert(digitsAfterPoint > 0);
+                    resultBuilder.AddSubstring(decimalDigits, static_cast<size_t>(decimalPoint));
+                    resultBuilder.AddCharacter('.');
+                    assert(length - decimalPoint <= digitsAfterPoint);
+                    resultBuilder.AddSubstring(&decimalDigits[decimalPoint],
+                        length - decimalPoint);
+                    int remainingDigits = digitsAfterPoint - (length - decimalPoint);
+                    resultBuilder.AddPadding('0', static_cast<size_t>(remainingDigits));
+                }
+
+                if (digitsAfterPoint == 0)
+                {
+                    if ((m_iFlags & DtoaFlags::EmitTrailingDecimalPoint) != 0)
+                        resultBuilder.AddCharacter('.');
+                    if ((m_iFlags & DtoaFlags::EmitTrailingZeroAfterPoint) != 0)
+                        resultBuilder.AddCharacter('0');
+                }
+            }
+
+        private:
+            const int m_iFlags;
+            const T* const m_szInfinitySymbol;
+            const T* const m_szNanSymbol;
+            const T m_cExponentCharacter;
+            const int m_iDecimalInShortestLow;
+            const int m_iDecimalInShortestHigh;
+            const int m_iMaxLeadingPaddingZeroesInPrecisionMode;
+            const int m_iMaxTrailingPaddingZeroesInPrecisionMode;
         };
     }
-    
-    
 }
