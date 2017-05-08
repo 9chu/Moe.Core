@@ -3062,3 +3062,1709 @@ TEST(BignumDtoa, BignumDtoaGayPrecision)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+TEST(DoubleToStringConverter, DoubleToShortest)
+{
+    const int kBufferSize = 128;
+    char buffer[kBufferSize];
+    StringBuilder<> builder(buffer, kBufferSize);
+    int flags = DoubleToStringConverter<>::DtoaFlags::UniqueZero |
+        DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign;
+    DoubleToStringConverter<> dc((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', -6, 21, 0, 0);
+
+    EXPECT_TRUE(dc.ToShortest(0.0, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(12345.0, builder));
+    EXPECT_STREQ("12345", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(12345e23, builder));
+    EXPECT_STREQ("1.2345e+27", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(1e21, builder));
+    EXPECT_STREQ("1e+21", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(1e20, builder));
+    EXPECT_STREQ("100000000000000000000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(111111111111111111111.0, builder));
+    EXPECT_STREQ("111111111111111110000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(1111111111111111111111.0, builder));
+    EXPECT_STREQ("1.1111111111111111e+21", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(11111111111111111111111.0, builder));
+    EXPECT_STREQ("1.1111111111111111e+22", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.00001, builder));
+    EXPECT_STREQ("-0.00001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.000001, builder));
+    EXPECT_STREQ("-0.000001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.0000001, builder));
+    EXPECT_STREQ("-1e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.0, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    flags = DoubleToStringConverter<>::DtoaFlags::Default;
+    DoubleToStringConverter<> dc2((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', -1, 1, 0, 0);
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToShortest(0.1, builder));
+    EXPECT_STREQ("0.1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToShortest(0.01, builder));
+    EXPECT_STREQ("1e-2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToShortest(1.0, builder));
+    EXPECT_STREQ("1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToShortest(10.0, builder));
+    EXPECT_STREQ("1e1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToShortest(-0.0, builder));
+    EXPECT_STREQ("-0", builder.Finalize());
+
+    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint |
+        DoubleToStringConverter<>::DtoaFlags::EmitTrailingZeroAfterPoint;
+    DoubleToStringConverter<> dc3((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'E', -5, 5, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToShortest(0.1, builder));
+    EXPECT_STREQ("0.1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToShortest(1.0, builder));
+    EXPECT_STREQ("1.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToShortest(10000.0, builder));
+    EXPECT_STREQ("10000.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToShortest(100000.0, builder));
+    EXPECT_STREQ("1E5", builder.Finalize());
+
+    // Test the examples in the comments of ToShortest.
+    flags = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign;
+    DoubleToStringConverter<> dc4((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', -6, 21, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToShortest(0.000001, builder));
+    EXPECT_STREQ("0.000001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToShortest(0.0000001, builder));
+    EXPECT_STREQ("1e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToShortest(111111111111111111111.0, builder));
+    EXPECT_STREQ("111111111111111110000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToShortest(100000000000000000000.0, builder));
+    EXPECT_STREQ("100000000000000000000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToShortest(1111111111111111111111.0, builder));
+    EXPECT_STREQ("1.1111111111111111e+21", builder.Finalize());
+
+    // Test special value handling.
+    DoubleToStringConverter<> dc5((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(!dc5.ToShortest(Double::Infinity(), builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc5.ToShortest(-Double::Infinity(), builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc5.ToShortest(Double::Nan(), builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc5.ToShortest(-Double::Nan(), builder));
+
+    DoubleToStringConverter<> dc6((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc6.ToShortest(Double::Infinity(), builder));
+    EXPECT_STREQ("Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc6.ToShortest(-Double::Infinity(), builder));
+    EXPECT_STREQ("-Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc6.ToShortest(Double::Nan(), builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc6.ToShortest(-Double::Nan(), builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+}
+
+TEST(DoubleToStringConverter, DoubleToShortestSingle)
+{
+    const int kBufferSize = 128;
+    char buffer[kBufferSize];
+    StringBuilder<> builder(buffer, kBufferSize);
+    int flags = DoubleToStringConverter<>::DtoaFlags::UniqueZero |
+        DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign;
+    DoubleToStringConverter<> dc((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', -6, 21, 0, 0);
+
+    EXPECT_TRUE(dc.ToShortestSingle(0.0f, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortestSingle(12345.0f, builder));
+    EXPECT_STREQ("12345", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortestSingle(12345e23f, builder));
+    EXPECT_STREQ("1.2345e+27", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortestSingle(1e21f, builder));
+    EXPECT_STREQ("1e+21", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortestSingle(1e20f, builder));
+    EXPECT_STREQ("100000000000000000000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortestSingle(111111111111111111111.0f, builder));
+    EXPECT_STREQ("111111110000000000000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortestSingle(1111111111111111111111.0f, builder));
+    EXPECT_STREQ("1.11111114e+21", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortestSingle(11111111111111111111111.0f, builder));
+    EXPECT_STREQ("1.1111111e+22", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortestSingle(-0.00001f, builder));
+    EXPECT_STREQ("-0.00001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortestSingle(-0.000001f, builder));
+    EXPECT_STREQ("-0.000001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortestSingle(-0.0000001f, builder));
+    EXPECT_STREQ("-1e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortestSingle(-0.0f, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    flags = DoubleToStringConverter<>::DtoaFlags::Default;
+    DoubleToStringConverter<> dc2((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', -1, 1, 0, 0);
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToShortestSingle(0.1f, builder));
+    EXPECT_STREQ("0.1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToShortestSingle(0.01f, builder));
+    EXPECT_STREQ("1e-2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToShortestSingle(1.0f, builder));
+    EXPECT_STREQ("1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToShortestSingle(10.0f, builder));
+    EXPECT_STREQ("1e1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToShortestSingle(-0.0f, builder));
+    EXPECT_STREQ("-0", builder.Finalize());
+
+    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint |
+        DoubleToStringConverter<>::DtoaFlags::EmitTrailingZeroAfterPoint;
+    DoubleToStringConverter<> dc3((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'E', -5, 5, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToShortestSingle(0.1f, builder));
+    EXPECT_STREQ("0.1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToShortestSingle(1.0f, builder));
+    EXPECT_STREQ("1.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToShortestSingle(10000.0f, builder));
+    EXPECT_STREQ("10000.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToShortestSingle(100000.0f, builder));
+    EXPECT_STREQ("1E5", builder.Finalize());
+
+    // Test the examples in the comments of ToShortestSingle.
+    flags = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign;
+    DoubleToStringConverter<> dc4((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', -6, 21, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToShortestSingle(0.000001f, builder));
+    EXPECT_STREQ("0.000001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToShortestSingle(0.0000001f, builder));
+    EXPECT_STREQ("1e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToShortestSingle(111111111111111111111.0f, builder));
+    EXPECT_STREQ("111111110000000000000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToShortestSingle(100000000000000000000.0f, builder));
+    EXPECT_STREQ("100000000000000000000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToShortestSingle(1111111111111111111111.0f, builder));
+    EXPECT_STREQ("1.11111114e+21", builder.Finalize());
+
+    // Test special value handling.
+    DoubleToStringConverter<> dc5((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(!dc5.ToShortestSingle(Single::Infinity(), builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc5.ToShortestSingle(-Single::Infinity(), builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc5.ToShortestSingle(Single::Nan(), builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc5.ToShortestSingle(-Single::Nan(), builder));
+
+    DoubleToStringConverter<> dc6((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc6.ToShortestSingle(Single::Infinity(), builder));
+    EXPECT_STREQ("Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc6.ToShortestSingle(-Single::Infinity(), builder));
+    EXPECT_STREQ("-Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc6.ToShortestSingle(Single::Nan(), builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc6.ToShortestSingle(-Single::Nan(), builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+}
+
+TEST(DoubleToStringConverter, DoubleToFixed)
+{
+    const int kBufferSize = 128;
+    char buffer[kBufferSize];
+    StringBuilder<> builder(buffer, kBufferSize);
+    int flags = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign |
+        DoubleToStringConverter<>::DtoaFlags::UniqueZero;
+    DoubleToStringConverter<> dc((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e',
+        0, 0, 0, 0);  // Padding zeroes.
+
+    EXPECT_TRUE(dc.ToFixed(0.0, 0, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.0, 0, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.0, 1, builder));
+    EXPECT_STREQ("0.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.0, 1, builder));
+    EXPECT_STREQ("0.0", builder.Finalize());
+
+    EXPECT_TRUE(DoubleToStringConverter<>::kMaxFixedDigitsBeforePoint == 60);
+    EXPECT_TRUE(DoubleToStringConverter<>::kMaxFixedDigitsAfterPoint == 60);
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(
+        0.0, DoubleToStringConverter<>::kMaxFixedDigitsAfterPoint, builder));
+    EXPECT_STREQ("0.000000000000000000000000000000000000000000000000000000000000",
+        builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(
+        9e59, DoubleToStringConverter<>::kMaxFixedDigitsAfterPoint, builder));
+    EXPECT_STREQ("899999999999999918767229449717619953810131273674690656206848."
+            "000000000000000000000000000000000000000000000000000000000000",
+        builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(
+        -9e59, DoubleToStringConverter<>::kMaxFixedDigitsAfterPoint, builder));
+    EXPECT_STREQ("-899999999999999918767229449717619953810131273674690656206848."
+            "000000000000000000000000000000000000000000000000000000000000",
+        builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(!dc.ToFixed(
+        1e60, DoubleToStringConverter<>::kMaxFixedDigitsAfterPoint, builder));
+    EXPECT_EQ(0, builder.Position());
+
+    builder.Reset();
+    EXPECT_TRUE(!dc.ToFixed(
+        9e59, DoubleToStringConverter<>::kMaxFixedDigitsAfterPoint + 1, builder));
+    EXPECT_EQ(0, builder.Position());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(3.0, 0, builder));
+    EXPECT_STREQ("3", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(3.23, 1, builder));
+    EXPECT_STREQ("3.2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(3.23, 3, builder));
+    EXPECT_STREQ("3.230", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.0323, 2, builder));
+    EXPECT_STREQ("0.03", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.0373, 2, builder));
+    EXPECT_STREQ("0.04", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.0000373, 2, builder));
+    EXPECT_STREQ("0.00", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(1.5, 0, builder));
+    EXPECT_STREQ("2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(2.5, 0, builder));
+    EXPECT_STREQ("3", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(3.5, 0, builder));
+    EXPECT_STREQ("4", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.15, 1, builder));
+    EXPECT_STREQ("0.1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.25, 1, builder));
+    EXPECT_STREQ("0.3", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.35, 1, builder));
+    EXPECT_STREQ("0.3", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.45, 1, builder));
+    EXPECT_STREQ("0.5", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.55, 1, builder));
+    EXPECT_STREQ("0.6", builder.Finalize());
+
+    // Test positive/negative zeroes.
+    int flags2 = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign;
+    DoubleToStringConverter<> dc2((DoubleToStringConverter<>::DtoaFlags)flags2, "Infinity", "NaN", 'e',
+        0, 0, 0, 0);  // Padding zeroes.
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToFixed(0.0, 1, builder));
+    EXPECT_STREQ("0.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToFixed(-0.0, 1, builder));
+    EXPECT_STREQ("-0.0", builder.Finalize());
+
+    // Verify the trailing dot is emitted.
+    int flags3 = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign |
+        DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint;
+    DoubleToStringConverter<> dc3((DoubleToStringConverter<>::DtoaFlags)flags3, "Infinity", "NaN", 'e',
+        0, 0, 0, 0);  // Padding zeroes.
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToFixed(0.0, 0, builder));
+    EXPECT_STREQ("0.", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToFixed(-0.0, 0, builder));
+    EXPECT_STREQ("-0.", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToFixed(1.0, 0, builder));
+    EXPECT_STREQ("1.", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToFixed(-1.0, 0, builder));
+    EXPECT_STREQ("-1.", builder.Finalize());
+
+    // Verify no trailing zero is emitted, even if the configuration is set.
+    // The given parameter takes precedence.
+    int flags4 = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign |
+        DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint |
+        DoubleToStringConverter<>::DtoaFlags::EmitTrailingZeroAfterPoint;
+    DoubleToStringConverter<> dc4((DoubleToStringConverter<>::DtoaFlags)flags4, "Infinity", "NaN", 'e',
+        0, 0, 0, 0);  // Padding zeroes.
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToFixed(0.0, 0, builder));
+    EXPECT_STREQ("0.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToFixed(-0.0, 0, builder));
+    EXPECT_STREQ("-0.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToFixed(1.0, 0, builder));
+    EXPECT_STREQ("1.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToFixed(-1.0, 0, builder));
+    EXPECT_STREQ("-1.0", builder.Finalize());
+
+    // Test the examples in the comments of ToFixed.
+    flags = DoubleToStringConverter<>::DtoaFlags::Default;
+    DoubleToStringConverter<> dc5((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToFixed(3.12, 1, builder));
+    EXPECT_STREQ("3.1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToFixed(3.1415, 3, builder));
+    EXPECT_STREQ("3.142", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToFixed(1234.56789, 4, builder));
+    EXPECT_STREQ("1234.5679", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToFixed(1.23, 5, builder));
+    EXPECT_STREQ("1.23000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToFixed(0.1, 4, builder));
+    EXPECT_STREQ("0.1000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToFixed(1e30, 2, builder));
+    EXPECT_STREQ("1000000000000000019884624838656.00", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToFixed(0.1, 30, builder));
+    EXPECT_STREQ("0.100000000000000005551115123126", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToFixed(0.1, 17, builder));
+    EXPECT_STREQ("0.10000000000000001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToFixed(123.45, 0, builder));
+    EXPECT_STREQ("123", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToFixed(0.678, 0, builder));
+    EXPECT_STREQ("1", builder.Finalize());
+
+    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint;
+    DoubleToStringConverter<> dc6((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc6.ToFixed(123.45, 0, builder));
+    EXPECT_STREQ("123.", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc6.ToFixed(0.678, 0, builder));
+    EXPECT_STREQ("1.", builder.Finalize());
+
+    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint |
+        DoubleToStringConverter<>::DtoaFlags::EmitTrailingZeroAfterPoint;
+    DoubleToStringConverter<> dc7((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc7.ToFixed(123.45, 0, builder));
+    EXPECT_STREQ("123.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc7.ToFixed(0.678, 0, builder));
+    EXPECT_STREQ("1.0", builder.Finalize());
+
+    // Test special value handling.
+    DoubleToStringConverter<> dc8((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(!dc8.ToFixed(Double::Infinity(), 1, builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc8.ToFixed(-Double::Infinity(), 1, builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc8.ToFixed(Double::Nan(), 1, builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc8.ToFixed(-Double::Nan(), 1, builder));
+
+    DoubleToStringConverter<> dc9((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc9.ToFixed(Double::Infinity(), 1, builder));
+    EXPECT_STREQ("Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc9.ToFixed(-Double::Infinity(), 1, builder));
+    EXPECT_STREQ("-Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc9.ToFixed(Double::Nan(), 1, builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc9.ToFixed(-Double::Nan(), 1, builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+}
+
+
+TEST(DoubleToStringConverter, DoubleToExponential)
+{
+    const int kBufferSize = 256;
+    char buffer[kBufferSize];
+    int flags = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign |
+        DoubleToStringConverter<>::DtoaFlags::UniqueZero;
+    StringBuilder<> builder(buffer, kBufferSize);
+    DoubleToStringConverter<> dc((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.0, 5, builder));
+    EXPECT_STREQ("0.00000e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.0, 0, builder));
+    EXPECT_STREQ("0e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.0, 1, builder));
+    EXPECT_STREQ("0.0e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.123456, 5, builder));
+    EXPECT_STREQ("1.23456e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(1.2, 1, builder));
+    EXPECT_STREQ("1.2e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.0, 1, builder));
+    EXPECT_STREQ("0.0e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.0, 2, builder));
+    EXPECT_STREQ("0.00e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.0, 2, builder));
+    EXPECT_STREQ("0.00e+0", builder.Finalize());
+
+    EXPECT_TRUE(DoubleToStringConverter<>::kMaxExponentialDigits == 120);
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(
+        0.0, DoubleToStringConverter<>::kMaxExponentialDigits, builder));
+    EXPECT_STREQ("0.00000000000000000000000000000000000000000000000000000000000"
+        "0000000000000000000000000000000000000000000000000000000000000e+0",
+        builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(
+        9e59, DoubleToStringConverter<>::kMaxExponentialDigits, builder));
+    EXPECT_STREQ("8.99999999999999918767229449717619953810131273674690656206848"
+        "0000000000000000000000000000000000000000000000000000000000000e+59",
+        builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(
+        -9e59, DoubleToStringConverter<>::kMaxExponentialDigits, builder));
+    EXPECT_STREQ("-8.99999999999999918767229449717619953810131273674690656206848"
+        "0000000000000000000000000000000000000000000000000000000000000e+59",
+        builder.Finalize());
+
+    const double max_double = 1.7976931348623157e308;
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(
+        max_double, DoubleToStringConverter<>::kMaxExponentialDigits, builder));
+    EXPECT_STREQ("1.79769313486231570814527423731704356798070567525844996598917"
+        "4768031572607800285387605895586327668781715404589535143824642e+308",
+        builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.000001, 2, builder));
+    EXPECT_STREQ("1.00e-6", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.0000001, 2, builder));
+    EXPECT_STREQ("1.00e-7", builder.Finalize());
+
+    // Test the examples in the comments of ToExponential.
+    flags = DoubleToStringConverter<>::DtoaFlags::Default;
+    DoubleToStringConverter<> dc2((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToExponential(3.12, 1, builder));
+    EXPECT_STREQ("3.1e0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToExponential(5.0, 3, builder));
+    EXPECT_STREQ("5.000e0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToExponential(0.001, 2, builder));
+    EXPECT_STREQ("1.00e-3", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToExponential(3.1415, -1, builder));
+    EXPECT_STREQ("3.1415e0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToExponential(3.1415, 4, builder));
+    EXPECT_STREQ("3.1415e0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToExponential(3.1415, 3, builder));
+    EXPECT_STREQ("3.142e0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToExponential(123456789000000, 3, builder));
+    EXPECT_STREQ("1.235e14", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToExponential(1000000000000000019884624838656.0, -1, builder));
+    EXPECT_STREQ("1e30", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToExponential(1000000000000000019884624838656.0, 32, builder));
+    EXPECT_STREQ("1.00000000000000001988462483865600e30", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToExponential(1234, 0, builder));
+    EXPECT_STREQ("1e3", builder.Finalize());
+
+    // Test special value handling.
+    DoubleToStringConverter<> dc3((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(!dc3.ToExponential(Double::Infinity(), 1, builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc3.ToExponential(-Double::Infinity(), 1, builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc3.ToExponential(Double::Nan(), 1, builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc3.ToExponential(-Double::Nan(), 1, builder));
+
+    DoubleToStringConverter<> dc4((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToExponential(Double::Infinity(), 1, builder));
+    EXPECT_STREQ("Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToExponential(-Double::Infinity(), 1, builder));
+    EXPECT_STREQ("-Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToExponential(Double::Nan(), 1, builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToExponential(-Double::Nan(), 1, builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+}
+
+TEST(DoubleToStringConverter, DoubleToPrecision)
+{
+    const int kBufferSize = 256;
+    char buffer[kBufferSize];
+    int flags = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign |
+        DoubleToStringConverter<>::DtoaFlags::UniqueZero;
+    StringBuilder<> builder(buffer, kBufferSize);
+    DoubleToStringConverter<> dc((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e',
+        0, 0,   // Padding zeroes for shortest mode.
+        6, 0);  // Padding zeroes for precision mode.
+
+    EXPECT_TRUE(DoubleToStringConverter<>::kMinPrecisionDigits == 1);
+    EXPECT_TRUE(dc.ToPrecision(0.0, 1, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-0.0, 1, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(0.0, 2, builder));
+    EXPECT_STREQ("0.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-0.0, 2, builder));
+    EXPECT_STREQ("0.0", builder.Finalize());
+
+    EXPECT_TRUE(DoubleToStringConverter<>::kMaxPrecisionDigits == 120);
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(
+        0.0, DoubleToStringConverter<>::kMaxPrecisionDigits, builder));
+    EXPECT_STREQ("0.00000000000000000000000000000000000000000000000000000000000"
+        "000000000000000000000000000000000000000000000000000000000000",
+        builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(
+        9e59, DoubleToStringConverter<>::kMaxPrecisionDigits, builder));
+    EXPECT_STREQ("899999999999999918767229449717619953810131273674690656206848."
+        "000000000000000000000000000000000000000000000000000000000000",
+        builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(
+        -9e59, DoubleToStringConverter<>::kMaxPrecisionDigits, builder));
+    EXPECT_STREQ("-899999999999999918767229449717619953810131273674690656206848."
+        "000000000000000000000000000000000000000000000000000000000000",
+        builder.Finalize());
+
+    const double max_double = 1.7976931348623157e308;
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(
+        max_double, DoubleToStringConverter<>::kMaxPrecisionDigits, builder));
+    EXPECT_STREQ("1.79769313486231570814527423731704356798070567525844996598917"
+        "476803157260780028538760589558632766878171540458953514382464e+308",
+        builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(0.000001, 2, builder));
+    EXPECT_STREQ("0.0000010", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(0.0000001, 2, builder));
+    EXPECT_STREQ("1.0e-7", builder.Finalize());
+
+    flags = DoubleToStringConverter<>::DtoaFlags::Default;
+    DoubleToStringConverter<> dc2((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 1);
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToPrecision(230.0, 2, builder));
+    EXPECT_STREQ("230", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToPrecision(23.0, 2, builder));
+    EXPECT_STREQ("23", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToPrecision(2.30, 2, builder));
+    EXPECT_STREQ("2.3", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc2.ToPrecision(2300.0, 2, builder));
+    EXPECT_STREQ("2.3e3", builder.Finalize());
+
+    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint;
+    DoubleToStringConverter<> dc3((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 1);
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToPrecision(230.0, 2, builder));
+    EXPECT_STREQ("230.", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToPrecision(23.0, 2, builder));
+    EXPECT_STREQ("23.", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToPrecision(2.30, 2, builder));
+    EXPECT_STREQ("2.3", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc3.ToPrecision(2300.0, 2, builder));
+    EXPECT_STREQ("2.3e3", builder.Finalize());
+
+    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint |
+        DoubleToStringConverter<>::DtoaFlags::EmitTrailingZeroAfterPoint;
+    DoubleToStringConverter<> dc4((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 1);
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToPrecision(230.0, 2, builder));
+    EXPECT_STREQ("2.3e2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToPrecision(23.0, 2, builder));
+    EXPECT_STREQ("23.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToPrecision(2.30, 2, builder));
+    EXPECT_STREQ("2.3", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc4.ToPrecision(2300.0, 2, builder));
+    EXPECT_STREQ("2.3e3", builder.Finalize());
+
+    // Test the examples in the comments of ToPrecision.
+    flags = DoubleToStringConverter<>::DtoaFlags::Default;
+    DoubleToStringConverter<> dc5((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 6, 1);
+    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint;
+    DoubleToStringConverter<> dc6((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 6, 1);
+    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint |
+        DoubleToStringConverter<>::DtoaFlags::EmitTrailingZeroAfterPoint;
+    DoubleToStringConverter<> dc7((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 6, 1);
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToPrecision(0.0000012345, 2, builder));
+    EXPECT_STREQ("0.0000012", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToPrecision(0.00000012345, 2, builder));
+    EXPECT_STREQ("1.2e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc5.ToPrecision(230.0, 2, builder));
+    EXPECT_STREQ("230", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc6.ToPrecision(230.0, 2, builder));
+    EXPECT_STREQ("230.", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc7.ToPrecision(230.0, 2, builder));
+    EXPECT_STREQ("2.3e2", builder.Finalize());
+
+    flags = DoubleToStringConverter<>::DtoaFlags::Default;
+    DoubleToStringConverter<> dc8((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 6, 3);
+
+    builder.Reset();
+    EXPECT_TRUE(dc8.ToPrecision(123450.0, 6, builder));
+    EXPECT_STREQ("123450", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc8.ToPrecision(123450.0, 5, builder));
+    EXPECT_STREQ("123450", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc8.ToPrecision(123450.0, 4, builder));
+    EXPECT_STREQ("123500", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc8.ToPrecision(123450.0, 3, builder));
+    EXPECT_STREQ("123000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc8.ToPrecision(123450.0, 2, builder));
+    EXPECT_STREQ("1.2e5", builder.Finalize());
+
+    // Test special value handling.
+    builder.Reset();
+    EXPECT_TRUE(!dc8.ToPrecision(Double::Infinity(), 1, builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc8.ToPrecision(-Double::Infinity(), 1, builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc8.ToPrecision(Double::Nan(), 1, builder));
+
+    builder.Reset();
+    EXPECT_TRUE(!dc8.ToPrecision(-Double::Nan(), 1, builder));
+
+    builder.Reset();
+    EXPECT_TRUE(dc7.ToPrecision(Double::Infinity(), 1, builder));
+    EXPECT_STREQ("Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc7.ToPrecision(-Double::Infinity(), 1, builder));
+    EXPECT_STREQ("-Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc7.ToPrecision(Double::Nan(), 1, builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc7.ToPrecision(-Double::Nan(), 1, builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+}
+
+TEST(DoubleToStringConverter, DoubleToStringJavaScript)
+{
+    const int kBufferSize = 128;
+    char buffer[kBufferSize];
+    StringBuilder<> builder(buffer, kBufferSize);
+    const DoubleToStringConverter<>& dc = DoubleToStringConverter<>::EcmaScriptConverter();
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(Double::Nan(), builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(Double::Infinity(), builder));
+    EXPECT_STREQ("Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-Double::Infinity(), builder));
+    EXPECT_STREQ("-Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.0, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(9.0, builder));
+    EXPECT_STREQ("9", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(90.0, builder));
+    EXPECT_STREQ("90", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(90.12, builder));
+    EXPECT_STREQ("90.12", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.1, builder));
+    EXPECT_STREQ("0.1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.01, builder));
+    EXPECT_STREQ("0.01", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.0123, builder));
+    EXPECT_STREQ("0.0123", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(111111111111111111111.0, builder));
+    EXPECT_STREQ("111111111111111110000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(100000000000000000000.0, builder));
+    EXPECT_STREQ("100000000000000000000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(1111111111111111111111.0, builder));
+    EXPECT_STREQ("1.1111111111111111e+21", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(11111111111111111111111.0, builder));
+    EXPECT_STREQ("1.1111111111111111e+22", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.00001, builder));
+    EXPECT_STREQ("0.00001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.000001, builder));
+    EXPECT_STREQ("0.000001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.0000001, builder));
+    EXPECT_STREQ("1e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.00000012, builder));
+    EXPECT_STREQ("1.2e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.000000123, builder));
+    EXPECT_STREQ("1.23e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.00000001, builder));
+    EXPECT_STREQ("1e-8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.000000012, builder));
+    EXPECT_STREQ("1.2e-8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.000000012, builder));
+    EXPECT_STREQ("1.2e-8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(0.0000000123, builder));
+    EXPECT_STREQ("1.23e-8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.0, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-9.0, builder));
+    EXPECT_STREQ("-9", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-90.0, builder));
+    EXPECT_STREQ("-90", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-90.12, builder));
+    EXPECT_STREQ("-90.12", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.1, builder));
+    EXPECT_STREQ("-0.1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.01, builder));
+    EXPECT_STREQ("-0.01", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.0123, builder));
+    EXPECT_STREQ("-0.0123", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-111111111111111111111.0, builder));
+    EXPECT_STREQ("-111111111111111110000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-1111111111111111111111.0, builder));
+    EXPECT_STREQ("-1.1111111111111111e+21", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-11111111111111111111111.0, builder));
+    EXPECT_STREQ("-1.1111111111111111e+22", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.00001, builder));
+    EXPECT_STREQ("-0.00001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.000001, builder));
+    EXPECT_STREQ("-0.000001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.0000001, builder));
+    EXPECT_STREQ("-1e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.00000012, builder));
+    EXPECT_STREQ("-1.2e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.000000123, builder));
+    EXPECT_STREQ("-1.23e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.00000001, builder));
+    EXPECT_STREQ("-1e-8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.000000012, builder));
+    EXPECT_STREQ("-1.2e-8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.000000012, builder));
+    EXPECT_STREQ("-1.2e-8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToShortest(-0.0000000123, builder));
+    EXPECT_STREQ("-1.23e-8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(Double::Nan(), 2, builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(Double::Infinity(), 2, builder));
+    EXPECT_STREQ("Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-Double::Infinity(), 2, builder));
+    EXPECT_STREQ("-Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.1, 1, builder));
+    EXPECT_STREQ("-0.1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.1, 2, builder));
+    EXPECT_STREQ("-0.10", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.1, 3, builder));
+    EXPECT_STREQ("-0.100", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.01, 2, builder));
+    EXPECT_STREQ("-0.01", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.01, 3, builder));
+    EXPECT_STREQ("-0.010", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.01, 4, builder));
+    EXPECT_STREQ("-0.0100", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.001, 2, builder));
+    EXPECT_STREQ("-0.00", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.001, 3, builder));
+    EXPECT_STREQ("-0.001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.001, 4, builder));
+    EXPECT_STREQ("-0.0010", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-1.0, 4, builder));
+    EXPECT_STREQ("-1.0000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-1.0, 1, builder));
+    EXPECT_STREQ("-1.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-1.0, 0, builder));
+    EXPECT_STREQ("-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-12.0, 0, builder));
+    EXPECT_STREQ("-12", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-1.1, 0, builder));
+    EXPECT_STREQ("-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-12.1, 0, builder));
+    EXPECT_STREQ("-12", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-1.12, 0, builder));
+    EXPECT_STREQ("-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-12.12, 0, builder));
+    EXPECT_STREQ("-12", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.0000006, 7, builder));
+    EXPECT_STREQ("-0.0000006", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.00000006, 8, builder));
+    EXPECT_STREQ("-0.00000006", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.00000006, 9, builder));
+    EXPECT_STREQ("-0.000000060", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.00000006, 10, builder));
+    EXPECT_STREQ("-0.0000000600", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0, 0, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0, 1, builder));
+    EXPECT_STREQ("0.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0, 2, builder));
+    EXPECT_STREQ("0.00", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(1000, 0, builder));
+    EXPECT_STREQ("1000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.00001, 0, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.00001, 5, builder));
+    EXPECT_STREQ("0.00001", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.0000000000000000001, 20, builder));
+    EXPECT_STREQ("0.00000000000000000010", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.00001, 17, builder));
+    EXPECT_STREQ("0.00001000000000000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(1000000000000000128.0, 0, builder));
+    EXPECT_STREQ("1000000000000000128", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(1000000000000000128.0, 1, builder));
+    EXPECT_STREQ("1000000000000000128.0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(1000000000000000128.0, 2, builder));
+    EXPECT_STREQ("1000000000000000128.00", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(1000000000000000128.0, 20, builder));
+    EXPECT_STREQ("1000000000000000128.00000000000000000000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.0, 0, builder));
+    EXPECT_STREQ("0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-42.0, 3, builder));
+    EXPECT_STREQ("-42.000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-1000000000000000128.0, 0, builder));
+    EXPECT_STREQ("-1000000000000000128", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.0000000000000000001, 20, builder));
+    EXPECT_STREQ("-0.00000000000000000010", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.123123123123123, 20, builder));
+    EXPECT_STREQ("0.12312312312312299889", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(0.5, 0, builder));
+    EXPECT_STREQ("1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(-0.5, 0, builder));
+    EXPECT_STREQ("-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(1.25, 1, builder));
+    EXPECT_STREQ("1.3", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(234.20405, 4, builder));
+    EXPECT_STREQ("234.2040", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToFixed(234.2040506, 4, builder));
+    EXPECT_STREQ("234.2041", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(1.0, -1, builder));
+    EXPECT_STREQ("1e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(11.0, -1, builder));
+    EXPECT_STREQ("1.1e+1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(112.0, -1, builder));
+    EXPECT_STREQ("1.12e+2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(1.0, 0, builder));
+    EXPECT_STREQ("1e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(11.0, 0, builder));
+    EXPECT_STREQ("1e+1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(112.0, 0, builder));
+    EXPECT_STREQ("1e+2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(1.0, 1, builder));
+    EXPECT_STREQ("1.0e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(11.0, 1, builder));
+    EXPECT_STREQ("1.1e+1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(112.0, 1, builder));
+    EXPECT_STREQ("1.1e+2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(1.0, 2, builder));
+    EXPECT_STREQ("1.00e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(11.0, 2, builder));
+    EXPECT_STREQ("1.10e+1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(112.0, 2, builder));
+    EXPECT_STREQ("1.12e+2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(1.0, 3, builder));
+    EXPECT_STREQ("1.000e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(11.0, 3, builder));
+    EXPECT_STREQ("1.100e+1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(112.0, 3, builder));
+    EXPECT_STREQ("1.120e+2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.1, -1, builder));
+    EXPECT_STREQ("1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.11, -1, builder));
+    EXPECT_STREQ("1.1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.112, -1, builder));
+    EXPECT_STREQ("1.12e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.1, 0, builder));
+    EXPECT_STREQ("1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.11, 0, builder));
+    EXPECT_STREQ("1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.112, 0, builder));
+    EXPECT_STREQ("1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.1, 1, builder));
+    EXPECT_STREQ("1.0e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.11, 1, builder));
+    EXPECT_STREQ("1.1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.112, 1, builder));
+    EXPECT_STREQ("1.1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.1, 2, builder));
+    EXPECT_STREQ("1.00e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.11, 2, builder));
+    EXPECT_STREQ("1.10e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.112, 2, builder));
+    EXPECT_STREQ("1.12e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.1, 3, builder));
+    EXPECT_STREQ("1.000e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.11, 3, builder));
+    EXPECT_STREQ("1.100e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.112, 3, builder));
+    EXPECT_STREQ("1.120e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-1.0, -1, builder));
+    EXPECT_STREQ("-1e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-11.0, -1, builder));
+    EXPECT_STREQ("-1.1e+1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-112.0, -1, builder));
+    EXPECT_STREQ("-1.12e+2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-1.0, 0, builder));
+    EXPECT_STREQ("-1e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-11.0, 0, builder));
+    EXPECT_STREQ("-1e+1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-112.0, 0, builder));
+    EXPECT_STREQ("-1e+2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-1.0, 1, builder));
+    EXPECT_STREQ("-1.0e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-11.0, 1, builder));
+    EXPECT_STREQ("-1.1e+1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-112.0, 1, builder));
+    EXPECT_STREQ("-1.1e+2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-1.0, 2, builder));
+    EXPECT_STREQ("-1.00e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-11.0, 2, builder));
+    EXPECT_STREQ("-1.10e+1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-112.0, 2, builder));
+    EXPECT_STREQ("-1.12e+2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-1.0, 3, builder));
+    EXPECT_STREQ("-1.000e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-11.0, 3, builder));
+    EXPECT_STREQ("-1.100e+1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-112.0, 3, builder));
+    EXPECT_STREQ("-1.120e+2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.1, -1, builder));
+    EXPECT_STREQ("-1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.11, -1, builder));
+    EXPECT_STREQ("-1.1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.112, -1, builder));
+    EXPECT_STREQ("-1.12e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.1, 0, builder));
+    EXPECT_STREQ("-1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.11, 0, builder));
+    EXPECT_STREQ("-1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.112, 0, builder));
+    EXPECT_STREQ("-1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.1, 1, builder));
+    EXPECT_STREQ("-1.0e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.11, 1, builder));
+    EXPECT_STREQ("-1.1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.112, 1, builder));
+    EXPECT_STREQ("-1.1e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.1, 2, builder));
+    EXPECT_STREQ("-1.00e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.11, 2, builder));
+    EXPECT_STREQ("-1.10e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.112, 2, builder));
+    EXPECT_STREQ("-1.12e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.1, 3, builder));
+    EXPECT_STREQ("-1.000e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.11, 3, builder));
+    EXPECT_STREQ("-1.100e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.112, 3, builder));
+    EXPECT_STREQ("-1.120e-1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(Double::Nan(), 2, builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(Double::Infinity(), 2, builder));
+    EXPECT_STREQ("Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-Double::Infinity(), 2, builder));
+    EXPECT_STREQ("-Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(1.0, 0, builder));
+    EXPECT_STREQ("1e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.0, -1, builder));
+    EXPECT_STREQ("0e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.0, 2, builder));
+    EXPECT_STREQ("0.00e+0", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(11.2356, 0, builder));
+    EXPECT_STREQ("1e+1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(11.2356, 4, builder));
+    EXPECT_STREQ("1.1236e+1", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.000112356, 4, builder));
+    EXPECT_STREQ("1.1236e-4", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.000112356, 4, builder));
+    EXPECT_STREQ("-1.1236e-4", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(0.000112356, -1, builder));
+    EXPECT_STREQ("1.12356e-4", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToExponential(-0.000112356, -1, builder));
+    EXPECT_STREQ("-1.12356e-4", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(Double::Nan(), 1, builder));
+    EXPECT_STREQ("NaN", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(Double::Infinity(), 2, builder));
+    EXPECT_STREQ("Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-Double::Infinity(), 2, builder));
+    EXPECT_STREQ("-Infinity", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(0.000555, 15, builder));
+    EXPECT_STREQ("0.000555000000000000", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(0.000000555, 15, builder));
+    EXPECT_STREQ("5.55000000000000e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-0.000000555, 15, builder));
+    EXPECT_STREQ("-5.55000000000000e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(123456789.0, 1, builder));
+    EXPECT_STREQ("1e+8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(123456789.0, 9, builder));
+    EXPECT_STREQ("123456789", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(123456789.0, 8, builder));
+    EXPECT_STREQ("1.2345679e+8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(123456789.0, 7, builder));
+    EXPECT_STREQ("1.234568e+8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-123456789.0, 7, builder));
+    EXPECT_STREQ("-1.234568e+8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-.0000000012345, 2, builder));
+    EXPECT_STREQ("-1.2e-9", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-.000000012345, 2, builder));
+    EXPECT_STREQ("-1.2e-8", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-.00000012345, 2, builder));
+    EXPECT_STREQ("-1.2e-7", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-.0000012345, 2, builder));
+    EXPECT_STREQ("-0.0000012", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-.000012345, 2, builder));
+    EXPECT_STREQ("-0.000012", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-.00012345, 2, builder));
+    EXPECT_STREQ("-0.00012", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-.0012345, 2, builder));
+    EXPECT_STREQ("-0.0012", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-.012345, 2, builder));
+    EXPECT_STREQ("-0.012", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-.12345, 2, builder));
+    EXPECT_STREQ("-0.12", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-1.2345, 2, builder));
+    EXPECT_STREQ("-1.2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-12.345, 2, builder));
+    EXPECT_STREQ("-12", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-123.45, 2, builder));
+    EXPECT_STREQ("-1.2e+2", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-1234.5, 2, builder));
+    EXPECT_STREQ("-1.2e+3", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-12345.0, 2, builder));
+    EXPECT_STREQ("-1.2e+4", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-12345.67, 4, builder));
+    EXPECT_STREQ("-1.235e+4", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(-12344.67, 4, builder));
+    EXPECT_STREQ("-1.234e+4", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(1.25, 2, builder));
+    EXPECT_STREQ("1.3", builder.Finalize());
+
+    builder.Reset();
+    EXPECT_TRUE(dc.ToPrecision(1.35, 2, builder));
+    EXPECT_STREQ("1.4", builder.Finalize());
+}

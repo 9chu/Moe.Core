@@ -1736,7 +1736,7 @@ namespace moe
         
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        template <typename T>
+        template <typename T = char>
         class StringBuilder :
             public NonCopyable
         {
@@ -1798,7 +1798,7 @@ namespace moe
                 return m_bFinalized;
             }
 
-            char* Finalize()
+            T* Finalize()
             {
                 assert(!isFinalized() && m_uPosition < m_stBuffer.Size());
                 m_stBuffer[m_uPosition] = static_cast<T>('\0');
@@ -1932,8 +1932,8 @@ namespace moe
             //   ToPrecision(230.0, 2) -> "230."  with EMIT_TRAILING_DECIMAL_POINT.
             //   ToPrecision(230.0, 2) -> "2.3e2" with EMIT_TRAILING_ZERO_AFTER_POINT.
             DoubleToStringConverter(DtoaFlags flags, const T* infinitySymbol, const T* nanSymbol, T exponentCharacter,
-                int decimalInShortestLow, int decimalInShortestHigh, int maxLeadingPaddingZeroesInPrecisionMode,
-                int maxTrailingPaddingZeroesInPrecisionMode)
+                int decimalInShortestLow, int decimalInShortestHigh, size_t maxLeadingPaddingZeroesInPrecisionMode,
+                size_t maxTrailingPaddingZeroesInPrecisionMode)
                 : m_iFlags(flags), m_szInfinitySymbol(infinitySymbol), m_szNanSymbol(nanSymbol),
                 m_cExponentCharacter(exponentCharacter), m_iDecimalInShortestLow(decimalInShortestLow),
                 m_iDecimalInShortestHigh(decimalInShortestHigh),
@@ -2097,7 +2097,7 @@ namespace moe
                 {
                     DoubleToAscii(value, DtoaMode::Precision, static_cast<size_t>(requestedDigits + 1), decimalRep,
                         kDecimalRepCapacity, sign, decimalRepLength, decimalPoint);
-                    assert(decimalRepLength <= requestedDigits + 1);
+                    assert(decimalRepLength <= static_cast<size_t>(requestedDigits + 1));
 
                     for (int i = decimalRepLength; i < requestedDigits + 1; ++i)
                         decimalRep[i] = '0';
@@ -2178,12 +2178,13 @@ namespace moe
 
                 int extraZero = ((m_iFlags & DtoaFlags::EmitTrailingZeroAfterPoint) != 0) ? 1 : 0;
                 if ((-decimalPoint + 1 > m_iMaxLeadingPaddingZeroesInPrecisionMode) ||
-                    (decimalPoint - precision + extraZero > m_iMaxTrailingPaddingZeroesInPrecisionMode))
+                    (decimalPoint - static_cast<int>(precision) + extraZero >
+                        m_iMaxTrailingPaddingZeroesInPrecisionMode))
                 {
                     // Fill buffer to contain 'precision' digits.
                     // Usually the buffer is already at the correct length, but 'DoubleToAscii'
                     // is allowed to return less characters.
-                    for (int i = decimalRepLength; i < precision; ++i)
+                    for (size_t i = decimalRepLength; i < precision; ++i)
                         decimalRep[i] = '0';
 
                     CreateExponentialRepresentation(decimalRep, precision, exponent, resultBuilder);
@@ -2191,7 +2192,7 @@ namespace moe
                 else
                 {
                     CreateDecimalRepresentation(decimalRep, decimalRepLength, decimalPoint,
-                        std::max(0u, precision - decimalPoint), resultBuilder);
+                        static_cast<int>(precision) > decimalPoint ? precision - decimalPoint : 0u, resultBuilder);
                 }
 
                 return true;
@@ -2338,7 +2339,8 @@ namespace moe
                 if ((m_iDecimalInShortestLow <= exponent) && (exponent < m_iDecimalInShortestHigh))
                 {
                     CreateDecimalRepresentation(decimalRep, decimalRepLength, decimalPoint,
-                        std::max(0u, decimalRepLength - decimalPoint), resultBuilder);
+                        static_cast<int>(decimalRepLength) > decimalPoint ?
+                            decimalRepLength - decimalPoint : 0u, resultBuilder);
                 }
                 else
                     CreateExponentialRepresentation(decimalRep, decimalRepLength, exponent, resultBuilder);
@@ -2424,7 +2426,7 @@ namespace moe
 
             // Creates a decimal representation (i.e 1234.5678).
             void CreateDecimalRepresentation(const T* decimalDigits, size_t length, int decimalPoint,
-                int digitsAfterPoint, StringBuilder<T>& resultBuilder)const
+                size_t digitsAfterPoint, StringBuilder<T>& resultBuilder)const
             {
                 // Create a representation that is padded with zeros if needed.
                 if (decimalPoint <= 0)
@@ -2436,13 +2438,13 @@ namespace moe
                         resultBuilder.AddCharacter('.');
                         assert(-decimalPoint >= 0);
                         resultBuilder.AddPadding('0', static_cast<size_t>(-decimalPoint));
-                        assert(length <= digitsAfterPoint - (-decimalPoint));
+                        assert(length <= static_cast<size_t>(digitsAfterPoint - (-decimalPoint)));
                         resultBuilder.AddSubstring(decimalDigits, length);
                         int remainingDigits = digitsAfterPoint - (-decimalPoint) - length;
                         resultBuilder.AddPadding('0', static_cast<size_t>(remainingDigits));
                     }
                 }
-                else if (decimalPoint >= length)
+                else if (decimalPoint >= 0 && static_cast<size_t>(decimalPoint) >= length)
                 {
                     // "decimal_rep0000.00000" or "decimal_rep.0000".
                     resultBuilder.AddSubstring(decimalDigits, length);
