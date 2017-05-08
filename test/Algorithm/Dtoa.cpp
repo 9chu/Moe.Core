@@ -2720,7 +2720,7 @@ TEST(FixedDtoa, FastFixedDtoaGayFixed)
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
     bool status;
-    size_t length;
+    size_t length = 0;
     int point;
 
     const ArrayView<Testing::PrecomputedFixed> precomputed = Testing::PrecomputedFixedRepresentations();
