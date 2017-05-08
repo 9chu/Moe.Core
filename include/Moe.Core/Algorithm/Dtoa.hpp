@@ -1874,10 +1874,12 @@ namespace moe
             // Returns a converter following the EcmaScript specification.
             static const DoubleToStringConverter& EcmaScriptConverter()
             {
+                static const T kInfinityString[] = { 'I', 'n', 'f', 'i', 'n', 'i', 't', 'y', '\0' };
+                static const T kNanString[] = { 'N', 'a', 'N', '\0' };
                 static DoubleToStringConverter s_stConverter(
                     static_cast<DtoaFlags>(DtoaFlags::UniqueZero | DtoaFlags::EmitPositiveExponentSign),
-                    "Infinity",
-                    "NaN",
+                    kInfinityString,
+                    kNanString,
                     'e',
                     -6, 21,
                     6, 0);
@@ -2487,5 +2489,259 @@ namespace moe
             const int m_iMaxLeadingPaddingZeroesInPrecisionMode;
             const int m_iMaxTrailingPaddingZeroesInPrecisionMode;
         };
+    }
+
+    /**
+     * @brief 以最小表示转换单精度浮点到字符串
+     * @tparam T 目标字符串类型
+     * @tparam Size 缓冲区大小
+     * @pre length足够大以容纳所有结果
+     * @param d 被转换浮点
+     * @param buffer 目标缓冲区
+     * @return 转换是否成功
+     *
+     * 转换单精度浮点到最小字符串表示。
+     * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
+     */
+    template <typename T = char, size_t Size>
+    inline bool DoubleToShortestString(float d, T (&buffer)[Size])
+    {
+        internal::StringBuilder<T> builder(buffer, Size);
+        return internal::DoubleToStringConverter<T>::EcmaScriptConverter().ToShortestSingle(d, builder);
+    }
+
+    /**
+     * @brief 以最小表示转换单精度浮点到字符串
+     * @tparam T 目标字符串类型
+     * @pre length足够大以容纳所有结果
+     * @param d 被转换浮点
+     * @param buffer 目标缓冲区
+     * @param length 缓冲区大小
+     * @return 转换是否成功
+     *
+     * 转换单精度浮点到最小字符串表示。
+     * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
+     */
+    template <typename T = char>
+    inline bool DoubleToShortestString(float d, T* buffer, size_t length)
+    {
+        internal::StringBuilder<T> builder(buffer, length);
+        return internal::DoubleToStringConverter<T>::EcmaScriptConverter().ToShortestSingle(d, builder);
+    }
+
+    /**
+     * @brief 以最小表示转换双精度浮点到字符串
+     * @tparam T 目标字符串类型
+     * @tparam Size 缓冲区大小
+     * @pre length足够大以容纳所有结果
+     * @param d 被转换浮点
+     * @param buffer 目标缓冲区
+     * @return 转换是否成功
+     *
+     * 转换双精度浮点到最小字符串表示。
+     * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
+     */
+    template <typename T = char, size_t Size>
+    inline bool DoubleToShortestString(double d, T (&buffer)[Size])
+    {
+        internal::StringBuilder<T> builder(buffer, Size);
+        return internal::DoubleToStringConverter<T>::EcmaScriptConverter().ToShortest(d, builder);
+    }
+
+    /**
+     * @brief 以最小表示转换双精度浮点到字符串
+     * @tparam T 目标字符串类型
+     * @pre length足够大以容纳所有结果
+     * @param d 被转换浮点
+     * @param buffer 目标缓冲区
+     * @param length 缓冲区大小
+     * @return 转换是否成功
+     *
+     * 转换双精度浮点到最小字符串表示。
+     * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
+     */
+    template <typename T = char>
+    inline bool DoubleToShortestString(double d, T* buffer, size_t length)
+    {
+        internal::StringBuilder<T> builder(buffer, length);
+        return internal::DoubleToStringConverter<T>::EcmaScriptConverter().ToShortest(d, builder);
+    }
+
+    /**
+     * @brief 以定点数表示转换双精度浮点到字符串
+     * @tparam T 目标字符串类型
+     * @tparam Size 缓冲区大小
+     * @pre length足够大以容纳所有结果且 requestDigits <= 20
+     * @param d 被转换浮点数
+     * @param requestDigits 需要的小数位数
+     * @param buffer 目标缓冲区
+     * @return 转换是否成功
+     *
+     * 转换双精度浮点到字符串并四舍五入指定的小数位数。
+     * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
+     */
+    template <typename T = char, size_t Size>
+    inline bool DoubleToFixedString(double d, size_t requestDigits, T (&buffer)[Size])
+    {
+        assert(requestDigits <= 20);
+        requestDigits = std::min(requestDigits, 20u);
+
+        internal::StringBuilder<T> builder(buffer, Size);
+        return internal::DoubleToStringConverter<T>::EcmaScriptConverter().ToFixed(d, requestDigits, builder);
+    }
+
+    /**
+     * @brief 以定点数表示转换双精度浮点到字符串
+     * @tparam T 目标字符串类型
+     * @pre length足够大以容纳所有结果且 requestDigits <= 20
+     * @param d 被转换浮点数
+     * @param requestDigits 需要的小数位数
+     * @param buffer 目标缓冲区
+     * @param length 缓冲区大小
+     * @return 转换是否成功
+     *
+     * 转换双精度浮点到字符串并四舍五入指定的小数位数。
+     * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
+     */
+    template <typename T = char>
+    inline bool DoubleToFixedString(double d, size_t requestDigits, T* buffer, size_t length)
+    {
+        assert(requestDigits <= 20);
+        requestDigits = std::min(requestDigits, 20u);
+
+        internal::StringBuilder<T> builder(buffer, length);
+        return internal::DoubleToStringConverter<T>::EcmaScriptConverter().ToFixed(d, requestDigits, builder);
+    }
+
+    /**
+     * @brief 以有效数字表示转换双精度浮点到字符串
+     * @tparam T 目标字符串类型
+     * @tparam Size 缓冲区大小
+     * @pre length足够大以容纳所有结果且 1 <= precision && precision <= 21
+     * @param d 被转换浮点数
+     * @param precision 精度
+     * @param buffer 目标缓冲区
+     * @return 转换是否成功
+     *
+     * 转换双精度浮点且四舍五入到保留指定的有效数字。
+     * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
+     */
+    template <typename T = char, size_t Size>
+    inline bool DoubleToPrecisionString(double d, size_t precision, T (&buffer)[Size])
+    {
+        assert(1 <= precision && precision <= 21);
+        precision = std::max(std::min(precision, 21u), 1u);
+
+        internal::StringBuilder<T> builder(buffer, Size);
+        return internal::DoubleToStringConverter<T>::EcmaScriptConverter().ToPrecision(d, precision, builder);
+    }
+
+    /**
+     * @brief 以有效数字表示转换双精度浮点到字符串
+     * @tparam T 目标字符串类型
+     * @pre length足够大以容纳所有结果且 1 <= precision && precision <= 21
+     * @param d 被转换浮点数
+     * @param precision 精度
+     * @param buffer 目标缓冲区
+     * @param length 缓冲区大小
+     * @return 转换是否成功
+     *
+     * 转换双精度浮点且四舍五入到保留指定的有效数字。
+     * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
+     */
+    template <typename T = char>
+    inline bool DoubleToPrecisionString(double d, size_t precision, T* buffer, size_t length)
+    {
+        assert(1 <= precision && precision <= 21);
+        precision = std::max(std::min(precision, 21u), 1u);
+
+        internal::StringBuilder<T> builder(buffer, length);
+        return internal::DoubleToStringConverter<T>::EcmaScriptConverter().ToPrecision(d, precision, builder);
+    }
+
+    /**
+     * @brief 使用科学计数法表示转换双精度浮点到字符串
+     * @tparam T 目标字符串类型
+     * @tparam Size 缓冲区大小
+     * @pre length足够大以容纳所有结果且 0 <= requestedDigits && requestedDigits <= 20
+     * @param d 被转换浮点数
+     * @param requestedDigits 小数点后保留的有效位数
+     * @param buffer 目标缓冲区
+     * @return 转换是否成功
+     *
+     * 以科学计数法表示转换双精度浮点。
+     * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
+     */
+    template <typename T = char, size_t Size>
+    inline bool DoubleToExponentialString(double d, size_t requestedDigits, T (&buffer)[Size])
+    {
+        assert(0 <= requestedDigits && requestedDigits <= 20);
+        requestedDigits = std::min(requestedDigits, 20u);
+
+        internal::StringBuilder<T> builder(buffer, Size);
+        return internal::DoubleToStringConverter<T>::EcmaScriptConverter().ToExponential(d,
+            static_cast<int>(requestedDigits), builder);
+    }
+
+    /**
+     * @brief 使用科学计数法表示转换双精度浮点到字符串
+     * @tparam T 目标字符串类型
+     * @pre length足够大以容纳所有结果且 0 <= requestedDigits && requestedDigits <= 20
+     * @param d 被转换浮点数
+     * @param requestedDigits 小数点后保留的有效位数
+     * @param buffer 目标缓冲区
+     * @param length 缓冲区大小
+     * @return 转换是否成功
+     *
+     * 以科学计数法表示转换双精度浮点。
+     * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
+     */
+    template <typename T = char>
+    inline bool DoubleToExponentialString(double d, size_t requestedDigits, T* buffer, size_t length)
+    {
+        assert(0 <= requestedDigits && requestedDigits <= 20);
+        requestedDigits = std::min(requestedDigits, 20u);
+
+        internal::StringBuilder<T> builder(buffer, length);
+        return internal::DoubleToStringConverter<T>::EcmaScriptConverter().ToExponential(d,
+            static_cast<int>(requestedDigits), builder);
+    }
+
+    /**
+     * @brief 使用科学计数法表示转换双精度浮点到字符串
+     * @tparam T 目标字符串类型
+     * @tparam Size 缓冲区大小
+     * @pre length足够大以容纳所有结果且 0 <= requestedDigits && requestedDigits <= 20
+     * @param d 被转换浮点数
+     * @param buffer 目标缓冲区
+     * @return 转换是否成功
+     *
+     * 以科学计数法表示转换双精度浮点。本方法尽可能保留足够的小数位数。
+     * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
+     */
+    template <typename T = char, size_t Size>
+    inline bool DoubleToExponentialString(double d, T (&buffer)[Size])
+    {
+        internal::StringBuilder<T> builder(buffer, Size);
+        return internal::DoubleToStringConverter<T>::EcmaScriptConverter().ToExponential(d, -1, builder);
+    }
+
+    /**
+     * @brief 使用科学计数法表示转换双精度浮点到字符串
+     * @tparam T 目标字符串类型
+     * @pre length足够大以容纳所有结果且 0 <= requestedDigits && requestedDigits <= 20
+     * @param d 被转换浮点数
+     * @param buffer 目标缓冲区
+     * @param length 缓冲区大小
+     * @return 转换是否成功
+     *
+     * 以科学计数法表示转换双精度浮点。本方法尽可能保留足够的小数位数。
+     * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
+     */
+    template <typename T = char>
+    inline bool DoubleToExponentialString(double d, T* buffer, size_t length)
+    {
+        internal::StringBuilder<T> builder(buffer, length);
+        return internal::DoubleToStringConverter<T>::EcmaScriptConverter().ToExponential(d, -1, builder);
     }
 }

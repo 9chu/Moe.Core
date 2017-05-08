@@ -4768,3 +4768,81 @@ TEST(DoubleToStringConverter, DoubleToStringJavaScript)
     EXPECT_TRUE(dc.ToPrecision(1.35, 2, builder));
     EXPECT_STREQ("1.4", builder.Finalize());
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+TEST(DoubleToString, CharTest)
+{
+    char buffer[kBufferSize];
+    
+    moe::DoubleToShortestString(123.456f, buffer);
+    EXPECT_STREQ("123.456", buffer);
+    
+    moe::DoubleToShortestString(123.456, buffer);
+    EXPECT_STREQ("123.456", buffer);
+    
+    moe::DoubleToFixedString(123.456, 0, buffer);
+    EXPECT_STREQ("123", buffer);
+    
+    moe::DoubleToFixedString(123.456, 2, buffer);
+    EXPECT_STREQ("123.46", buffer);
+    
+    moe::DoubleToFixedString(123.456, 20, buffer);
+    EXPECT_STREQ("123.45600000000000306954", buffer);
+    
+    moe::DoubleToPrecisionString(123.456, 1, buffer);
+    EXPECT_STREQ("1e+2", buffer);
+    
+    moe::DoubleToPrecisionString(123.456, 2, buffer);
+    EXPECT_STREQ("1.2e+2", buffer);
+    
+    moe::DoubleToPrecisionString(123.456, 21, buffer);
+    EXPECT_STREQ("123.456000000000003070", buffer);
+    
+    moe::DoubleToExponentialString(123.456, 0, buffer);
+    EXPECT_STREQ("1e+2", buffer);
+    
+    moe::DoubleToExponentialString(123.456, 1, buffer);
+    EXPECT_STREQ("1.2e+2", buffer);
+    
+    moe::DoubleToExponentialString(123.456, 20, buffer);
+    EXPECT_STREQ("1.23456000000000003070e+2", buffer);
+}
+
+TEST(DoubleToString, WCharTest)
+{
+    wchar_t buffer[kBufferSize];
+
+    moe::DoubleToShortestString(123.456f, buffer);
+    EXPECT_STREQ(L"123.456", buffer);
+
+    moe::DoubleToShortestString(123.456, buffer);
+    EXPECT_STREQ(L"123.456", buffer);
+
+    moe::DoubleToFixedString(123.456, 0, buffer);
+    EXPECT_STREQ(L"123", buffer);
+
+    moe::DoubleToFixedString(123.456, 2, buffer);
+    EXPECT_STREQ(L"123.46", buffer);
+
+    moe::DoubleToFixedString(123.456, 20, buffer);
+    EXPECT_STREQ(L"123.45600000000000306954", buffer);
+
+    moe::DoubleToPrecisionString(123.456, 1, buffer);
+    EXPECT_STREQ(L"1e+2", buffer);
+
+    moe::DoubleToPrecisionString(123.456, 2, buffer);
+    EXPECT_STREQ(L"1.2e+2", buffer);
+
+    moe::DoubleToPrecisionString(123.456, 21, buffer);
+    EXPECT_STREQ(L"123.456000000000003070", buffer);
+
+    moe::DoubleToExponentialString(123.456, 0, buffer);
+    EXPECT_STREQ(L"1e+2", buffer);
+
+    moe::DoubleToExponentialString(123.456, 1, buffer);
+    EXPECT_STREQ(L"1.2e+2", buffer);
+
+    moe::DoubleToExponentialString(123.456, 20, buffer);
+    EXPECT_STREQ(L"1.23456000000000003070e+2", buffer);
+}
