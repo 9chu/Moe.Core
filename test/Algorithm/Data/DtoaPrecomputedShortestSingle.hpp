@@ -14,5 +14,5 @@ namespace Testing
         int decimalPoint;
     };
 
-    moe::ArrayView<const PrecomputedShortestSingle> PrecomputedShortestSingleRepresentations();
+    const moe::ArrayView<PrecomputedShortestSingle> PrecomputedShortestSingleRepresentations();
 }

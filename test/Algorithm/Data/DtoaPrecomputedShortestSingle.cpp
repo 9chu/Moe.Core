@@ -10009,8 +10009,8 @@ static const Testing::PrecomputedShortestSingle kShortestSingleTestNumbers[] = {
     { 1.83401889750332068213e-25f, "18340189", -24 },
 };
 
-moe::ArrayView<const Testing::PrecomputedShortestSingle> Testing::PrecomputedShortestSingleRepresentations()
+const moe::ArrayView<Testing::PrecomputedShortestSingle> Testing::PrecomputedShortestSingleRepresentations()
 {
     size_t numberElements = sizeof(kShortestSingleTestNumbers) / sizeof(PrecomputedShortestSingle);
-    return ArrayView<const Testing::PrecomputedShortestSingle>(kShortestSingleTestNumbers, numberElements);
+    return ArrayView<Testing::PrecomputedShortestSingle>(kShortestSingleTestNumbers, numberElements);
 }
