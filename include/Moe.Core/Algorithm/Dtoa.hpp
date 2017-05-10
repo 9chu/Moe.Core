@@ -584,15 +584,15 @@ namespace moe
 
             // Returns a cached power-of-ten with a binary exponent in the range
             // [min_exponent; max_exponent] (boundaries included).
-            static void GetCachedPowerForBinaryExponentRange(int minExponent, int maxExponent, DiyFp* power,
-                int* decimalExponent);
+            static void GetCachedPowerForBinaryExponentRange(int minExponent, int maxExponent, DiyFp& power,
+                int& decimalExponent);
 
             // Returns a cached power of ten x ~= 10^k such that
             //   k <= decimal_exponent < k + kCachedPowersDecimalDistance.
             // The given decimal_exponent must satisfy
             //   kMinDecimalExponent <= requested_exponent, and
             //   requested_exponent < kMaxDecimalExponent + kDecimalExponentDistance.
-            static void GetCachedPowerForDecimalExponent(int requestedExponent, DiyFp* power, int* foundExponent);
+            static void GetCachedPowerForDecimalExponent(int requestedExponent, DiyFp& power, int& foundExponent);
         };
         
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -833,7 +833,7 @@ namespace moe
                 int tenMkMinimalBinaryExponent = kMinimalTargetExponent - (w.Exponent() + DiyFp::kSignificandSize);
                 int tenMkMaximalBinaryExponent = kMaximalTargetExponent - (w.Exponent() + DiyFp::kSignificandSize);
                 PowersOfTenCache::GetCachedPowerForBinaryExponentRange(tenMkMinimalBinaryExponent,
-                    tenMkMaximalBinaryExponent, &tenMk, &mk);
+                    tenMkMaximalBinaryExponent, tenMk, mk);
                 assert((kMinimalTargetExponent <= w.Exponent() + tenMk.Exponent() + DiyFp::kSignificandSize) &&
                     (kMaximalTargetExponent >= w.Exponent() + tenMk.Exponent() + DiyFp::kSignificandSize));
 
@@ -859,7 +859,7 @@ namespace moe
                 int tenMkMinimalBinaryExponent = kMinimalTargetExponent - (w.Exponent() + DiyFp::kSignificandSize);
                 int tenMkMaximalBinaryExponent = kMaximalTargetExponent - (w.Exponent() + DiyFp::kSignificandSize);
                 PowersOfTenCache::GetCachedPowerForBinaryExponentRange(tenMkMinimalBinaryExponent,
-                    tenMkMaximalBinaryExponent, &tenMk, &mk);
+                    tenMkMaximalBinaryExponent, tenMk, mk);
                 assert((kMinimalTargetExponent <= w.Exponent() + tenMk.Exponent() + DiyFp::kSignificandSize) &&
                     (kMaximalTargetExponent >= w.Exponent() + tenMk.Exponent() + DiyFp::kSignificandSize));
 

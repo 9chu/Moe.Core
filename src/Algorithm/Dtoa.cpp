@@ -144,8 +144,8 @@ const int PowersOfTenCache::kDecimalExponentDistance = 8;
 const int PowersOfTenCache::kMinDecimalExponent = -348;
 const int PowersOfTenCache::kMaxDecimalExponent = 340;
 
-void PowersOfTenCache::GetCachedPowerForBinaryExponentRange(int minExponent, int maxExponent, DiyFp* power,
-    int* decimalExponent)
+void PowersOfTenCache::GetCachedPowerForBinaryExponentRange(int minExponent, int maxExponent, DiyFp& power,
+    int& decimalExponent)
 {
     int kQ = DiyFp::kSignificandSize;
     double k = std::ceil((minExponent + kQ - 1) * kD_1_LOG2_10);
@@ -156,20 +156,20 @@ void PowersOfTenCache::GetCachedPowerForBinaryExponentRange(int minExponent, int
     assert(minExponent <= cachedPower.binaryExponent);
     MOE_UNUSED(maxExponent);
     assert(cachedPower.binaryExponent <= maxExponent);
-    *decimalExponent = cachedPower.decimalExponent;
-    *power = DiyFp(cachedPower.significand, cachedPower.binaryExponent);
+    decimalExponent = cachedPower.decimalExponent;
+    power = DiyFp(cachedPower.significand, cachedPower.binaryExponent);
 }
 
-void PowersOfTenCache::GetCachedPowerForDecimalExponent(int requestedExponent, DiyFp* power, int* foundExponent)
+void PowersOfTenCache::GetCachedPowerForDecimalExponent(int requestedExponent, DiyFp& power, int& foundExponent)
 {
     assert(kMinDecimalExponent <= requestedExponent);
     assert(requestedExponent < kMaxDecimalExponent + kDecimalExponentDistance);
     int index = (requestedExponent + kCachedPowersOffset) / kDecimalExponentDistance;
     CachedPower cachedPower = kCachedPowers[index];
-    *power = DiyFp(cachedPower.significand, cachedPower.binaryExponent);
-    *foundExponent = cachedPower.decimalExponent;
-    assert(*foundExponent <= requestedExponent);
-    assert(requestedExponent < *foundExponent + kDecimalExponentDistance);
+    power = DiyFp(cachedPower.significand, cachedPower.binaryExponent);
+    foundExponent = cachedPower.decimalExponent;
+    assert(foundExponent <= requestedExponent);
+    assert(requestedExponent < foundExponent + kDecimalExponentDistance);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
