@@ -106,4 +106,4 @@ namespace moe
     {
         return MathConstants<T>::Pi * T(180.) / degrees;
     }
-};
+}
