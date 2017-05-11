@@ -45,7 +45,6 @@ namespace moe
                 return s_stConverter;
             }
 
-        private:
             // Double operations detection based on target architecture.
             // Linux uses a 80bit wide floating point stack on x86. This induces double
             // rounding, which in turn leads to wrong results.
@@ -71,7 +70,7 @@ namespace moe
 #elif defined(__mc68000__)
             constexpr static const bool kPlatformCorrectDoubleOperations = false;
 #elif defined(_M_IX86) || defined(__i386__) || defined(__i386)
-#if defined(_WIN32)
+#if defined(_WIN32) && defined(_MSC_VER)
 // Windows uses a 64bit wide floating point stack.
             constexpr static const bool kPlatformCorrectDoubleOperations = true;
 #else
@@ -122,7 +121,7 @@ namespace moe
                 return ArrayView<T>(buffer.GetBuffer(), 0);
             }
 
-            static void CutToMaxSignificantDigits(ArrayView<T> buffer, int exponent, T& significantBuffer,
+            static void CutToMaxSignificantDigits(ArrayView<T> buffer, int exponent, T significantBuffer[],
                 int& significantExponent)
             {
                 for (size_t i = 0; i < kMaxSignificantDecimalDigits - 1; ++i)
@@ -138,7 +137,7 @@ namespace moe
                 significantExponent = exponent + (buffer.Size() - kMaxSignificantDecimalDigits);
             }
 
-            static void TrimAndCut(ArrayView<T> buffer, int exponent, T* bufferCopySpace, int spaceSize,
+            static void TrimAndCut(ArrayView<T> buffer, int exponent, T bufferCopySpace[], size_t spaceSize,
                 ArrayView<T>& trimmed, int& updatedExponent)
             {
                 ArrayView<T> leftTrimmed = TrimLeadingZeros(buffer);
@@ -356,7 +355,7 @@ namespace moe
                     DiyFp adjustmentPower = AdjustmentPowerOfTen(adjustmentExponent);
                     input.Multiply(adjustmentPower);
 
-                    if (kMaxUInt64DecimalDigits - buffer.Size() >= adjustmentExponent)
+                    if (kMaxUInt64DecimalDigits - static_cast<int>(buffer.Size()) >= adjustmentExponent)
                     {
                         // The product of input with the adjustment power fits into a 64 bit
                         // integer.
@@ -446,13 +445,13 @@ namespace moe
                     return true;
                 }
 
-                if (exponent + trimmed.Size() - 1 >= kMaxDecimalPower)
+                if (exponent + static_cast<int>(trimmed.Size()) - 1 >= kMaxDecimalPower)
                 {
                     guess = Double::Infinity();
                     return true;
                 }
 
-                if (exponent + trimmed.Size() <= kMinDecimalPower)
+                if (exponent + static_cast<int>(trimmed.Size()) <= kMinDecimalPower)
                 {
                     guess = 0.0;
                     return true;
@@ -474,8 +473,8 @@ namespace moe
             //   buffer.length() <= kMaxDecimalSignificantDigits
             static int CompareBufferWithDiyFp(ArrayView<T> buffer, int exponent, DiyFp diyFp)
             {
-                assert(buffer.Size() + exponent <= kMaxDecimalPower + 1);
-                assert(buffer.Size() + exponent > kMinDecimalPower);
+                assert(static_cast<int>(buffer.Size()) + exponent <= kMaxDecimalPower + 1);
+                assert(static_cast<int>(buffer.Size()) + exponent > kMinDecimalPower);
                 assert(buffer.Size() <= kMaxSignificantDecimalDigits);
 
                 // Make sure that the Bignum will be able to hold all our numbers.
@@ -502,7 +501,7 @@ namespace moe
 
             // The buffer must only contain digits in the range [0-9]. It must not
             // contain a dot or a sign. It must not start with '0', and must not be empty.
-            double Strtod(ArrayView<T> buffer, int exponent)
+            static double Strtod(ArrayView<T> buffer, int exponent)
             {
                 T copyBuffer[kMaxSignificantDecimalDigits];
                 ArrayView<T> trimmed;
@@ -529,7 +528,7 @@ namespace moe
 
             // The buffer must only contain digits in the range [0-9]. It must not
             // contain a dot or a sign. It must not start with '0', and must not be empty.
-            float Strtof(ArrayView<T> buffer, int exponent)
+            static float Strtof(ArrayView<T> buffer, int exponent)
             {
                 T copyBuffer[kMaxSignificantDecimalDigits];
                 ArrayView<T> trimmed;
