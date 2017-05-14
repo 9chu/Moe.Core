@@ -12,32 +12,34 @@ namespace moe
 {
     namespace internal
     {
+        // Enumeration for allowing octals and ignoring junk when converting
+        // strings to numbers.
+        enum class AtodFlags
+        {
+            Default = 0,
+            AllowHex = 1,
+            AllowOctals = 2,
+            AllowTrailingJunk = 4,
+            AllowLeadingSpaces = 8,
+            AllowTrailingSpaces = 16,
+            AllowSpacesAfterSign = 32
+        };
+
         template <typename T = char>
         class StringToDoubleConverter :
             public NonCopyable
         {
         public:
-            // Enumeration for allowing octals and ignoring junk when converting
-            // strings to numbers.
-            enum class AtodFlags
-            {
-                Default = 0,
-                AllowHex = 1,
-                AllowOctals = 2,
-                AllowTrailingJunk = 4,
-                AllowLeadingSpaces = 8,
-                AllowTrailingSpaces = 16,
-                AllowSpacesAfterSign = 32
-            };
-
             // Returns a converter following the EcmaScript specification.
             static const StringToDoubleConverter& EcmaScriptConverter()
             {
                 static const T kInfinityString[] = { 'I', 'n', 'f', 'i', 'n', 'i', 't', 'y', '\0' };
                 static const T kNanString[] = { 'N', 'a', 'N', '\0' };
                 static StringToDoubleConverter s_stConverter(
-                    static_cast<AtodFlags>(AtodFlags::AllowTrailingJunk | AtodFlags::AllowLeadingSpaces |
-                        AtodFlags::AllowTrailingSpaces),
+                    static_cast<AtodFlags>(
+                        static_cast<int>(AtodFlags::AllowTrailingJunk) |
+                        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+                        static_cast<int>(AtodFlags::AllowTrailingSpaces)),
                     Double::Nan(),
                     Double::Nan(),
                     kInfinityString,
@@ -204,8 +206,7 @@ namespace moe
 
             static bool DoubleStrtod(ArrayView<T> trimmed, int exponent, double& result)
             {
-                static const double kExactPowersOfTen[] =
-                {
+                static const double kExactPowersOfTen[] = {
                     1.0,  // 10^0
                     10.0,
                     100.0,
@@ -627,9 +628,8 @@ namespace moe
 
             static bool IsWhitespace(int x)
             {
-                static const T kWhitespaceTable7[] = { 32, 13, 10, 9, 11, 12 };
-                static const T kWhitespaceTable16[] =
-                {
+                static const int kWhitespaceTable7[] = { 32, 13, 10, 9, 11, 12 };
+                static const int kWhitespaceTable16[] = {
                     160, 8232, 8233, 5760, 6158, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202, 8239,
                     8287, 12288, 65279
                 };
@@ -901,9 +901,9 @@ namespace moe
             //    StringToDouble("-infinity") -> NaN  // junk_string_value.
             //    StringToDouble("NaN") -> NaN  // junk_string_value.
             StringToDoubleConverter(AtodFlags flags, double emptyStringValue, double junkStringValue,
-                const char* infinitySymbol, const char* nanSymbol)
-                : m_iFlags(flags), m_dEmptyStringValue(emptyStringValue), m_dJunkStringValue(junkStringValue),
-                m_pszInfinitySymbol(infinitySymbol), m_pszNanSymbol(nanSymbol) {}
+                const T* infinitySymbol, const T* nanSymbol)
+                : m_iFlags(static_cast<int>(flags)), m_dEmptyStringValue(emptyStringValue),
+                m_dJunkStringValue(junkStringValue), m_pszInfinitySymbol(infinitySymbol), m_pszNanSymbol(nanSymbol) {}
 
             // Performs the conversion.
             // The output parameter 'processed_characters_count' is set to the number
@@ -932,10 +932,10 @@ namespace moe
 
                 processedCharactersCount = 0;
 
-                const bool allowTrailingJunk = (m_iFlags & AtodFlags::AllowTrailingJunk) != 0;
-                const bool allowLeadingSpaces = (m_iFlags & AtodFlags::AllowLeadingSpaces) != 0;
-                const bool allowTrailingSpaces = (m_iFlags & AtodFlags::AllowTrailingSpaces) != 0;
-                const bool allowSpacesAfterSign = (m_iFlags & AtodFlags::AllowSpacesAfterSign) != 0;
+                const bool allowTrailingJunk = (m_iFlags & static_cast<int>(AtodFlags::AllowTrailingJunk)) != 0;
+                const bool allowLeadingSpaces = (m_iFlags & static_cast<int>(AtodFlags::AllowLeadingSpaces)) != 0;
+                const bool allowTrailingSpaces = (m_iFlags & static_cast<int>(AtodFlags::AllowTrailingSpaces)) != 0;
+                const bool allowSpacesAfterSign = (m_iFlags & static_cast<int>(AtodFlags::AllowSpacesAfterSign)) != 0;
 
                 // To make sure that iterator dereferencing is valid the following
                 // convention is used:
@@ -1042,7 +1042,7 @@ namespace moe
                     leadingZero = true;
 
                     // It could be hexadecimal value.
-                    if ((m_iFlags & AtodFlags::AllowHex) && (*current == 'x' || *current == 'X'))
+                    if ((m_iFlags & static_cast<int>(AtodFlags::AllowHex)) && (*current == 'x' || *current == 'X'))
                     {
                         ++current;
                         if (current == end || !IsDigit(*current, 16))
@@ -1073,12 +1073,12 @@ namespace moe
                     }
                 }
 
-                bool octal = leadingZero && (m_iFlags & AtodFlags::AllowOctals) != 0;
+                bool octal = leadingZero && (m_iFlags & static_cast<int>(AtodFlags::AllowOctals)) != 0;
 
                 // Copy significant digits of the integer part (if any) to the buffer.
                 while (*current >= '0' && *current <= '9')
                 {
-                    if (significantDigits < kMaxSignificantDigits)
+                    if (significantDigits < static_cast<int>(kMaxSignificantDigits))
                     {
                         assert(bufferPos < kBufferSize);
                         buffer[bufferPos++] = static_cast<T>(*current);
@@ -1138,7 +1138,7 @@ namespace moe
                     // We don't emit a '.', but adjust the exponent instead.
                     while (*current >= '0' && *current <= '9')
                     {
-                        if (significantDigits < kMaxSignificantDigits)
+                        if (significantDigits < static_cast<int>(kMaxSignificantDigits))
                         {
                             assert(bufferPos < kBufferSize);
                             buffer[bufferPos++] = static_cast<T>(*current);
@@ -1266,7 +1266,7 @@ namespace moe
             }
 
         private:
-            const AtodFlags m_iFlags;
+            const int m_iFlags;
             const double m_dEmptyStringValue;
             const double m_dJunkStringValue;
             const T* m_pszInfinitySymbol;

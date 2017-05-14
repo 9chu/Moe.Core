@@ -674,8 +674,9 @@ namespace moe
 
             static void BiggestPowerTen(uint32_t number, size_t numberBits, uint32_t& power, int& exponentPlusOne)
             {
-                static unsigned int const kSmallPowersOfTen[] =
-                    { 0, 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000 };
+                static unsigned int const kSmallPowersOfTen[] = {
+                    0, 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000
+                };
 
                 assert(number < (1u << (numberBits + 1)));
                 int exponentPlusOneGuess = ((numberBits + 1) * 1233 >> 12);
@@ -1817,6 +1818,15 @@ namespace moe
         
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+        enum class DtoaFlags
+        {
+            Default = 0,
+            EmitPositiveExponentSign = 1,
+            EmitTrailingDecimalPoint = 2,
+            EmitTrailingZeroAfterPoint = 4,
+            UniqueZero = 8,
+        };
+
         template <typename T = char>
         class DoubleToStringConverter :
             public NonCopyable
@@ -1846,29 +1856,20 @@ namespace moe
             // should be at least kBase10MaximalLength + 1 characters long.
             static const int kBase10MaximalLength = 17;
 
-            enum DtoaFlags
-            {
-                Default = 0,
-                EmitPositiveExponentSign = 1,
-                EmitTrailingDecimalPoint = 2,
-                EmitTrailingZeroAfterPoint = 4,
-                UniqueZero = 8,
-            };
-
             enum DtoaMode
             {
                 // Produce the shortest correct representation.
                 // For example the output of 0.299999999999999988897 is (the less accurate
                 // but correct) 0.3.
-                    Shortest,
+                Shortest,
                 // Same as SHORTEST, but for single-precision floats.
-                    ShortestSingle,
+                ShortestSingle,
                 // Produce a fixed number of digits after the decimal point.
                 // For instance fixed(0.1, 4) becomes 0.1000
                 // If the input number is big, the output will be big.
-                    Fixed,
+                Fixed,
                 // Fixed number of digits (independent of the decimal point).
-                    Precision
+                Precision
             };
 
             // Returns a converter following the EcmaScript specification.
@@ -1877,7 +1878,9 @@ namespace moe
                 static const T kInfinityString[] = { 'I', 'n', 'f', 'i', 'n', 'i', 't', 'y', '\0' };
                 static const T kNanString[] = { 'N', 'a', 'N', '\0' };
                 static DoubleToStringConverter s_stConverter(
-                    static_cast<DtoaFlags>(DtoaFlags::UniqueZero | DtoaFlags::EmitPositiveExponentSign),
+                    static_cast<DtoaFlags>(
+                        static_cast<int>(DtoaFlags::UniqueZero) |
+                        static_cast<int>(DtoaFlags::EmitPositiveExponentSign)),
                     kInfinityString,
                     kNanString,
                     'e',
@@ -1936,14 +1939,14 @@ namespace moe
             DoubleToStringConverter(DtoaFlags flags, const T* infinitySymbol, const T* nanSymbol, T exponentCharacter,
                 int decimalInShortestLow, int decimalInShortestHigh, size_t maxLeadingPaddingZeroesInPrecisionMode,
                 size_t maxTrailingPaddingZeroesInPrecisionMode)
-                : m_iFlags(flags), m_szInfinitySymbol(infinitySymbol), m_szNanSymbol(nanSymbol),
+                : m_iFlags(static_cast<int>(flags)), m_szInfinitySymbol(infinitySymbol), m_szNanSymbol(nanSymbol),
                 m_cExponentCharacter(exponentCharacter), m_iDecimalInShortestLow(decimalInShortestLow),
                 m_iDecimalInShortestHigh(decimalInShortestHigh),
                 m_iMaxLeadingPaddingZeroesInPrecisionMode(maxLeadingPaddingZeroesInPrecisionMode),
                 m_iMaxTrailingPaddingZeroesInPrecisionMode(maxTrailingPaddingZeroesInPrecisionMode)
             {
-                assert(((flags & DtoaFlags::EmitTrailingDecimalPoint) != 0) ||
-                    !((flags & DtoaFlags::EmitTrailingZeroAfterPoint) != 0));
+                assert(((static_cast<int>(flags) & static_cast<int>(DtoaFlags::EmitTrailingDecimalPoint)) != 0) ||
+                    !((static_cast<int>(flags) & static_cast<int>(DtoaFlags::EmitTrailingZeroAfterPoint)) != 0));
             }
 
             // Computes the shortest string of digits that correctly represent the input
@@ -2036,7 +2039,7 @@ namespace moe
                 DoubleToAscii(value, DtoaMode::Fixed, requestedDigits, decimalRep, kDecimalRepCapacity, sign,
                     decimalRepLength, decimalPoint);
 
-                bool uniqueZero = ((m_iFlags & DtoaFlags::UniqueZero) != 0);
+                bool uniqueZero = ((m_iFlags & static_cast<int>(DtoaFlags::UniqueZero)) != 0);
                 if (sign && (value != 0.0 || !uniqueZero))
                     resultBuilder.AddCharacter('-');
 
@@ -2107,7 +2110,7 @@ namespace moe
                     decimalRepLength = static_cast<size_t>(requestedDigits + 1);
                 }
 
-                bool uniqueZero = ((m_iFlags & DtoaFlags::UniqueZero) != 0);
+                bool uniqueZero = ((m_iFlags & static_cast<int>(DtoaFlags::UniqueZero)) != 0);
                 if (sign && (value != 0.0 || !uniqueZero))
                     resultBuilder.AddCharacter('-');
 
@@ -2170,7 +2173,7 @@ namespace moe
                     decimalRepLength, decimalPoint);
                 assert(decimalRepLength <= precision);
 
-                bool uniqueZero = ((m_iFlags & DtoaFlags::UniqueZero) != 0);
+                bool uniqueZero = ((m_iFlags & static_cast<int>(DtoaFlags::UniqueZero)) != 0);
                 if (sign && (value != 0.0 || !uniqueZero))
                     resultBuilder.AddCharacter('-');
 
@@ -2178,7 +2181,7 @@ namespace moe
                 // decimal point after the first digit.
                 int exponent = decimalPoint - 1;
 
-                int extraZero = ((m_iFlags & DtoaFlags::EmitTrailingZeroAfterPoint) != 0) ? 1 : 0;
+                int extraZero = ((m_iFlags & static_cast<int>(DtoaFlags::EmitTrailingZeroAfterPoint)) != 0) ? 1 : 0;
                 if ((-decimalPoint + 1 > m_iMaxLeadingPaddingZeroesInPrecisionMode) ||
                     (decimalPoint - static_cast<int>(precision) + extraZero >
                         m_iMaxTrailingPaddingZeroesInPrecisionMode))
@@ -2333,7 +2336,7 @@ namespace moe
 
                 DoubleToAscii(value, mode, 0, decimalRep, kDecimalRepCapacity, sign, decimalRepLength, decimalPoint);
 
-                bool uniqueZero = (m_iFlags & DtoaFlags::UniqueZero) != 0;
+                bool uniqueZero = (m_iFlags & static_cast<int>(DtoaFlags::UniqueZero)) != 0;
                 if (sign && (value != 0.0 || !uniqueZero))
                     resultBuilder.AddCharacter('-');
 
@@ -2402,7 +2405,7 @@ namespace moe
                 }
                 else
                 {
-                    if ((m_iFlags & DtoaFlags::EmitPositiveExponentSign) != 0)
+                    if ((m_iFlags & static_cast<int>(DtoaFlags::EmitPositiveExponentSign)) != 0)
                         resultBuilder.AddCharacter('+');
                 }
 
@@ -2472,9 +2475,9 @@ namespace moe
 
                 if (digitsAfterPoint == 0)
                 {
-                    if ((m_iFlags & DtoaFlags::EmitTrailingDecimalPoint) != 0)
+                    if ((m_iFlags & static_cast<int>(DtoaFlags::EmitTrailingDecimalPoint)) != 0)
                         resultBuilder.AddCharacter('.');
-                    if ((m_iFlags & DtoaFlags::EmitTrailingZeroAfterPoint) != 0)
+                    if ((m_iFlags & static_cast<int>(DtoaFlags::EmitTrailingZeroAfterPoint)) != 0)
                         resultBuilder.AddCharacter('0');
                 }
             }

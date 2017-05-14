@@ -4,6 +4,8 @@
  */
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include <Moe.Core/Algorithm/Atod.hpp>
 
 using namespace std;
@@ -19,15 +21,128 @@ namespace
     }
 
     template <typename T>
-    static double StrtodChar(const T* str, int exponent)
+    double StrtodChar(const T* str, int exponent)
     {
         return StringToDoubleConverter<T>::Strtod(StringToVector(str), exponent);
     }
 
     template <typename T>
-    static float StrtofChar(const T* str, int exponent)
+    float StrtofChar(const T* str, int exponent)
     {
         return StringToDoubleConverter<T>::Strtof(StringToVector(str), exponent);
+    }
+
+    int CompareBignumToDiyFp(const Bignum& bignumDigits, int bignumExponent, DiyFp diyFp)
+    {
+        Bignum bignum;
+        bignum.AssignBignum(bignumDigits);
+        Bignum other;
+        other.AssignUInt64(diyFp.Significand());
+        if (bignumExponent >= 0)
+            bignum.MultiplyByPowerOfTen(bignumExponent);
+        else
+            other.MultiplyByPowerOfTen(-bignumExponent);
+
+        if (diyFp.Exponent() >= 0)
+            other.ShiftLeft(diyFp.Exponent());
+        else
+            bignum.ShiftLeft(-diyFp.Exponent());
+
+        return Bignum::Compare(bignum, other);
+    }
+
+    bool CheckDouble(ArrayView<char> buffer, int exponent, double toCheck)
+    {
+        DiyFp lowerBoundary;
+        DiyFp upperBoundary;
+        Bignum inputDigits;
+        inputDigits.AssignDecimalString(buffer);
+
+        if (toCheck == 0.0)
+        {
+            const double kMinDouble = 4e-324;
+            Double d(kMinDouble);
+            d.NormalizedBoundaries(lowerBoundary, upperBoundary);
+            return CompareBignumToDiyFp(inputDigits, exponent, lowerBoundary) <= 0;
+        }
+
+        if (toCheck == Double::Infinity())
+        {
+            const double kMaxDouble = 1.7976931348623157e308;
+            // Check that the buffer*10^exponent >= boundary between kMaxDouble and inf.
+            Double d(kMaxDouble);
+            d.NormalizedBoundaries(lowerBoundary, upperBoundary);
+            return CompareBignumToDiyFp(inputDigits, exponent, upperBoundary) >= 0;
+        }
+
+        Double d(toCheck);
+        d.NormalizedBoundaries(lowerBoundary, upperBoundary);
+        if ((d.Significand() & 1) == 0)
+        {
+            return CompareBignumToDiyFp(inputDigits, exponent, lowerBoundary) >= 0 &&
+                CompareBignumToDiyFp(inputDigits, exponent, upperBoundary) <= 0;
+        }
+        else
+        {
+            return CompareBignumToDiyFp(inputDigits, exponent, lowerBoundary) > 0 &&
+                CompareBignumToDiyFp(inputDigits, exponent, upperBoundary) < 0;
+        }
+    }
+
+    // Copied from v8.cc and adapted to make the function deterministic.
+    uint32_t DeterministicRandom()
+    {
+        // Random number generator using George Marsaglia's MWC algorithm.
+        static uint32_t hi = 0;
+        static uint32_t lo = 0;
+
+        // Initialization values don't have any special meaning. (They are the result
+        // of two calls to random().)
+        if (hi == 0) hi = 0xbfe166e7;
+        if (lo == 0) lo = 0x64d1c3c9;
+
+        // Mix the bits.
+        hi = 36969 * (hi & 0xFFFF) + (hi >> 16);
+        lo = 18273 * (lo & 0xFFFF) + (lo >> 16);
+        return (hi << 16) + (lo & 0xFFFF);
+    }
+
+    bool CheckFloat(ArrayView<char> buffer, int exponent, float toCheck)
+    {
+        DiyFp lowerBoundary;
+        DiyFp upperBoundary;
+        Bignum inputDigits;
+        inputDigits.AssignDecimalString(buffer);
+        if (toCheck == 0.0)
+        {
+            const float kMinFloat = 1e-45f;
+            // Check that the buffer*10^exponent < (0 + kMinFloat)/2.
+            Single s(kMinFloat);
+            s.NormalizedBoundaries(lowerBoundary, upperBoundary);
+            return CompareBignumToDiyFp(inputDigits, exponent, lowerBoundary) <= 0;
+        }
+
+        if (toCheck == static_cast<float>(Double::Infinity()))
+        {
+            const float kMaxFloat = 3.4028234e38f;
+            // Check that the buffer*10^exponent >= boundary between kMaxFloat and inf.
+            Single s(kMaxFloat);
+            s.NormalizedBoundaries(lowerBoundary, upperBoundary);
+            return CompareBignumToDiyFp(inputDigits, exponent, upperBoundary) >= 0;
+        }
+
+        Single s(toCheck);
+        s.NormalizedBoundaries(lowerBoundary, upperBoundary);
+        if ((s.Significand() & 1) == 0)
+        {
+            return CompareBignumToDiyFp(inputDigits, exponent, lowerBoundary) >= 0 &&
+                CompareBignumToDiyFp(inputDigits, exponent, upperBoundary) <= 0;
+        }
+        else
+        {
+            return CompareBignumToDiyFp(inputDigits, exponent, lowerBoundary) > 0 &&
+                CompareBignumToDiyFp(inputDigits, exponent, upperBoundary) < 0;
+        }
     }
 }
 
@@ -552,4 +667,2724 @@ TEST(Atod, Strtof)
     EXPECT_EQ(2147483648.0f, StrtofChar("2147483776", 0));
     EXPECT_EQ(2147483648.0f, StrtofChar("214748377599999", -5));
     EXPECT_EQ(2147483904.0f, StrtofChar("214748377600001", -5));
+}
+
+static const int kBufferSize = 1024;
+static const int kShortStrtodRandomCount = 2;
+static const int kLargeStrtodRandomCount = 2;
+
+TEST(Atod, RandomStrtod)
+{
+    char buffer[kBufferSize];
+    for (size_t length = 1; length < 15; length++)
+    {
+        for (size_t i = 0; i < kShortStrtodRandomCount; ++i)
+        {
+            size_t pos = 0;
+            for (size_t j = 0; j < length; ++j)
+                buffer[pos++] = static_cast<char>(DeterministicRandom() % 10 + '0');
+
+            int exponent = DeterministicRandom() % (25 * 2 + 1) - 25 - length;
+            buffer[pos] = '\0';
+            ArrayView<char> vector(buffer, pos);
+            double strtodResult = internal::StringToDoubleConverter<char>::Strtod(vector, exponent);
+            EXPECT_TRUE(CheckDouble(vector, exponent, strtodResult));
+        }
+    }
+
+    for (size_t length = 15; length < 800; length += 2)
+    {
+        for (size_t i = 0; i < kLargeStrtodRandomCount; ++i)
+        {
+            size_t pos = 0;
+            for (size_t j = 0; j < length; ++j)
+                buffer[pos++] = static_cast<char>(DeterministicRandom() % 10 + '0');
+
+            int exponent = DeterministicRandom() % (308 * 2 + 1) - 308 - length;
+            buffer[pos] = '\0';
+            ArrayView<char> vector(buffer, pos);
+            double strtodResult = internal::StringToDoubleConverter<char>::Strtod(vector, exponent);
+            EXPECT_TRUE(CheckDouble(vector, exponent, strtodResult));
+        }
+    }
+}
+
+static const int kShortStrtofRandomCount = 2;
+static const int kLargeStrtofRandomCount = 2;
+
+TEST(Atod, RandomStrtof)
+{
+    char buffer[kBufferSize];
+    for (size_t length = 1; length < 15; length++)
+    {
+        for (size_t i = 0; i < kShortStrtofRandomCount; ++i)
+        {
+            size_t pos = 0;
+            for (size_t j = 0; j < length; ++j)
+                buffer[pos++] = static_cast<char>(DeterministicRandom() % 10 + '0');
+
+            int exponent = DeterministicRandom() % (5*2 + 1) - 5 - length;
+            buffer[pos] = '\0';
+            ArrayView<char> vector(buffer, pos);
+            float strtofResult = internal::StringToDoubleConverter<char>::Strtof(vector, exponent);
+            EXPECT_TRUE(CheckFloat(vector, exponent, strtofResult));
+        }
+    }
+
+    for (size_t length = 15; length < 800; length += 2)
+    {
+        for (size_t i = 0; i < kLargeStrtofRandomCount; ++i)
+        {
+            size_t pos = 0;
+            for (size_t j = 0; j < length; ++j)
+                buffer[pos++] = static_cast<char>(DeterministicRandom() % 10 + '0');
+
+            int exponent = DeterministicRandom() % (38*2 + 1) - 38 - length;
+            buffer[pos] = '\0';
+            ArrayView<char> vector(buffer, pos);
+            float strtofResult = internal::StringToDoubleConverter<char>::Strtof(vector, exponent);
+            EXPECT_TRUE(CheckFloat(vector, exponent, strtofResult));
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+namespace
+{
+    double StrToD16(const char16_t* str16, size_t length, AtodFlags flags, double emptyStringValue,
+        size_t& processedCharactersCount, bool& processedAll)
+    {
+        StringToDoubleConverter<char16_t> converter(flags, emptyStringValue, Double::Nan(), nullptr, nullptr);
+        double result = converter.StringToDouble(str16, length, processedCharactersCount);
+        processedAll = (length == processedCharactersCount);
+        return result;
+    }
+
+    double StrToD(const char* str, AtodFlags flags, double emptyStringValue, size_t& processedCharactersCount,
+        bool& processedAll)
+    {
+        StringToDoubleConverter<char> converter(flags, emptyStringValue, Double::Nan(), nullptr, nullptr);
+        double result = converter.StringToDouble(str, strlen(str), processedCharactersCount);
+        processedAll = ((strlen(str) == processedCharactersCount));
+
+        char16_t buffer16[256];
+        assert(strlen(str) < CountOf(buffer16));
+        size_t len = strlen(str);
+        for (size_t i = 0; i < len; i++)
+            buffer16[i] = static_cast<char16_t>(str[i]);
+        
+        size_t processedCharactersCount16;
+        bool processedAll16;
+        double result16 = StrToD16(buffer16, len, flags, emptyStringValue, processedCharactersCount16, processedAll16);
+        EXPECT_FALSE(result != result16 && (result == result || result16 == result16));
+        EXPECT_EQ(processedCharactersCount, processedCharactersCount16);
+        return result;
+    }
+
+    float StrToF16(const char16_t* str16, size_t length, AtodFlags flags,
+        double emptyStringValue, size_t& processedCharactersCount, bool& processedAll)
+    {
+        StringToDoubleConverter<char16_t> converter(flags, emptyStringValue, Single::Nan(), nullptr, nullptr);
+        double result = converter.StringToFloat(str16, length, processedCharactersCount);
+        processedAll = (length == processedCharactersCount);
+        return result;
+    }
+
+     float StrToF(const char* str, AtodFlags flags, double emptyStringValue, size_t& processedCharactersCount,
+         bool& processedAll)
+     {
+        StringToDoubleConverter<char> converter(flags, emptyStringValue, Single::Nan(), nullptr, nullptr);
+        float result = converter.StringToFloat(str, strlen(str), processedCharactersCount);
+        processedAll = ((strlen(str) == processedCharactersCount));
+
+        char16_t buffer16[256];
+        assert(strlen(str) < CountOf(buffer16));
+        size_t len = strlen(str);
+        for (size_t i = 0; i < len; i++)
+            buffer16[i] = static_cast<char16_t>(str[i]);
+
+        size_t processedCharactersCount16;
+        bool processedAll16;
+        float result16 = StrToF16(buffer16, len, flags, emptyStringValue, processedCharactersCount16, processedAll16);
+        EXPECT_FALSE(result != result16 && (result == result || result16 == result16));
+        EXPECT_EQ(processedCharactersCount, processedCharactersCount16);
+        return result;
+    }
+}
+
+TEST(Atod, StringToDoubleVarious)
+{
+    AtodFlags flags;
+    size_t processed;
+    bool allUsed;
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces));
+
+    EXPECT_EQ(0.0, StrToD("", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD("", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("  ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD("  ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0, StrToD("42", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0, StrToD(" + 42 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-42.0, StrToD(" - 42 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("x", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" x", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("42x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("42 x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" + 42 x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" - 42 x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+
+    EXPECT_EQ(0.0, StrToD("", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD("", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("  ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD("  ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0, StrToD("42", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0, StrToD(" + 42 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-42.0, StrToD(" - 42 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("x", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" x", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(42.0, StrToD("42x", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(42.0, StrToD("42 x", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(42.0, StrToD(" + 42 x", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(6, processed);
+
+    EXPECT_EQ(-42.0, StrToD(" - 42 x", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(6, processed);
+    
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+
+    EXPECT_EQ(0.0, StrToD("", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD("", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("  ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD("  ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0, StrToD("42", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0, StrToD(" + 42 ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(5, processed);
+
+    EXPECT_EQ(-42.0, StrToD(" - 42 ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(5, processed);
+
+    EXPECT_TRUE(isnan(StrToD("x", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" x", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(42.0, StrToD("42x", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(42.0, StrToD("42 x", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(42.0, StrToD(" + 42 x", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(5, processed);
+
+    EXPECT_EQ(-42.0, StrToD(" - 42 x", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(5, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+
+    EXPECT_EQ(42.0, StrToD(" +42 ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(4, processed);
+
+    EXPECT_EQ(-42.0, StrToD(" -42 ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(4, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" + 42 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" - 42 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::Default;
+
+    EXPECT_EQ(0.0, StrToD("", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD("", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("  ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("  ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(42.0, StrToD("42", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" + 42 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" - 42 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("x", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" x", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("42x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("42 x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" + 42 x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" - 42 x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::AllowLeadingSpaces;
+
+    EXPECT_EQ(0.0, StrToD(" ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD(" ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0, StrToD(" 42", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("42 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::AllowTrailingSpaces;
+
+    EXPECT_EQ(0.0, StrToD(" ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD(" ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0, StrToD("42 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" 42", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+}
+
+TEST(Atod, StringToDoubleEmptyString)
+{
+    AtodFlags flags;
+    size_t processed;
+    bool allUsed;
+
+    flags = AtodFlags::Default;
+    EXPECT_EQ(0.0, StrToD("", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD("", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::AllowSpacesAfterSign;
+    EXPECT_EQ(0.0, StrToD("", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD("", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::AllowLeadingSpaces;
+    EXPECT_EQ(0.0, StrToD("", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD("", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD(" ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD(" ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    flags = AtodFlags::AllowTrailingSpaces;
+    EXPECT_EQ(0.0, StrToD("", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD("", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD(" ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD(" ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    flags = AtodFlags::AllowTrailingJunk;
+    EXPECT_EQ(0.0, StrToD("", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD("", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+}
+
+TEST(Atod, StringToDoubleHexString)
+{
+    AtodFlags flags;
+    size_t processed;
+    bool allUsed;
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowHex) |
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign));
+
+    EXPECT_EQ(18.0, StrToD("0x12", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("0x0", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0x123456789), StrToD("0x123456789", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(18.0, StrToD(" 0x12 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD(" 0x0 ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0x123456789), StrToD(" 0x123456789 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD("0xabcdef", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD("0xABCDEF", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD(" 0xabcdef ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD(" 0xABCDEF ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("0x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x 3", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("0x3g", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("0x3.23", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("x3", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("0x3 foo", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x3 foo", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("+ 0x3 foo", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("+", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("-", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(-5.0, StrToD("-0x5", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-5.0, StrToD(" - 0x5 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(5.0, StrToD(" + 0x5 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("- -0x5", flags, 0.0,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("- +0x5", flags, 0.0,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("+ +0x5", flags, 0.0,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::AllowHex;
+
+    EXPECT_EQ(18.0, StrToD("0x12", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("0x0", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0x123456789), StrToD("0x123456789", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x12 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x0 ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x123456789 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD("0xabcdef", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD("0xABCDEF", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0xABCDEF ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0xABCDEF ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("0x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x 3", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("0x3g", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("0x3.23", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("x3", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("+ 0x3 foo", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("+", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("-", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(-5.0, StrToD("-0x5", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" - 0x5 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" + 0x5 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("- -0x5", flags, 0.0,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("- +0x5", flags, 0.0,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("+ +0x5", flags, 0.0,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowTrailingJunk) |
+        static_cast<int>(AtodFlags::AllowHex));
+
+    EXPECT_EQ(18.0, StrToD("0x12", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("0x0", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0x123456789), StrToD("0x123456789", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x12 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x0 ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(18.0, StrToD("0x12 ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(4, processed);
+
+    EXPECT_EQ(0.0, StrToD("0x0 ", flags, 1.0, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x123456789 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD("0xabcdef", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD("0xABCDEF", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0xabcdef ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0xABCDEF ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD("0xabcdef ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD("0xABCDEF ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0xabcdef", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0xABCDEF", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("0x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x 3", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(3.0, StrToD("0x3g", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(3.0, StrToD("0x3.234", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x3g", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x3.234", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("x3", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("+ 0x3 foo", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("+", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("-", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(-5.0, StrToD("-0x5", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" - 0x5 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" + 0x5 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("- -0x5", flags, 0.0,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("- +0x5", flags, 0.0,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("+ +0x5", flags, 0.0,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowTrailingJunk) |
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign) |
+        static_cast<int>(AtodFlags::AllowHex));
+
+    EXPECT_EQ(18.0, StrToD("0x12", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("0x0", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0x123456789), StrToD("0x123456789", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(18.0, StrToD(" 0x12 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD(" 0x0 ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0x123456789), StrToD(" 0x123456789 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD("0xabcdef", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD("0xABCDEF", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD(" 0xabcdef ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0xABCDEF), StrToD(" 0xABCDEF ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0xABC), StrToD(" 0xabc def ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(7, processed);
+
+    EXPECT_EQ(static_cast<double>(0xABC), StrToD(" 0xABC DEF ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(7, processed);
+
+    EXPECT_EQ(static_cast<double>(0x12), StrToD(" 0x12 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD(" 0x0 ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<double>(0x123456789), StrToD(" 0x123456789 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("0x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0x 3", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ((double)0x3, StrToD("0x3g", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ((double)0x3, StrToD("0x3.234", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_TRUE(isnan(StrToD("x3", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+}
+
+TEST(Atod, StringToDoubleOctalString)
+{
+    AtodFlags flags;
+    size_t processed;
+    bool allUsed;
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowOctals) |
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign));
+
+    EXPECT_EQ(10.0, StrToD("012", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("00", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD("012", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0, StrToD("0123456789", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("+01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0, StrToD("-01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD(" 012", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD("\n012", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD(" 00", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("\t00", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD(" 012", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD("\n012", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0, StrToD(" 0123456789", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD(" 01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("\n01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD(" + 01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0, StrToD(" - 01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0, StrToD("\n-\t01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD(" 012 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD(" 00 ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD(" 012 ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0, StrToD(" 0123456789 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD(" 01234567 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD(" + 01234567 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0, StrToD(" - 01234567 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD("012 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("00 ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD("012 ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0, StrToD("0123456789 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("+01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0, StrToD("-01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("01234567e0", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::AllowOctals;
+    EXPECT_EQ(10.0, StrToD("012", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("00", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD("012", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0, StrToD("0123456789", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("+01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0, StrToD("-01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" 012", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 00", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 012", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0123456789", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 01234567", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" + 01234567", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" - 01234567", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 012 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 00 ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 012 ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0123456789 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 01234567 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" + 01234567 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" - 01234567 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("012 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("00 ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("012 ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("0123456789 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("01234567 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(342391.0, StrToD("+01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0, StrToD("-01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("01234567e0", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowOctals) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+    EXPECT_EQ(10.0, StrToD("012", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("00", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD("012", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0, StrToD("0123456789", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("+01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0, StrToD("-01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" 012", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 00", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 012", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0123456789", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 01234567", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" + 01234567", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" - 01234567", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 012 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 00 ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 012 ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0123456789 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 01234567 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" + 01234567 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" - 01234567 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(10.0, StrToD("012 ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(0.0, StrToD("00 ", flags, 1.0, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(123456789.0, StrToD("0123456789 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(10, processed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_EQ(342391.0, StrToD("+01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0, StrToD("-01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD("012foo ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(0.0, StrToD("00foo ", flags, 1.0, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(123456789.0, StrToD("0123456789foo ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(10, processed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567foo ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_EQ(342391.0, StrToD("+01234567foo", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(-342391.0, StrToD("-01234567foo", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(10.0, StrToD("012 foo ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(0.0, StrToD("00 foo ", flags, 1.0, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(123456789.0, StrToD("0123456789 foo ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(10, processed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567 foo ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_EQ(342391.0, StrToD("+01234567 foo", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(-342391.0, StrToD("-01234567 foo", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567e0", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567e", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowOctals) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+    EXPECT_EQ(10.0, StrToD("012", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("00", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD("012", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0, StrToD("0123456789", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("+01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0, StrToD("-01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" 012", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 00", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 012", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0123456789", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 01234567", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" + 01234567", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" - 01234567", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 012 ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 00 ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 012 ", flags, 1.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 0123456789 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" 01234567 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" + 01234567 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD(" - 01234567 ", flags, Double::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(10.0, StrToD("012 ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("00 ", flags, 1.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0, StrToD("0123456789 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567 ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0, StrToD("+01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0, StrToD("-01234567", flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0, StrToD("012foo ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(0.0, StrToD("00foo ", flags, 1.0, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(123456789.0, StrToD("0123456789foo ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(10, processed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567foo ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_EQ(342391.0, StrToD("+01234567foo", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(-342391.0, StrToD("-01234567foo", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(10.0, StrToD("012 foo ", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(4, processed);
+
+    EXPECT_EQ(0.0, StrToD("00 foo ", flags, 1.0, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(123456789.0, StrToD("0123456789 foo ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(11, processed);
+
+    EXPECT_EQ(342391.0, StrToD("01234567 foo ", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(342391.0, StrToD("+01234567 foo", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(10, processed);
+
+    EXPECT_EQ(-342391.0, StrToD("-01234567 foo", flags, Double::Nan(), processed, allUsed));
+    EXPECT_EQ(10, processed);
+}
+
+TEST(Atod, StringToDoubleSpecialValues)
+{
+    size_t processed;
+    AtodFlags flags = AtodFlags::Default;
+
+    {
+        // Use 1.0 as junk_string_value.
+        StringToDoubleConverter<char> converter(flags, 0.0, 1.0, "infinity", "NaN");
+
+        EXPECT_TRUE(isnan(converter.StringToDouble("+NaN", 4, processed)));
+        EXPECT_EQ(4, processed);
+
+        EXPECT_EQ(-Double::Infinity(), converter.StringToDouble("-infinity", 9, processed));
+        EXPECT_EQ(9, processed);
+
+        EXPECT_EQ(1.0, converter.StringToDouble("Infinity", 8, processed));
+        EXPECT_EQ(0, processed);
+
+        EXPECT_EQ(1.0, converter.StringToDouble("++NaN", 5, processed));
+        EXPECT_EQ(0, processed);
+    }
+
+    {
+        // Use 1.0 as junk_string_value.
+        StringToDoubleConverter<char> converter(flags, 0.0, 1.0, "+infinity", "1NaN");
+
+        // The '+' is consumed before trying to match the infinity string.
+        EXPECT_EQ(1.0, converter.StringToDouble("+infinity", 9, processed));
+        EXPECT_EQ(0, processed);
+
+        // The match for "1NaN" triggers, and doesn't let the 1234.0 complete.
+        EXPECT_EQ(1.0, converter.StringToDouble("1234.0", 6, processed));
+        EXPECT_EQ(0, processed);
+    }
+}
+
+TEST(Atod, StringToDoubleCommentExamples)
+{
+    // Make sure the examples in the comments are correct.
+    AtodFlags flags;
+    size_t processed;
+    bool allUsed;
+
+    flags = AtodFlags::AllowHex;
+
+    EXPECT_EQ(4660.0, StrToD("0x1234", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("0x1234.56", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(flags) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+    EXPECT_EQ(4660.0, StrToD("0x1234.56", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(6, processed);
+
+    flags = AtodFlags::AllowOctals;
+    EXPECT_EQ(668.0, StrToD("01234", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(12349.0, StrToD("012349", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("01234.56", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(processed, 0);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(flags) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+    EXPECT_EQ(668.0, StrToD("01234.56", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(processed, 5);
+
+    flags  = AtodFlags::AllowSpacesAfterSign;
+    EXPECT_EQ(-123.2, StrToD("-   123.2", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    flags  = AtodFlags::AllowSpacesAfterSign;
+    EXPECT_EQ(123.2, StrToD("+   123.2", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowHex) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+
+    EXPECT_EQ(4660.0, StrToD("0x1234", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(4660.0, StrToD("0x1234K", flags, 0.0, processed, allUsed));
+    EXPECT_EQ(processed, 6);
+
+    EXPECT_EQ(0.0, StrToD("", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD(" ", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(processed, 0);
+
+    EXPECT_TRUE(isnan(StrToD(" 1", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(processed, 0);
+
+    EXPECT_TRUE(isnan(StrToD("0x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(processed, 0);
+
+    EXPECT_EQ(-123.45, StrToD("-123.45", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("--123.45", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(processed, 0);
+
+    EXPECT_EQ(123e45, StrToD("123e45", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123e45, StrToD("123E45", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123e45, StrToD("123e+45", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123e-45, StrToD("123e-45", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123.0, StrToD("123e", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123.0, StrToD("123e-", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    {
+        StringToDoubleConverter<char> converter(flags, 0.0, 1.0, "infinity", "NaN");
+        EXPECT_TRUE(isnan(converter.StringToDouble("+NaN", 4, processed)));
+        EXPECT_EQ(4, processed);
+
+        EXPECT_EQ(-Double::Infinity(), converter.StringToDouble("-infinity", 9, processed));
+        EXPECT_EQ(9, processed);
+
+        EXPECT_EQ(1.0, converter.StringToDouble("Infinity", 9, processed));
+        EXPECT_EQ(0, processed);
+    }
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowOctals) |
+        static_cast<int>(AtodFlags::AllowLeadingSpaces));
+
+    EXPECT_TRUE(isnan(StrToD("0x1234", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(668.0, StrToD("01234", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD("", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0, StrToD(" ", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0, StrToD(" 1", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("0x", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("0123e45", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(1239e45, StrToD("01239e45", flags, 0.0, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToD("-infinity", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToD("NaN", flags, 0.0, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+}
+
+TEST(Atod, StringToFloatVarious)
+{
+    AtodFlags flags;
+    size_t processed;
+    bool allUsed;
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces));
+
+    EXPECT_EQ(0.0f, StrToF("", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF("", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("  ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF("  ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0f, StrToF("42", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0f, StrToF(" + 42 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-42.0f, StrToF(" - 42 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("x", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" x", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("42x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("42 x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" + 42 x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" - 42 x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+
+    EXPECT_EQ(0.0f, StrToF("", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF("", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("  ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF("  ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0f, StrToF("42", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0f, StrToF(" + 42 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-42.0f, StrToF(" - 42 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("x", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" x", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(42.0f, StrToF("42x", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(42.0f, StrToF("42 x", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(42.0f, StrToF(" + 42 x", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(6, processed);
+
+    EXPECT_EQ(-42.0f, StrToF(" - 42 x", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(6, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+
+    EXPECT_EQ(0.0f, StrToF("", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF("", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("  ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF("  ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0f, StrToF("42", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0f, StrToF(" + 42 ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(5, processed);
+
+    EXPECT_EQ(-42.0f, StrToF(" - 42 ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(5, processed);
+
+    EXPECT_TRUE(isnan(StrToF("x", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" x", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(42.0f, StrToF("42x", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(42.0f, StrToF("42 x", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(42.0f, StrToF(" + 42 x", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(5, processed);
+
+    EXPECT_EQ(-42.0f, StrToF(" - 42 x", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(5, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+
+    EXPECT_EQ(42.0f, StrToF(" +42 ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(4, processed);
+
+    EXPECT_EQ(-42.0f, StrToF(" -42 ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(4, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" + 42 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" - 42 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::Default;
+
+    EXPECT_EQ(0.0f, StrToF("", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF("", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("  ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("  ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(42.0f, StrToF("42", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" + 42 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" - 42 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("x", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" x", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("42x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("42 x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" + 42 x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" - 42 x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::AllowLeadingSpaces;
+
+    EXPECT_EQ(0.0f, StrToF(" ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF(" ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0f, StrToF(" 42", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("42 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::AllowTrailingSpaces;
+
+    EXPECT_EQ(0.0f, StrToF(" ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF(" ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(42.0f, StrToF("42 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" 42", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+}
+
+TEST(Atod, StringToFloatEmptyString)
+{
+    AtodFlags flags;
+    size_t processed;
+    bool allUsed;
+
+    flags = AtodFlags::Default;
+    EXPECT_EQ(0.0f, StrToF("", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF("", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::AllowSpacesAfterSign;
+    EXPECT_EQ(0.0f, StrToF("", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF("", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::AllowLeadingSpaces;
+    EXPECT_EQ(0.0f, StrToF("", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF("", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF(" ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF(" ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    flags = AtodFlags::AllowTrailingSpaces;
+    EXPECT_EQ(0.0f, StrToF("", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF("", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF(" ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF(" ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    flags = AtodFlags::AllowTrailingJunk;
+    EXPECT_EQ(0.0f, StrToF("", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(1.0f, StrToF("", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+}
+
+TEST(Atod, StringToFloatHexString)
+{
+    AtodFlags flags;
+    size_t processed;
+    bool allUsed;
+    double d;
+    float f;
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowHex) |
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign));
+
+    // Check that no double rounding occurs:
+    const char* doubleRoundingExample1 = "0x100000100000008";
+    d = StrToD(doubleRoundingExample1, flags, 0.0, processed, allUsed);
+    f = StrToF(doubleRoundingExample1, flags, 0.0f, processed, allUsed);
+    EXPECT_TRUE(f != static_cast<float>(d));
+    EXPECT_EQ(72057602627862528.0f, StrToF(doubleRoundingExample1, flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    const char* doubleRoundingExample2 = "0x1000002FFFFFFF8";
+    d = StrToD(doubleRoundingExample2, flags, 0.0, processed, allUsed);
+    f = StrToF(doubleRoundingExample2, flags, 0.0f, processed, allUsed);
+    EXPECT_TRUE(f != static_cast<float>(d));
+    EXPECT_EQ(72057602627862528.0f, StrToF(doubleRoundingExample2, flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(18.0f, StrToF("0x12", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("0x0", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0x123456789), StrToF("0x123456789", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(18.0f, StrToF(" 0x12 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF(" 0x0 ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0x123456789), StrToF(" 0x123456789 ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF("0xabcdef", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF("0xABCDEF", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF(" 0xabcdef ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF(" 0xABCDEF ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("0x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x 3", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("0x3g", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("0x3.23", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("x3", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("0x3 foo", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x3 foo", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("+ 0x3 foo", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("+", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("-", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(-5.0f, StrToF("-0x5", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-5.0f, StrToF(" - 0x5 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(5.0f, StrToF(" + 0x5 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("- -0x5", flags, 0.0f,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("- +0x5", flags, 0.0f,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("+ +0x5", flags, 0.0f,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::AllowHex;
+
+    EXPECT_EQ(18.0f, StrToF("0x12", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("0x0", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0x123456789), StrToF("0x123456789", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x12 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x0 ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x123456789 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF("0xabcdef", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF("0xABCDEF", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0xabcdef ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0xABCDEF ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("0x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x 3", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("0x3g", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("0x3.23", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("x3", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("+ 0x3 foo", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("+", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("-", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(-5.0f, StrToF("-0x5", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" - 0x5 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" + 0x5 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("- -0x5", flags, 0.0f,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("- +0x5", flags, 0.0f,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("+ +0x5", flags, 0.0f,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowTrailingJunk) |
+        static_cast<int>(AtodFlags::AllowHex));
+
+    EXPECT_EQ(18.0f, StrToF("0x12", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("0x0", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0x123456789), StrToF("0x123456789", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x12 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x0 ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(18.0f, StrToF("0x12 ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(4, processed);
+
+    EXPECT_EQ(0.0f, StrToF("0x0 ", flags, 1.0f, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x123456789 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF("0xabcdef", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF("0xABCDEF", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0xabcdef ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0xABCDEF ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF("0xabcdef ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF("0xABCDEF ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0xabcdef", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0xABCDEF", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("0x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x 3", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(3.0f, StrToF("0x3g", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(3.0f, StrToF("0x3.234", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x3g", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x3.234", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("x3", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("+ 0x3 foo", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("+", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("-", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(-5.0f, StrToF("-0x5", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" - 0x5 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" + 0x5 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("- -0x5", flags, 0.0f,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("- +0x5", flags, 0.0f,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("+ +0x5", flags, 0.0f,  processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowTrailingJunk) |
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign) |
+        static_cast<int>(AtodFlags::AllowHex));
+
+    EXPECT_EQ(18.0f, StrToF("0x12", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("0x0", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0x123456789), StrToF("0x123456789", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(18.0f, StrToF(" 0x12 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF(" 0x0 ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0x123456789), StrToF(" 0x123456789 ", flags, Single::Nan(),
+            processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF("0xabcdef", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF("0xABCDEF", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0xABCDEF), StrToF(" 0xabcdef ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0xabcdef), StrToF(" 0xABCDEF ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0xabc), StrToF(" 0xabc def ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(7, processed);
+
+    EXPECT_EQ(static_cast<float>(0xabc), StrToF(" 0xABC DEF ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(7, processed);
+
+    EXPECT_EQ(static_cast<float>(0x12), StrToF(" 0x12 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF(" 0x0 ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(static_cast<float>(0x123456789), StrToF(" 0x123456789 ", flags, Single::Nan(),
+            processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("0x", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0x 3", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ((float)0x3, StrToF("0x3g", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ((float)0x3, StrToF("0x3.234", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_TRUE(isnan(StrToF("x3", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+}
+
+TEST(Atod, StringToFloatOctalString)
+{
+    AtodFlags flags;
+    size_t processed;
+    bool allUsed;
+    double d;
+    float f;
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowOctals) |
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign));
+
+    // Check that no double rounding occurs:
+    const char* doubleRoundingExample1 = "04000000040000000010";
+    d = StrToD(doubleRoundingExample1, flags, 0.0, processed, allUsed);
+    f = StrToF(doubleRoundingExample1, flags, 0.0f, processed, allUsed);
+    EXPECT_TRUE(f != static_cast<float>(d));
+    EXPECT_EQ(72057602627862528.0f, StrToF(doubleRoundingExample1, flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    const char* doubleRoundingExample2 = "04000000137777777770";
+    d = StrToD(doubleRoundingExample2, flags, 0.0, processed, allUsed);
+    f = StrToF(doubleRoundingExample2, flags, 0.0f, processed, allUsed);
+    EXPECT_TRUE(f != static_cast<float>(d));
+    EXPECT_EQ(72057602627862528.0f, StrToF(doubleRoundingExample2, flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF("012", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("00", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF("012", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0f, StrToF("0123456789", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF("+01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0f, StrToF("-01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF(" 012", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF(" 00", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF(" 012", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0f, StrToF(" 0123456789", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF(" 01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF(" + 01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0f, StrToF(" - 01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF(" 012 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF(" 00 ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF(" 012 ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0f, StrToF(" 0123456789 ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF(" 01234567 ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF(" + 01234567 ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0f, StrToF(" - 01234567 ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF("012 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("00 ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF("012 ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0f, StrToF("0123456789 ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567 ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF("+01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0f, StrToF("-01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("01234567e0", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = AtodFlags::AllowOctals;
+    EXPECT_EQ(10.0f, StrToF("012", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("00", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF("012", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0f, StrToF("0123456789", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF("+01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0f, StrToF("-01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" 012", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 00", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 012", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0123456789", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 01234567", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" + 01234567", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" - 01234567", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 012 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 00 ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 012 ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0123456789 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 01234567 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" + 01234567 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" - 01234567 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("012 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("00 ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("012 ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("0123456789 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF("01234567 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("+01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0f, StrToF("-01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF("01234567e0", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowOctals) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+    EXPECT_EQ(10.0f, StrToF("012", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("00", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF("012", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0f, StrToF("0123456789", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF("+01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0f, StrToF("-01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" 012", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 00", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 012", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0123456789", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 01234567", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" + 01234567", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" - 01234567", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 012 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 00 ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 012 ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0123456789 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 01234567 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" + 01234567 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" - 01234567 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(10.0f, StrToF("012 ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(0.0f, StrToF("00 ", flags, 1.0f, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(123456789.0f, StrToF("0123456789 ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(10, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567 ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("+01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0f, StrToF("-01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF("012foo ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(0.0f, StrToF("00foo ", flags, 1.0f, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(123456789.0f, StrToF("0123456789foo ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(10, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567foo ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("+01234567foo", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(-342391.0f, StrToF("-01234567foo", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(10.0f, StrToF("012 foo ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(0.0f, StrToF("00 foo ", flags, 1.0f, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(123456789.0f, StrToF("0123456789 foo ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(10, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567 foo ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("+01234567 foo", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(-342391.0f, StrToF("-01234567 foo", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567e0", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567e", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowOctals) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingJunk));
+    EXPECT_EQ(10.0f, StrToF("012", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("00", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF("012", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0f, StrToF("0123456789", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF("+01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0f, StrToF("-01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_TRUE(isnan(StrToF(" 012", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 00", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 012", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0123456789", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 01234567", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" + 01234567", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" - 01234567", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 012 ", flags, 0.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 00 ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 012 ", flags, 1.0f, processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 0123456789 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" 01234567 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" + 01234567 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_TRUE(isnan(StrToF(" - 01234567 ", flags, Single::Nan(), processed, allUsed)));
+    EXPECT_EQ(0, processed);
+
+    EXPECT_EQ(10.0f, StrToF("012 ", flags, 0.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(0.0f, StrToF("00 ", flags, 1.0f, processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(123456789.0f, StrToF("0123456789 ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567 ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(342391.0f, StrToF("+01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(-342391.0f, StrToF("-01234567", flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    EXPECT_EQ(10.0f, StrToF("012foo ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(0.0f, StrToF("00foo ", flags, 1.0f, processed, allUsed));
+    EXPECT_EQ(2, processed);
+
+    EXPECT_EQ(123456789.0f, StrToF("0123456789foo ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(10, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567foo ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(8, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("+01234567foo", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(-342391.0f, StrToF("-01234567foo", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(10.0f, StrToF("012 foo ", flags, 0.0f, processed, allUsed));
+    EXPECT_EQ(4, processed);
+
+    EXPECT_EQ(0.0f, StrToF("00 foo ", flags, 1.0f, processed, allUsed));
+    EXPECT_EQ(3, processed);
+
+    EXPECT_EQ(123456789.0f, StrToF("0123456789 foo ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(11, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("01234567 foo ", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(9, processed);
+
+    EXPECT_EQ(342391.0f, StrToF("+01234567 foo", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(10, processed);
+
+    EXPECT_EQ(-342391.0f, StrToF("-01234567 foo", flags, Single::Nan(), processed, allUsed));
+    EXPECT_EQ(10, processed);
+}
+
+TEST(Atod, StringToFloatSpecialValues)
+{
+    size_t processed;
+    AtodFlags flags = AtodFlags::Default;
+
+    {
+        // Use 1.0 as junk_string_value.
+        StringToDoubleConverter<char> converter(flags, 0.0f, 1.0f, "infinity", "NaN");
+
+        EXPECT_TRUE(isnan(converter.StringToDouble("+NaN", 4, processed)));
+        EXPECT_EQ(4, processed);
+
+        EXPECT_EQ(-Single::Infinity(), converter.StringToDouble("-infinity", 9, processed));
+        EXPECT_EQ(9, processed);
+
+        EXPECT_EQ(1.0f, converter.StringToDouble("Infinity", 8, processed));
+        EXPECT_EQ(0, processed);
+
+        EXPECT_EQ(1.0f, converter.StringToDouble("++NaN", 5, processed));
+        EXPECT_EQ(0, processed);
+    }
+
+    {
+        // Use 1.0 as junk_string_value.
+        StringToDoubleConverter<char> converter(flags, 0.0f, 1.0f, "+infinity", "1NaN");
+
+        // The '+' is consumed before trying to match the infinity string.
+        EXPECT_EQ(1.0f, converter.StringToDouble("+infinity", 9, processed));
+        EXPECT_EQ(0, processed);
+
+        // The match for "1NaN" triggers, and doesn't let the 1234.0 complete.
+        EXPECT_EQ(1.0f, converter.StringToDouble("1234.0", 6, processed));
+        EXPECT_EQ(0, processed);
+    }
+}
+
+TEST(Atod, StringToDoubleFloatWhitespace)
+{
+    AtodFlags flags;
+    size_t processed;
+    bool allUsed;
+
+    flags = static_cast<AtodFlags>(
+        static_cast<int>(AtodFlags::AllowLeadingSpaces) |
+        static_cast<int>(AtodFlags::AllowTrailingSpaces) |
+        static_cast<int>(AtodFlags::AllowSpacesAfterSign));
+
+    const char kWhitespaceAscii[] = {
+        0x0A, 0x0D, 0x09, 0x0B, 0x0C, 0x20,
+        '-',
+        0x0A, 0x0D, 0x09, 0x0B, 0x0C, 0x20,
+        '1', '.', '2',
+        0x0A, 0x0D, 0x09, 0x0B, 0x0C, 0x20,
+        0x00
+    };
+    EXPECT_EQ(-1.2, StrToD(kWhitespaceAscii, flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+    EXPECT_EQ(-1.2f, StrToF(kWhitespaceAscii, flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+
+    const char16_t kOghamSpaceMark = 0x1680;
+    const char16_t kMongolianVowelSeparator = 0x180E;
+    const char16_t kEnQuad = 0x2000;
+    const char16_t kEmQuad = 0x2001;
+    const char16_t kEnSpace = 0x2002;
+    const char16_t kEmSpace = 0x2003;
+    const char16_t kThreePerEmSpace = 0x2004;
+    const char16_t kFourPerEmSpace = 0x2005;
+    const char16_t kSixPerEmSpace = 0x2006;
+    const char16_t kFigureSpace = 0x2007;
+    const char16_t kPunctuationSpace = 0x2008;
+    const char16_t kThinSpace = 0x2009;
+    const char16_t kHairSpace = 0x200A;
+    const char16_t kNarrowNoBreakSpace = 0x202F;
+    const char16_t kMediumMathematicalSpace = 0x205F;
+    const char16_t kIdeographicSpace = 0x3000;
+
+    const char16_t kWhitespace16[] = {
+        0x0A, 0x0D, 0x09, 0x0B, 0x0C, 0x20, 0xA0, 0xFEFF,
+        kOghamSpaceMark, kMongolianVowelSeparator, kEnQuad, kEmQuad,
+        kEnSpace, kEmSpace, kThreePerEmSpace, kFourPerEmSpace, kSixPerEmSpace,
+        kFigureSpace, kPunctuationSpace, kThinSpace, kHairSpace,
+        kNarrowNoBreakSpace, kMediumMathematicalSpace, kIdeographicSpace,
+        '-',
+        0x0A, 0x0D, 0x09, 0x0B, 0x0C, 0x20, 0xA0, 0xFEFF,
+        kOghamSpaceMark, kMongolianVowelSeparator, kEnQuad, kEmQuad,
+        kEnSpace, kEmSpace, kThreePerEmSpace, kFourPerEmSpace, kSixPerEmSpace,
+        kFigureSpace, kPunctuationSpace, kThinSpace, kHairSpace,
+        kNarrowNoBreakSpace, kMediumMathematicalSpace, kIdeographicSpace,
+        '1', '.', '2',
+        0x0A, 0x0D, 0x09, 0x0B, 0x0C, 0x20, 0xA0, 0xFEFF,
+        kOghamSpaceMark, kMongolianVowelSeparator, kEnQuad, kEmQuad,
+        kEnSpace, kEmSpace, kThreePerEmSpace, kFourPerEmSpace, kSixPerEmSpace,
+        kFigureSpace, kPunctuationSpace, kThinSpace, kHairSpace,
+        kNarrowNoBreakSpace, kMediumMathematicalSpace, kIdeographicSpace,
+    };
+    const int kWhitespace16Length = CountOf(kWhitespace16);
+    EXPECT_EQ(-1.2, StrToD16(kWhitespace16, kWhitespace16Length, flags, Double::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
+    EXPECT_EQ(-1.2f, StrToF16(kWhitespace16, kWhitespace16Length, flags, Single::Nan(), processed, allUsed));
+    EXPECT_TRUE(allUsed);
 }

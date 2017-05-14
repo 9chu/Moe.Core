@@ -3068,9 +3068,10 @@ TEST(DoubleToStringConverter, DoubleToShortest)
     const int kBufferSize = 128;
     char buffer[kBufferSize];
     StringBuilder<> builder(buffer, kBufferSize);
-    int flags = DoubleToStringConverter<>::DtoaFlags::UniqueZero |
-        DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign;
-    DoubleToStringConverter<> dc((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', -6, 21, 0, 0);
+    DtoaFlags flags = static_cast<DtoaFlags>(
+        static_cast<int>(DtoaFlags::UniqueZero) |
+        static_cast<int>(DtoaFlags::EmitPositiveExponentSign));
+    DoubleToStringConverter<> dc(flags, nullptr, nullptr, 'e', -6, 21, 0, 0);
 
     EXPECT_TRUE(dc.ToShortest(0.0, builder));
     EXPECT_STREQ("0", builder.Finalize());
@@ -3119,8 +3120,8 @@ TEST(DoubleToStringConverter, DoubleToShortest)
     EXPECT_TRUE(dc.ToShortest(-0.0, builder));
     EXPECT_STREQ("0", builder.Finalize());
 
-    flags = DoubleToStringConverter<>::DtoaFlags::Default;
-    DoubleToStringConverter<> dc2((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', -1, 1, 0, 0);
+    flags = DtoaFlags::Default;
+    DoubleToStringConverter<> dc2(flags, nullptr, nullptr, 'e', -1, 1, 0, 0);
     builder.Reset();
     EXPECT_TRUE(dc2.ToShortest(0.1, builder));
     EXPECT_STREQ("0.1", builder.Finalize());
@@ -3141,9 +3142,10 @@ TEST(DoubleToStringConverter, DoubleToShortest)
     EXPECT_TRUE(dc2.ToShortest(-0.0, builder));
     EXPECT_STREQ("-0", builder.Finalize());
 
-    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint |
-        DoubleToStringConverter<>::DtoaFlags::EmitTrailingZeroAfterPoint;
-    DoubleToStringConverter<> dc3((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'E', -5, 5, 0, 0);
+    flags = static_cast<DtoaFlags>(
+        static_cast<int>(DtoaFlags::EmitTrailingDecimalPoint) |
+        static_cast<int>(DtoaFlags::EmitTrailingZeroAfterPoint));
+    DoubleToStringConverter<> dc3(flags, nullptr, nullptr, 'E', -5, 5, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc3.ToShortest(0.1, builder));
@@ -3162,8 +3164,8 @@ TEST(DoubleToStringConverter, DoubleToShortest)
     EXPECT_STREQ("1E5", builder.Finalize());
 
     // Test the examples in the comments of ToShortest.
-    flags = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign;
-    DoubleToStringConverter<> dc4((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', -6, 21, 0, 0);
+    flags = DtoaFlags::EmitPositiveExponentSign;
+    DoubleToStringConverter<> dc4(flags, nullptr, nullptr, 'e', -6, 21, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc4.ToShortest(0.000001, builder));
@@ -3186,7 +3188,7 @@ TEST(DoubleToStringConverter, DoubleToShortest)
     EXPECT_STREQ("1.1111111111111111e+21", builder.Finalize());
 
     // Test special value handling.
-    DoubleToStringConverter<> dc5((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+    DoubleToStringConverter<> dc5(flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(!dc5.ToShortest(Double::Infinity(), builder));
@@ -3200,7 +3202,7 @@ TEST(DoubleToStringConverter, DoubleToShortest)
     builder.Reset();
     EXPECT_TRUE(!dc5.ToShortest(-Double::Nan(), builder));
 
-    DoubleToStringConverter<> dc6((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
+    DoubleToStringConverter<> dc6(flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc6.ToShortest(Double::Infinity(), builder));
@@ -3224,9 +3226,10 @@ TEST(DoubleToStringConverter, DoubleToShortestSingle)
     const int kBufferSize = 128;
     char buffer[kBufferSize];
     StringBuilder<> builder(buffer, kBufferSize);
-    int flags = DoubleToStringConverter<>::DtoaFlags::UniqueZero |
-        DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign;
-    DoubleToStringConverter<> dc((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', -6, 21, 0, 0);
+    DtoaFlags flags = static_cast<DtoaFlags>(
+        static_cast<int>(DtoaFlags::UniqueZero) |
+        static_cast<int>(DtoaFlags::EmitPositiveExponentSign));
+    DoubleToStringConverter<> dc(flags, nullptr, nullptr, 'e', -6, 21, 0, 0);
 
     EXPECT_TRUE(dc.ToShortestSingle(0.0f, builder));
     EXPECT_STREQ("0", builder.Finalize());
@@ -3275,8 +3278,8 @@ TEST(DoubleToStringConverter, DoubleToShortestSingle)
     EXPECT_TRUE(dc.ToShortestSingle(-0.0f, builder));
     EXPECT_STREQ("0", builder.Finalize());
 
-    flags = DoubleToStringConverter<>::DtoaFlags::Default;
-    DoubleToStringConverter<> dc2((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', -1, 1, 0, 0);
+    flags = DtoaFlags::Default;
+    DoubleToStringConverter<> dc2(flags, nullptr, nullptr, 'e', -1, 1, 0, 0);
     builder.Reset();
     EXPECT_TRUE(dc2.ToShortestSingle(0.1f, builder));
     EXPECT_STREQ("0.1", builder.Finalize());
@@ -3297,9 +3300,10 @@ TEST(DoubleToStringConverter, DoubleToShortestSingle)
     EXPECT_TRUE(dc2.ToShortestSingle(-0.0f, builder));
     EXPECT_STREQ("-0", builder.Finalize());
 
-    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint |
-        DoubleToStringConverter<>::DtoaFlags::EmitTrailingZeroAfterPoint;
-    DoubleToStringConverter<> dc3((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'E', -5, 5, 0, 0);
+    flags = static_cast<DtoaFlags>(
+        static_cast<int>(DtoaFlags::EmitTrailingDecimalPoint) |
+        static_cast<int>(DtoaFlags::EmitTrailingZeroAfterPoint));
+    DoubleToStringConverter<> dc3(flags, nullptr, nullptr, 'E', -5, 5, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc3.ToShortestSingle(0.1f, builder));
@@ -3318,8 +3322,8 @@ TEST(DoubleToStringConverter, DoubleToShortestSingle)
     EXPECT_STREQ("1E5", builder.Finalize());
 
     // Test the examples in the comments of ToShortestSingle.
-    flags = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign;
-    DoubleToStringConverter<> dc4((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', -6, 21, 0, 0);
+    flags = DtoaFlags::EmitPositiveExponentSign;
+    DoubleToStringConverter<> dc4(flags, nullptr, nullptr, 'e', -6, 21, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc4.ToShortestSingle(0.000001f, builder));
@@ -3342,7 +3346,7 @@ TEST(DoubleToStringConverter, DoubleToShortestSingle)
     EXPECT_STREQ("1.11111114e+21", builder.Finalize());
 
     // Test special value handling.
-    DoubleToStringConverter<> dc5((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+    DoubleToStringConverter<> dc5(flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(!dc5.ToShortestSingle(Single::Infinity(), builder));
@@ -3356,7 +3360,7 @@ TEST(DoubleToStringConverter, DoubleToShortestSingle)
     builder.Reset();
     EXPECT_TRUE(!dc5.ToShortestSingle(-Single::Nan(), builder));
 
-    DoubleToStringConverter<> dc6((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
+    DoubleToStringConverter<> dc6(flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc6.ToShortestSingle(Single::Infinity(), builder));
@@ -3380,9 +3384,10 @@ TEST(DoubleToStringConverter, DoubleToFixed)
     const int kBufferSize = 128;
     char buffer[kBufferSize];
     StringBuilder<> builder(buffer, kBufferSize);
-    int flags = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign |
-        DoubleToStringConverter<>::DtoaFlags::UniqueZero;
-    DoubleToStringConverter<> dc((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e',
+    DtoaFlags flags = static_cast<DtoaFlags>(
+        static_cast<int>(DtoaFlags::EmitPositiveExponentSign) |
+        static_cast<int>(DtoaFlags::UniqueZero));
+    DoubleToStringConverter<> dc(flags, "Infinity", "NaN", 'e',
         0, 0, 0, 0);  // Padding zeroes.
 
     EXPECT_TRUE(dc.ToFixed(0.0, 0, builder));
@@ -3489,8 +3494,8 @@ TEST(DoubleToStringConverter, DoubleToFixed)
     EXPECT_STREQ("0.6", builder.Finalize());
 
     // Test positive/negative zeroes.
-    int flags2 = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign;
-    DoubleToStringConverter<> dc2((DoubleToStringConverter<>::DtoaFlags)flags2, "Infinity", "NaN", 'e',
+    DtoaFlags flags2 = DtoaFlags::EmitPositiveExponentSign;
+    DoubleToStringConverter<> dc2(flags2, "Infinity", "NaN", 'e',
         0, 0, 0, 0);  // Padding zeroes.
     builder.Reset();
     EXPECT_TRUE(dc2.ToFixed(0.0, 1, builder));
@@ -3501,9 +3506,10 @@ TEST(DoubleToStringConverter, DoubleToFixed)
     EXPECT_STREQ("-0.0", builder.Finalize());
 
     // Verify the trailing dot is emitted.
-    int flags3 = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign |
-        DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint;
-    DoubleToStringConverter<> dc3((DoubleToStringConverter<>::DtoaFlags)flags3, "Infinity", "NaN", 'e',
+    DtoaFlags flags3 = static_cast<DtoaFlags>(
+        static_cast<int>(DtoaFlags::EmitPositiveExponentSign) |
+        static_cast<int>(DtoaFlags::EmitTrailingDecimalPoint));
+    DoubleToStringConverter<> dc3(flags3, "Infinity", "NaN", 'e',
         0, 0, 0, 0);  // Padding zeroes.
     builder.Reset();
     EXPECT_TRUE(dc3.ToFixed(0.0, 0, builder));
@@ -3523,10 +3529,11 @@ TEST(DoubleToStringConverter, DoubleToFixed)
 
     // Verify no trailing zero is emitted, even if the configuration is set.
     // The given parameter takes precedence.
-    int flags4 = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign |
-        DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint |
-        DoubleToStringConverter<>::DtoaFlags::EmitTrailingZeroAfterPoint;
-    DoubleToStringConverter<> dc4((DoubleToStringConverter<>::DtoaFlags)flags4, "Infinity", "NaN", 'e',
+    DtoaFlags flags4 = static_cast<DtoaFlags>(
+        static_cast<int>(DtoaFlags::EmitPositiveExponentSign) |
+        static_cast<int>(DtoaFlags::EmitTrailingDecimalPoint) |
+        static_cast<int>(DtoaFlags::EmitTrailingZeroAfterPoint));
+    DoubleToStringConverter<> dc4(flags4, "Infinity", "NaN", 'e',
         0, 0, 0, 0);  // Padding zeroes.
     builder.Reset();
     EXPECT_TRUE(dc4.ToFixed(0.0, 0, builder));
@@ -3545,8 +3552,8 @@ TEST(DoubleToStringConverter, DoubleToFixed)
     EXPECT_STREQ("-1.0", builder.Finalize());
 
     // Test the examples in the comments of ToFixed.
-    flags = DoubleToStringConverter<>::DtoaFlags::Default;
-    DoubleToStringConverter<> dc5((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+    flags = DtoaFlags::Default;
+    DoubleToStringConverter<> dc5(flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc5.ToFixed(3.12, 1, builder));
@@ -3588,8 +3595,8 @@ TEST(DoubleToStringConverter, DoubleToFixed)
     EXPECT_TRUE(dc5.ToFixed(0.678, 0, builder));
     EXPECT_STREQ("1", builder.Finalize());
 
-    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint;
-    DoubleToStringConverter<> dc6((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+    flags = DtoaFlags::EmitTrailingDecimalPoint;
+    DoubleToStringConverter<> dc6(flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc6.ToFixed(123.45, 0, builder));
@@ -3599,9 +3606,10 @@ TEST(DoubleToStringConverter, DoubleToFixed)
     EXPECT_TRUE(dc6.ToFixed(0.678, 0, builder));
     EXPECT_STREQ("1.", builder.Finalize());
 
-    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint |
-        DoubleToStringConverter<>::DtoaFlags::EmitTrailingZeroAfterPoint;
-    DoubleToStringConverter<> dc7((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+    flags = static_cast<DtoaFlags>(
+        static_cast<int>(DtoaFlags::EmitTrailingDecimalPoint) |
+        static_cast<int>(DtoaFlags::EmitTrailingZeroAfterPoint));
+    DoubleToStringConverter<> dc7(flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc7.ToFixed(123.45, 0, builder));
@@ -3612,7 +3620,7 @@ TEST(DoubleToStringConverter, DoubleToFixed)
     EXPECT_STREQ("1.0", builder.Finalize());
 
     // Test special value handling.
-    DoubleToStringConverter<> dc8((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+    DoubleToStringConverter<> dc8(flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(!dc8.ToFixed(Double::Infinity(), 1, builder));
@@ -3626,7 +3634,7 @@ TEST(DoubleToStringConverter, DoubleToFixed)
     builder.Reset();
     EXPECT_TRUE(!dc8.ToFixed(-Double::Nan(), 1, builder));
 
-    DoubleToStringConverter<> dc9((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
+    DoubleToStringConverter<> dc9(flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc9.ToFixed(Double::Infinity(), 1, builder));
@@ -3650,10 +3658,11 @@ TEST(DoubleToStringConverter, DoubleToExponential)
 {
     const int kBufferSize = 256;
     char buffer[kBufferSize];
-    int flags = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign |
-        DoubleToStringConverter<>::DtoaFlags::UniqueZero;
+    DtoaFlags flags = static_cast<DtoaFlags>(
+        static_cast<int>(DtoaFlags::EmitPositiveExponentSign) |
+        static_cast<int>(DtoaFlags::UniqueZero));
     StringBuilder<> builder(buffer, kBufferSize);
-    DoubleToStringConverter<> dc((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
+    DoubleToStringConverter<> dc(flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc.ToExponential(0.0, 5, builder));
@@ -3726,8 +3735,8 @@ TEST(DoubleToStringConverter, DoubleToExponential)
     EXPECT_STREQ("1.00e-7", builder.Finalize());
 
     // Test the examples in the comments of ToExponential.
-    flags = DoubleToStringConverter<>::DtoaFlags::Default;
-    DoubleToStringConverter<> dc2((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
+    flags = DtoaFlags::Default;
+    DoubleToStringConverter<> dc2(flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc2.ToExponential(3.12, 1, builder));
@@ -3770,7 +3779,7 @@ TEST(DoubleToStringConverter, DoubleToExponential)
     EXPECT_STREQ("1e3", builder.Finalize());
 
     // Test special value handling.
-    DoubleToStringConverter<> dc3((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
+    DoubleToStringConverter<> dc3(flags, nullptr, nullptr, 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(!dc3.ToExponential(Double::Infinity(), 1, builder));
@@ -3784,7 +3793,7 @@ TEST(DoubleToStringConverter, DoubleToExponential)
     builder.Reset();
     EXPECT_TRUE(!dc3.ToExponential(-Double::Nan(), 1, builder));
 
-    DoubleToStringConverter<> dc4((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
+    DoubleToStringConverter<> dc4(flags, "Infinity", "NaN", 'e', 0, 0, 0, 0);
 
     builder.Reset();
     EXPECT_TRUE(dc4.ToExponential(Double::Infinity(), 1, builder));
@@ -3807,10 +3816,11 @@ TEST(DoubleToStringConverter, DoubleToPrecision)
 {
     const int kBufferSize = 256;
     char buffer[kBufferSize];
-    int flags = DoubleToStringConverter<>::DtoaFlags::EmitPositiveExponentSign |
-        DoubleToStringConverter<>::DtoaFlags::UniqueZero;
+    DtoaFlags flags = static_cast<DtoaFlags>(
+        static_cast<int>(DtoaFlags::EmitPositiveExponentSign) |
+        static_cast<int>(DtoaFlags::UniqueZero));
     StringBuilder<> builder(buffer, kBufferSize);
-    DoubleToStringConverter<> dc((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e',
+    DoubleToStringConverter<> dc(flags, "Infinity", "NaN", 'e',
         0, 0,   // Padding zeroes for shortest mode.
         6, 0);  // Padding zeroes for precision mode.
 
@@ -3868,8 +3878,8 @@ TEST(DoubleToStringConverter, DoubleToPrecision)
     EXPECT_TRUE(dc.ToPrecision(0.0000001, 2, builder));
     EXPECT_STREQ("1.0e-7", builder.Finalize());
 
-    flags = DoubleToStringConverter<>::DtoaFlags::Default;
-    DoubleToStringConverter<> dc2((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 1);
+    flags = DtoaFlags::Default;
+    DoubleToStringConverter<> dc2(flags, nullptr, nullptr, 'e', 0, 0, 0, 1);
     builder.Reset();
     EXPECT_TRUE(dc2.ToPrecision(230.0, 2, builder));
     EXPECT_STREQ("230", builder.Finalize());
@@ -3886,8 +3896,8 @@ TEST(DoubleToStringConverter, DoubleToPrecision)
     EXPECT_TRUE(dc2.ToPrecision(2300.0, 2, builder));
     EXPECT_STREQ("2.3e3", builder.Finalize());
 
-    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint;
-    DoubleToStringConverter<> dc3((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 1);
+    flags = DtoaFlags::EmitTrailingDecimalPoint;
+    DoubleToStringConverter<> dc3(flags, nullptr, nullptr, 'e', 0, 0, 0, 1);
     builder.Reset();
     EXPECT_TRUE(dc3.ToPrecision(230.0, 2, builder));
     EXPECT_STREQ("230.", builder.Finalize());
@@ -3904,9 +3914,10 @@ TEST(DoubleToStringConverter, DoubleToPrecision)
     EXPECT_TRUE(dc3.ToPrecision(2300.0, 2, builder));
     EXPECT_STREQ("2.3e3", builder.Finalize());
 
-    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint |
-        DoubleToStringConverter<>::DtoaFlags::EmitTrailingZeroAfterPoint;
-    DoubleToStringConverter<> dc4((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 0, 1);
+    flags = static_cast<DtoaFlags>(
+        static_cast<int>(DtoaFlags::EmitTrailingDecimalPoint) |
+        static_cast<int>(DtoaFlags::EmitTrailingZeroAfterPoint));
+    DoubleToStringConverter<> dc4(flags, nullptr, nullptr, 'e', 0, 0, 0, 1);
     builder.Reset();
     EXPECT_TRUE(dc4.ToPrecision(230.0, 2, builder));
     EXPECT_STREQ("2.3e2", builder.Finalize());
@@ -3924,13 +3935,14 @@ TEST(DoubleToStringConverter, DoubleToPrecision)
     EXPECT_STREQ("2.3e3", builder.Finalize());
 
     // Test the examples in the comments of ToPrecision.
-    flags = DoubleToStringConverter<>::DtoaFlags::Default;
-    DoubleToStringConverter<> dc5((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 6, 1);
-    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint;
-    DoubleToStringConverter<> dc6((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 6, 1);
-    flags = DoubleToStringConverter<>::DtoaFlags::EmitTrailingDecimalPoint |
-        DoubleToStringConverter<>::DtoaFlags::EmitTrailingZeroAfterPoint;
-    DoubleToStringConverter<> dc7((DoubleToStringConverter<>::DtoaFlags)flags, "Infinity", "NaN", 'e', 0, 0, 6, 1);
+    flags = DtoaFlags::Default;
+    DoubleToStringConverter<> dc5(flags, "Infinity", "NaN", 'e', 0, 0, 6, 1);
+    flags = DtoaFlags::EmitTrailingDecimalPoint;
+    DoubleToStringConverter<> dc6(flags, "Infinity", "NaN", 'e', 0, 0, 6, 1);
+    flags = static_cast<DtoaFlags>(
+        static_cast<int>(DtoaFlags::EmitTrailingDecimalPoint) |
+        static_cast<int>(DtoaFlags::EmitTrailingZeroAfterPoint));
+    DoubleToStringConverter<> dc7(flags, "Infinity", "NaN", 'e', 0, 0, 6, 1);
 
     builder.Reset();
     EXPECT_TRUE(dc5.ToPrecision(0.0000012345, 2, builder));
@@ -3952,8 +3964,8 @@ TEST(DoubleToStringConverter, DoubleToPrecision)
     EXPECT_TRUE(dc7.ToPrecision(230.0, 2, builder));
     EXPECT_STREQ("2.3e2", builder.Finalize());
 
-    flags = DoubleToStringConverter<>::DtoaFlags::Default;
-    DoubleToStringConverter<> dc8((DoubleToStringConverter<>::DtoaFlags)flags, nullptr, nullptr, 'e', 0, 0, 6, 3);
+    flags = DtoaFlags::Default;
+    DoubleToStringConverter<> dc8(flags, nullptr, nullptr, 'e', 0, 0, 6, 3);
 
     builder.Reset();
     EXPECT_TRUE(dc8.ToPrecision(123450.0, 6, builder));

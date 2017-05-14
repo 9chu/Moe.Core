@@ -45,8 +45,7 @@ struct CachedPower
     int16_t decimalExponent;
 };
 
-static const CachedPower kCachedPowers[] =
-{
+static const CachedPower kCachedPowers[] = {
     { 0xfa8fd5a0081c0288ull, -1220, -348 },
     { 0xbaaee17fa23ebf76ull, -1193, -340 },
     { 0x8b16fb203055ac76ull, -1166, -332 },
