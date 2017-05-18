@@ -1,16 +1,12 @@
-/**
- * @file
- * @date 2017/5/6
- * @see https://github.com/google/double-conversion
- */
-#include <Moe.Core/Algorithm/Dtoa.hpp>
+#include <Moe.Core/Convert.hpp>
 
 #include <cmath>
 #include <algorithm>
 
 using namespace std;
 using namespace moe;
-using namespace internal;
+using namespace Convert;
+using namespace details;
 
 void DiyFp::Multiply(const DiyFp& other)
 {
@@ -297,7 +293,7 @@ void Bignum::AssignPowerUInt16(uint16_t base, int powerExponent)
         AssignUInt16(1);
         return;
     }
-    
+
     Zero();
     int shifts = 0;
     while ((base & 1) == 0)
@@ -305,7 +301,7 @@ void Bignum::AssignPowerUInt16(uint16_t base, int powerExponent)
         base >>= 1;
         shifts++;
     }
-    
+
     int bitSize = 0;
     int tmpBase = base;
     while (tmpBase != 0)
@@ -313,7 +309,7 @@ void Bignum::AssignPowerUInt16(uint16_t base, int powerExponent)
         tmpBase >>= 1;
         bitSize++;
     }
-    
+
     int finalSize = bitSize * powerExponent;
     EnsureCapacity(finalSize / kBigitSize + 2);
 
@@ -390,7 +386,7 @@ void Bignum::AddBignum(const Bignum& other)
         carry = sum >> kBigitSize;
         bigitPos++;
     }
-    
+
     m_uUsedDigits = std::max(static_cast<size_t>(bigitPos), m_uUsedDigits);
     assert(IsClamped());
 }
@@ -431,17 +427,17 @@ void Bignum::Square()
 
     if ((1 << (2 * (kChunkSize - kBigitSize))) <= m_uUsedDigits)
         MOE_UNREACHABLE();
-    
+
     DoubleChunk accumulator = 0;
     int copyOffset = m_uUsedDigits;
     for (size_t i = 0; i < m_uUsedDigits; ++i)
         m_stBigits[copyOffset + i] = m_stBigits[i];
-    
+
     for (size_t i = 0; i < m_uUsedDigits; ++i)
     {
         int bigitIndex1 = static_cast<int>(i);
         size_t bigitIndex2 = 0;
-        
+
         while (bigitIndex1 >= 0)
         {
             Chunk chunk1 = m_stBigits[copyOffset + bigitIndex1];
@@ -454,12 +450,12 @@ void Bignum::Square()
         m_stBigits[i] = static_cast<Chunk>(accumulator) & kBigitMask;
         accumulator >>= kBigitSize;
     }
-    
+
     for (size_t i = m_uUsedDigits; i < productLength; ++i)
     {
         size_t bigitIndex1 = m_uUsedDigits - 1;
         size_t bigitIndex2 = i - bigitIndex1;
-        
+
         while (bigitIndex2 < m_uUsedDigits)
         {
             Chunk chunk1 = m_stBigits[copyOffset + bigitIndex1];
@@ -468,11 +464,11 @@ void Bignum::Square()
             bigitIndex1--;
             bigitIndex2++;
         }
-        
+
         m_stBigits[i] = static_cast<Chunk>(accumulator) & kBigitMask;
         accumulator >>= kBigitSize;
     }
-    
+
     assert(accumulator == 0);
 
     m_uUsedDigits = productLength;
@@ -758,70 +754,73 @@ void Bignum::SubtractTimes(const Bignum& other, int factor)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static void InitialScaledStartValuesPositiveExponent(uint64_t significand, int exponent, int estimatedPower,
-    bool needBoundaryDeltas, Bignum& numerator, Bignum& denominator, Bignum& deltaMinus, Bignum& deltaPlus)
+namespace
 {
-    assert(estimatedPower >= 0);
-
-    numerator.AssignUInt64(significand);
-    numerator.ShiftLeft(exponent);
-    denominator.AssignPowerUInt16(10, estimatedPower);
-
-    if (needBoundaryDeltas)
+    static void InitialScaledStartValuesPositiveExponent(uint64_t significand, int exponent, int estimatedPower,
+        bool needBoundaryDeltas, Bignum& numerator, Bignum& denominator, Bignum& deltaMinus, Bignum& deltaPlus)
     {
-        denominator.ShiftLeft(1);
-        numerator.ShiftLeft(1);
+        assert(estimatedPower >= 0);
 
-        deltaPlus.AssignUInt16(1);
-        deltaPlus.ShiftLeft(exponent);
+        numerator.AssignUInt64(significand);
+        numerator.ShiftLeft(exponent);
+        denominator.AssignPowerUInt16(10, estimatedPower);
 
-        deltaMinus.AssignUInt16(1);
-        deltaMinus.ShiftLeft(exponent);
-    }
-}
+        if (needBoundaryDeltas)
+        {
+            denominator.ShiftLeft(1);
+            numerator.ShiftLeft(1);
 
-static void InitialScaledStartValuesNegativeExponentPositivePower(uint64_t significand, int exponent,
-    int estimatedPower, bool needBoundaryDeltas, Bignum& numerator, Bignum& denominator, Bignum& deltaMinus,
-    Bignum& deltaPlus)
-{
-    numerator.AssignUInt64(significand);
-    denominator.AssignPowerUInt16(10, estimatedPower);
-    denominator.ShiftLeft(-exponent);
+            deltaPlus.AssignUInt16(1);
+            deltaPlus.ShiftLeft(exponent);
 
-    if (needBoundaryDeltas)
-    {
-        denominator.ShiftLeft(1);
-        numerator.ShiftLeft(1);
-
-        deltaPlus.AssignUInt16(1);
-
-        deltaMinus.AssignUInt16(1);
-    }
-}
-
-static void InitialScaledStartValuesNegativeExponentNegativePower(uint64_t significand, int exponent,
-    int estimatedPower, bool needBoundaryDeltas, Bignum& numerator, Bignum& denominator, Bignum& deltaMinus,
-    Bignum& deltaPlus)
-{
-    Bignum& powerTen = numerator;
-    powerTen.AssignPowerUInt16(10, -estimatedPower);
-
-    if (needBoundaryDeltas)
-    {
-        deltaPlus.AssignBignum(powerTen);
-        deltaMinus.AssignBignum(powerTen);
+            deltaMinus.AssignUInt16(1);
+            deltaMinus.ShiftLeft(exponent);
+        }
     }
 
-    assert(&numerator == &powerTen);
-    numerator.MultiplyByUInt64(significand);
-
-    denominator.AssignUInt16(1);
-    denominator.ShiftLeft(-exponent);
-
-    if (needBoundaryDeltas)
+    static void InitialScaledStartValuesNegativeExponentPositivePower(uint64_t significand, int exponent,
+        int estimatedPower, bool needBoundaryDeltas, Bignum& numerator, Bignum& denominator, Bignum& deltaMinus,
+        Bignum& deltaPlus)
     {
-        numerator.ShiftLeft(1);
-        denominator.ShiftLeft(1);
+        numerator.AssignUInt64(significand);
+        denominator.AssignPowerUInt16(10, estimatedPower);
+        denominator.ShiftLeft(-exponent);
+
+        if (needBoundaryDeltas)
+        {
+            denominator.ShiftLeft(1);
+            numerator.ShiftLeft(1);
+
+            deltaPlus.AssignUInt16(1);
+
+            deltaMinus.AssignUInt16(1);
+        }
+    }
+
+    static void InitialScaledStartValuesNegativeExponentNegativePower(uint64_t significand, int exponent,
+        int estimatedPower, bool needBoundaryDeltas, Bignum& numerator, Bignum& denominator, Bignum& deltaMinus,
+        Bignum& deltaPlus)
+    {
+        Bignum& powerTen = numerator;
+        powerTen.AssignPowerUInt16(10, -estimatedPower);
+
+        if (needBoundaryDeltas)
+        {
+            deltaPlus.AssignBignum(powerTen);
+            deltaMinus.AssignBignum(powerTen);
+        }
+
+        assert(&numerator == &powerTen);
+        numerator.MultiplyByUInt64(significand);
+
+        denominator.AssignUInt16(1);
+        denominator.ShiftLeft(-exponent);
+
+        if (needBoundaryDeltas)
+        {
+            numerator.ShiftLeft(1);
+            denominator.ShiftLeft(1);
+        }
     }
 }
 

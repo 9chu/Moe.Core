@@ -3,11 +3,12 @@
  * @date 2017/5/2
  */
 #pragma once
-#include <Moe.Core/Utility/Misc.hpp>
+#include <Moe.Core/Utils.hpp>
+#include <Moe.Core/ArrayView.hpp>
 
 namespace Testing
 {
-    struct PrecomputedPrecision
+    struct PrecomputedFixed
     {
         double v;
         int numberDigits;
@@ -15,5 +16,5 @@ namespace Testing
         int decimalPoint;
     };
 
-    const moe::ArrayView<PrecomputedPrecision> PrecomputedPrecisionRepresentations();
+    const moe::ArrayView<PrecomputedFixed> PrecomputedFixedRepresentations();
 }
