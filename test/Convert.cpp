@@ -57,7 +57,7 @@ namespace
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-TEST(DiyFp, Subtract)
+TEST(Convert, DiyFpSubtract)
 {
     DiyFp fp1 = DiyFp(3, 0);
     DiyFp fp2 = DiyFp(1, 0);
@@ -71,7 +71,7 @@ TEST(DiyFp, Subtract)
     EXPECT_EQ(0, fp1.Exponent());
 }
 
-TEST(DiyFp, Multiply)
+TEST(Convert, DiyFpMultiply)
 {
     DiyFp fp1 = DiyFp(3, 0);
     DiyFp fp2 = DiyFp(2, 0);
@@ -111,7 +111,7 @@ TEST(DiyFp, Multiply)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-TEST(DiyFp, Uint64Conversions)
+TEST(Convert, DiyFpUint64Conversions)
 {
     uint64_t ordered = 0x0123456789ABCDEFull;
     EXPECT_EQ(3512700564088504e-318, Double(ordered).ToDouble());
@@ -123,7 +123,7 @@ TEST(DiyFp, Uint64Conversions)
     EXPECT_EQ(1.7976931348623157e308, Double(maxDouble64).ToDouble());
 }
 
-TEST(DiyFp, Uint32Conversions)
+TEST(Convert, DiyFpUint32Conversions)
 {
     uint32_t ordered = 0x01234567;
     EXPECT_EQ(2.9988165487136453e-38f, Single(ordered).ToFloat());
@@ -135,7 +135,7 @@ TEST(DiyFp, Uint32Conversions)
     EXPECT_EQ(3.4028234e38f, Single(maxFloat32).ToFloat());
 }
 
-TEST(DiyFp, DoubleToDiyFp)
+TEST(Convert, DiyFpDoubleToDiyFp)
 {
     uint64_t ordered = 0x0123456789ABCDEFull;
     DiyFp fp = Double(ordered).ToDiyFp();
@@ -154,7 +154,7 @@ TEST(DiyFp, DoubleToDiyFp)
     EXPECT_EQ(0x001FFFFFFFFFFFFFull, fp.Significand());
 }
 
-TEST(DiyFp, SingleToDiyFp)
+TEST(Convert, DiyFpSingleToDiyFp)
 {
     uint32_t ordered = 0x01234567;
     DiyFp fp = Single(ordered).ToDiyFp();
@@ -172,7 +172,7 @@ TEST(DiyFp, SingleToDiyFp)
     EXPECT_EQ(0X00FFFFFF, fp.Significand());
 }
 
-TEST(DiyFp, ToNormalizedDiyFp)
+TEST(Convert, DiyFpToNormalizedDiyFp)
 {
     uint64_t ordered = 0x0123456789ABCDEFull;
     DiyFp fp = Double(ordered).ToNormalizedDiyFp();
@@ -190,7 +190,7 @@ TEST(DiyFp, ToNormalizedDiyFp)
     EXPECT_EQ((0x001FFFFFFFFFFFFFull << 11), fp.Significand());
 }
 
-TEST(DiyFp, DoubleIsDenormal)
+TEST(Convert, DiyFpDoubleIsDenormal)
 {
     uint64_t minDouble64 = 0x0000000000000001ull;
     EXPECT_TRUE(Double(minDouble64).IsDenormal());
@@ -202,7 +202,7 @@ TEST(DiyFp, DoubleIsDenormal)
     EXPECT_TRUE(!Double(bits).IsDenormal());
 }
 
-TEST(DiyFp, SingleIsDenormal)
+TEST(Convert, DiyFpSingleIsDenormal)
 {
     uint32_t minFloat32 = 0x00000001;
     EXPECT_TRUE(Single(minFloat32).IsDenormal());
@@ -214,7 +214,7 @@ TEST(DiyFp, SingleIsDenormal)
     EXPECT_TRUE(!Single(bits).IsDenormal());
 }
 
-TEST(DiyFp, DoubleIsSpecial)
+TEST(Convert, DiyFpDoubleIsSpecial)
 {
     EXPECT_TRUE(Double(Double::Infinity()).IsSpecial());
     EXPECT_TRUE(Double(-Double::Infinity()).IsSpecial());
@@ -237,7 +237,7 @@ TEST(DiyFp, DoubleIsSpecial)
     EXPECT_TRUE(!Double(-1.7976931348623157e308).IsSpecial());
 }
 
-TEST(DiyFp, SingleIsSpecial)
+TEST(Convert, DiyFpSingleIsSpecial)
 {
     EXPECT_TRUE(Single(Single::Infinity()).IsSpecial());
     EXPECT_TRUE(Single(-Single::Infinity()).IsSpecial());
@@ -260,7 +260,7 @@ TEST(DiyFp, SingleIsSpecial)
     EXPECT_TRUE(!Single(-1.18e-38f).IsSpecial());
 }
 
-TEST(DiyFp, DoubleIsInfinite)
+TEST(Convert, DiyFpDoubleIsInfinite)
 {
     EXPECT_TRUE(Double(Double::Infinity()).IsInfinite());
     EXPECT_TRUE(Double(-Double::Infinity()).IsInfinite());
@@ -275,7 +275,7 @@ TEST(DiyFp, DoubleIsInfinite)
 }
 
 
-TEST(DiyFp, SingleIsInfinite)
+TEST(Convert, DiyFpSingleIsInfinite)
 {
     EXPECT_TRUE(Single(Single::Infinity()).IsInfinite());
     EXPECT_TRUE(Single(-Single::Infinity()).IsInfinite());
@@ -289,7 +289,7 @@ TEST(DiyFp, SingleIsInfinite)
     EXPECT_TRUE(!Single(minFloat32).IsInfinite());
 }
 
-TEST(DiyFp, DoubleIsNan)
+TEST(Convert, DiyFpDoubleIsNan)
 {
     EXPECT_TRUE(Double(Double::Nan()).IsNan());
 
@@ -307,7 +307,7 @@ TEST(DiyFp, DoubleIsNan)
     EXPECT_TRUE(!Double(minDouble64).IsNan());
 }
 
-TEST(DiyFp, SingleIsNan)
+TEST(Convert, DiyFpSingleIsNan)
 {
     EXPECT_TRUE(Single(Single::Nan()).IsNan());
 
@@ -325,7 +325,7 @@ TEST(DiyFp, SingleIsNan)
     EXPECT_TRUE(!Single(minFloat32).IsNan());
 }
 
-TEST(DiyFp, DoubleSign)
+TEST(Convert, DiyFpDoubleSign)
 {
     EXPECT_EQ(1, Double(1.0).Sign());
     EXPECT_EQ(1, Double(Double::Infinity()).Sign());
@@ -337,7 +337,7 @@ TEST(DiyFp, DoubleSign)
     EXPECT_EQ(1, Double(minDouble64).Sign());
 }
 
-TEST(DiyFp, SingleSign)
+TEST(Convert, DiyFpSingleSign)
 {
     EXPECT_EQ(1, Single(1.0f).Sign());
     EXPECT_EQ(1, Single(Single::Infinity()).Sign());
@@ -349,7 +349,7 @@ TEST(DiyFp, SingleSign)
     EXPECT_EQ(1, Single(minFloat32).Sign());
 }
 
-TEST(DiyFp, DoubleNormalizedBoundaries)
+TEST(Convert, DiyFpDoubleNormalizedBoundaries)
 {
     DiyFp boundaryPlus;
     DiyFp boundaryMinus;
@@ -401,7 +401,7 @@ TEST(DiyFp, DoubleNormalizedBoundaries)
     EXPECT_EQ((1 << 10), fp.Significand() - boundaryMinus.Significand());
 }
 
-TEST(DiyFp, SingleNormalizedBoundaries)
+TEST(Convert, DiyFpSingleNormalizedBoundaries)
 {
     const uint64_t kOne64 = 1;
     DiyFp boundaryPlus;
@@ -460,7 +460,7 @@ TEST(DiyFp, SingleNormalizedBoundaries)
     EXPECT_EQ((kOne64 << 39), fp.Significand() - boundaryMinus.Significand());
 }
 
-TEST(DiyFp, NextDouble)
+TEST(Convert, DiyFpNextDouble)
 {
     EXPECT_EQ(4e-324, Double(0.0).NextDouble());
     EXPECT_EQ(0.0, Double(-0.0).NextDouble());
@@ -479,7 +479,7 @@ TEST(DiyFp, NextDouble)
     EXPECT_EQ(Double::Infinity(), Double(0x7FEFFFFFFFFFFFFFull).NextDouble());
 }
 
-TEST(DiyFp, PreviousDouble)
+TEST(Convert, DiyFpPreviousDouble)
 {
     EXPECT_EQ(0.0, Double(4e-324).PreviousDouble());
     EXPECT_EQ(-0.0, Double(0.0).PreviousDouble());
@@ -499,7 +499,7 @@ TEST(DiyFp, PreviousDouble)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-TEST(Bignum, Assign)
+TEST(Convert, BignumAssign)
 {
     char buffer[kBufferSize];
     Bignum bignum;
@@ -566,7 +566,7 @@ TEST(Bignum, Assign)
     EXPECT_STREQ("123456789ABCDEF0", buffer);
 }
 
-TEST(Bignum, ShiftLeft)
+TEST(Convert, BignumShiftLeft)
 {
     char buffer[kBufferSize];
     Bignum bignum;
@@ -604,7 +604,7 @@ TEST(Bignum, ShiftLeft)
     EXPECT_STREQ("2468ACF13579BDE0000000000000000", buffer);
 }
 
-TEST(Bignum, AddUInt64)
+TEST(Convert, BignumAddUInt64)
 {
     char buffer[kBufferSize];
     Bignum bignum;
@@ -703,7 +703,7 @@ TEST(Bignum, AddUInt64)
     EXPECT_STREQ("10000000000000FFFF00000000", buffer);
 }
 
-TEST(Bignum, AddBignum)
+TEST(Convert, BignumAddBignum)
 {
     char buffer[kBufferSize];
     Bignum bignum;
@@ -792,7 +792,7 @@ TEST(Bignum, AddBignum)
     EXPECT_STREQ("10010000000000000000000000000", buffer);
 }
 
-TEST(Bignum, SubtractBignum)
+TEST(Convert, BignumSubtractBignum)
 {
     char buffer[kBufferSize];
     Bignum bignum;
@@ -887,7 +887,7 @@ TEST(Bignum, SubtractBignum)
     EXPECT_STREQ("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7FFFFFFFF", buffer);
 }
 
-TEST(Bignum, MultiplyUInt32)
+TEST(Convert, BignumMultiplyUInt32)
 {
     char buffer[kBufferSize];
     Bignum bignum;
@@ -983,7 +983,7 @@ TEST(Bignum, MultiplyUInt32)
     EXPECT_STREQ("210EDD6D4CDD2580EE80", buffer);
 }
 
-TEST(Bignum, MultiplyUInt64)
+TEST(Convert, BignumMultiplyUInt64)
 {
     char buffer[kBufferSize];
     Bignum bignum;
@@ -1079,7 +1079,7 @@ TEST(Bignum, MultiplyUInt64)
     EXPECT_STREQ("1E10EE4B11D15A7F3DE7F3C7680000", buffer);
 }
 
-TEST(Bignum, MultiplyPowerOfTen)
+TEST(Convert, BignumMultiplyPowerOfTen)
 {
     char buffer[kBufferSize];
     Bignum bignum;
@@ -1409,7 +1409,7 @@ TEST(Bignum, MultiplyPowerOfTen)
         "0000000000000000000000000000000000000", buffer);
 }
 
-TEST(Bignum, DivideModuloIntBignum)
+TEST(Convert, BignumDivideModuloIntBignum)
 {
     char buffer[kBufferSize];
     Bignum bignum;
@@ -1494,7 +1494,7 @@ TEST(Bignum, DivideModuloIntBignum)
     EXPECT_STREQ("1232DCC", buffer);
 }
 
-TEST(Bignum, Compare)
+TEST(Convert, BignumCompare)
 {
     Bignum bignum1;
     Bignum bignum2;
@@ -1603,7 +1603,7 @@ TEST(Bignum, Compare)
     EXPECT_EQ(+1, Bignum::Compare(bignum2, bignum1));
 }
 
-TEST(Bignum, PlusCompare)
+TEST(Convert, BignumPlusCompare)
 {
     Bignum a;
     Bignum b;
@@ -1790,7 +1790,7 @@ TEST(Bignum, PlusCompare)
     EXPECT_EQ(+1, Bignum::PlusCompare(a, b, c));
 }
 
-TEST(Bignum, Square)
+TEST(Convert, BignumSquare)
 {
     Bignum bignum;
     char buffer[kBufferSize];
@@ -1821,7 +1821,7 @@ TEST(Bignum, Square)
     EXPECT_STREQ("FFFFFFFFFFFFFE00000000000001", buffer);
 }
 
-TEST(Bignum, AssignPowerUInt16)
+TEST(Convert, BignumAssignPowerUInt16)
 {
     Bignum bignum;
     char buffer[kBufferSize];
@@ -1938,7 +1938,7 @@ TEST(Bignum, AssignPowerUInt16)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-TEST(FastDtoa, FastDtoaShortestVariousDoubles)
+TEST(Convert, FastDtoaShortestVariousDoubles)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -2004,7 +2004,7 @@ TEST(FastDtoa, FastDtoaShortestVariousDoubles)
     }
 }
 
-TEST(FastDtoa, FastDtoaShortestVariousFloats)
+TEST(Convert, FastDtoaShortestVariousFloats)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -2073,7 +2073,7 @@ TEST(FastDtoa, FastDtoaShortestVariousFloats)
     EXPECT_EQ(-37, point);
 }
 
-TEST(FastDtoa, FastDtoaPrecisionVariousDoubles)
+TEST(Convert, FastDtoaPrecisionVariousDoubles)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -2169,7 +2169,7 @@ TEST(FastDtoa, FastDtoaPrecisionVariousDoubles)
     EXPECT_EQ(192, point);
 }
 
-TEST(FastDtoa, FastDtoaGayShortest)
+TEST(Convert, FastDtoaGayShortest)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -2201,7 +2201,7 @@ TEST(FastDtoa, FastDtoaGayShortest)
     EXPECT_TRUE(neededMaxLength);
 }
 
-TEST(FastDtoa, FastDtoaGayShortestSingle)
+TEST(Convert, FastDtoaGayShortestSingle)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -2233,7 +2233,7 @@ TEST(FastDtoa, FastDtoaGayShortestSingle)
     EXPECT_TRUE(neededMaxLength);
 }
 
-TEST(FastDtoa, FastDtoaGayPrecision)
+TEST(Convert, FastDtoaGayPrecision)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -2270,7 +2270,7 @@ TEST(FastDtoa, FastDtoaGayPrecision)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-TEST(FixedDtoa, FastFixedVariousDoubles)
+TEST(Convert, FastFixedVariousDoubles)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -2718,7 +2718,7 @@ TEST(FixedDtoa, FastFixedVariousDoubles)
     EXPECT_EQ(16, point);
 }
 
-TEST(FixedDtoa, FastFixedDtoaGayFixed)
+TEST(Convert, FastFixedDtoaGayFixed)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -2744,7 +2744,7 @@ TEST(FixedDtoa, FastFixedDtoaGayFixed)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-TEST(BignumDtoa, BignumDtoaVariousDoubles)
+TEST(Convert, BignumDtoaVariousDoubles)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -2931,7 +2931,7 @@ TEST(BignumDtoa, BignumDtoaVariousDoubles)
     EXPECT_EQ(18, point);
 }
 
-TEST(BignumDtoa,BignumDtoaShortestVariousFloats)
+TEST(Convert,BignumDtoaShortestVariousFloats)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -2985,7 +2985,7 @@ TEST(BignumDtoa,BignumDtoaShortestVariousFloats)
     EXPECT_EQ(-37, point);
 }
 
-TEST(BignumDtoa, BignumDtoaGayShortest)
+TEST(Convert, BignumDtoaGayShortest)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -3003,7 +3003,7 @@ TEST(BignumDtoa, BignumDtoaGayShortest)
     }
 }
 
-TEST(BignumDtoa, BignumDtoaGayShortestSingle)
+TEST(Convert, BignumDtoaGayShortestSingle)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -3022,7 +3022,7 @@ TEST(BignumDtoa, BignumDtoaGayShortestSingle)
     }
 }
 
-TEST(BignumDtoa, BignumDtoaGayFixed)
+TEST(Convert, BignumDtoaGayFixed)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -3043,7 +3043,7 @@ TEST(BignumDtoa, BignumDtoaGayFixed)
     }
 }
 
-TEST(BignumDtoa, BignumDtoaGayPrecision)
+TEST(Convert, BignumDtoaGayPrecision)
 {
     char bufferContainer[kBufferSize];
     MutableArrayView<char> buffer(bufferContainer, kBufferSize);
@@ -3066,7 +3066,7 @@ TEST(BignumDtoa, BignumDtoaGayPrecision)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-TEST(DoubleToStringConverter, DoubleToShortest)
+TEST(Convert, DoubleToShortest)
 {
     const int kBufferSize = 128;
     char buffer[kBufferSize];
@@ -3224,7 +3224,7 @@ TEST(DoubleToStringConverter, DoubleToShortest)
     EXPECT_STREQ("NaN", builder.Finalize());
 }
 
-TEST(DoubleToStringConverter, DoubleToShortestSingle)
+TEST(Convert, DoubleToShortestSingle)
 {
     const int kBufferSize = 128;
     char buffer[kBufferSize];
@@ -3382,7 +3382,7 @@ TEST(DoubleToStringConverter, DoubleToShortestSingle)
     EXPECT_STREQ("NaN", builder.Finalize());
 }
 
-TEST(DoubleToStringConverter, DoubleToFixed)
+TEST(Convert, DoubleToFixed)
 {
     const int kBufferSize = 128;
     char buffer[kBufferSize];
@@ -3657,7 +3657,7 @@ TEST(DoubleToStringConverter, DoubleToFixed)
 }
 
 
-TEST(DoubleToStringConverter, DoubleToExponential)
+TEST(Convert, DoubleToExponential)
 {
     const int kBufferSize = 256;
     char buffer[kBufferSize];
@@ -3815,7 +3815,7 @@ TEST(DoubleToStringConverter, DoubleToExponential)
     EXPECT_STREQ("NaN", builder.Finalize());
 }
 
-TEST(DoubleToStringConverter, DoubleToPrecision)
+TEST(Convert, DoubleToPrecision)
 {
     const int kBufferSize = 256;
     char buffer[kBufferSize];
@@ -4020,7 +4020,7 @@ TEST(DoubleToStringConverter, DoubleToPrecision)
     EXPECT_STREQ("NaN", builder.Finalize());
 }
 
-TEST(DoubleToStringConverter, DoubleToStringJavaScript)
+TEST(Convert, DoubleToStringJavaScript)
 {
     const int kBufferSize = 128;
     char buffer[kBufferSize];
@@ -4786,7 +4786,7 @@ TEST(DoubleToStringConverter, DoubleToStringJavaScript)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-TEST(DoubleToString, CharTest)
+TEST(Convert, CharTest)
 {
     char buffer[kBufferSize];
 
@@ -4824,7 +4824,7 @@ TEST(DoubleToString, CharTest)
     EXPECT_STREQ("1.23456000000000003070e+2", buffer);
 }
 
-TEST(DoubleToString, WCharTest)
+TEST(Convert, WCharTest)
 {
     wchar_t buffer[kBufferSize];
 
@@ -4998,7 +4998,7 @@ namespace
     }
 }
 
-TEST(Atod, Strtod)
+TEST(Convert, Strtod)
 {
     ArrayView<char> vector;
 
@@ -5298,7 +5298,7 @@ TEST(Atod, Strtod)
         "71738545623065874679014086723327636718751", -1076));
 }
 
-TEST(Atod, Strtof)
+TEST(Convert, Strtof)
 {
     ArrayView<char> vector;
 
@@ -5524,7 +5524,7 @@ TEST(Atod, Strtof)
 static const int kShortStrtodRandomCount = 2;
 static const int kLargeStrtodRandomCount = 2;
 
-TEST(Atod, RandomStrtod)
+TEST(Convert, RandomStrtod)
 {
     char buffer[kBufferSize];
     for (size_t length = 1; length < 15; length++)
@@ -5563,7 +5563,7 @@ TEST(Atod, RandomStrtod)
 static const int kShortStrtofRandomCount = 2;
 static const int kLargeStrtofRandomCount = 2;
 
-TEST(Atod, RandomStrtof)
+TEST(Convert, RandomStrtof)
 {
     char buffer[kBufferSize];
     for (size_t length = 1; length < 15; length++)
@@ -5664,7 +5664,7 @@ namespace
     }
 }
 
-TEST(Atod, StringToDoubleVarious)
+TEST(Convert, StringToDoubleVarious)
 {
     AtodFlags flags;
     size_t processed;
@@ -5889,7 +5889,7 @@ TEST(Atod, StringToDoubleVarious)
     EXPECT_EQ(0, processed);
 }
 
-TEST(Atod, StringToDoubleEmptyString)
+TEST(Convert, StringToDoubleEmptyString)
 {
     AtodFlags flags;
     size_t processed;
@@ -5997,7 +5997,7 @@ TEST(Atod, StringToDoubleEmptyString)
     EXPECT_EQ(0, processed);
 }
 
-TEST(Atod, StringToDoubleHexString)
+TEST(Convert, StringToDoubleHexString)
 {
     AtodFlags flags;
     size_t processed;
@@ -6353,7 +6353,7 @@ TEST(Atod, StringToDoubleHexString)
     EXPECT_EQ(0, processed);
 }
 
-TEST(Atod, StringToDoubleOctalString)
+TEST(Convert, StringToDoubleOctalString)
 {
     AtodFlags flags;
     size_t processed;
@@ -6803,7 +6803,7 @@ TEST(Atod, StringToDoubleOctalString)
     EXPECT_EQ(10, processed);
 }
 
-TEST(Atod, StringToDoubleSpecialValues)
+TEST(Convert, StringToDoubleSpecialValues)
 {
     size_t processed;
     AtodFlags flags = AtodFlags::Default;
@@ -6839,7 +6839,7 @@ TEST(Atod, StringToDoubleSpecialValues)
     }
 }
 
-TEST(Atod, StringToDoubleCommentExamples)
+TEST(Convert, StringToDoubleCommentExamples)
 {
     // Make sure the examples in the comments are correct.
     AtodFlags flags;
@@ -6977,7 +6977,7 @@ TEST(Atod, StringToDoubleCommentExamples)
     EXPECT_EQ(0, processed);
 }
 
-TEST(Atod, StringToFloatVarious)
+TEST(Convert, StringToFloatVarious)
 {
     AtodFlags flags;
     size_t processed;
@@ -7202,7 +7202,7 @@ TEST(Atod, StringToFloatVarious)
     EXPECT_EQ(0, processed);
 }
 
-TEST(Atod, StringToFloatEmptyString)
+TEST(Convert, StringToFloatEmptyString)
 {
     AtodFlags flags;
     size_t processed;
@@ -7310,7 +7310,7 @@ TEST(Atod, StringToFloatEmptyString)
     EXPECT_EQ(0, processed);
 }
 
-TEST(Atod, StringToFloatHexString)
+TEST(Convert, StringToFloatHexString)
 {
     AtodFlags flags;
     size_t processed;
@@ -7685,7 +7685,7 @@ TEST(Atod, StringToFloatHexString)
     EXPECT_EQ(0, processed);
 }
 
-TEST(Atod, StringToFloatOctalString)
+TEST(Convert, StringToFloatOctalString)
 {
     AtodFlags flags;
     size_t processed;
@@ -8137,7 +8137,7 @@ TEST(Atod, StringToFloatOctalString)
     EXPECT_EQ(10, processed);
 }
 
-TEST(Atod, StringToFloatSpecialValues)
+TEST(Convert, StringToFloatSpecialValues)
 {
     size_t processed;
     AtodFlags flags = AtodFlags::Default;
@@ -8173,7 +8173,7 @@ TEST(Atod, StringToFloatSpecialValues)
     }
 }
 
-TEST(Atod, StringToDoubleFloatWhitespace)
+TEST(Convert, StringToDoubleFloatWhitespace)
 {
     AtodFlags flags;
     size_t processed;
@@ -8241,3 +8241,252 @@ TEST(Atod, StringToDoubleFloatWhitespace)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+namespace
+{
+    template <typename T, typename TChar, size_t Size>
+    inline void TestToDecimal(T value, const TChar* str)
+    {
+        TChar allocated1[Size];
+        TChar allocated2[Size];
+        size_t length = char_traits<TChar>::length(str);
+
+        size_t s1 = Convert::ToDecimalString(value, allocated1);
+        size_t s2 = Convert::ToDecimalString(value, allocated2, Size);
+        EXPECT_EQ(length, s1);
+        EXPECT_EQ(s1, s2);
+        EXPECT_STREQ(allocated1, allocated2);
+        EXPECT_STREQ(str, allocated1);
+        EXPECT_STREQ(str, allocated2);
+    }
+
+    template <typename T, typename TChar, size_t Size>
+    inline void TestToHex(T value, const TChar* str)
+    {
+        TChar allocated1[Size];
+        TChar allocated2[Size];
+        size_t length = char_traits<TChar>::length(str);
+
+        size_t s1 = Convert::ToHexString(value, allocated1);
+        size_t s2 = Convert::ToHexString(value, allocated2, Size);
+        EXPECT_EQ(length, s1);
+        EXPECT_EQ(s1, s2);
+        EXPECT_STREQ(allocated1, allocated2);
+        EXPECT_STREQ(str, allocated1);
+        EXPECT_STREQ(str, allocated2);
+    }
+
+    template <typename T, typename TChar, size_t Size>
+    inline void TestToHexLower(T value, const TChar* str)
+    {
+        TChar allocated1[Size];
+        TChar allocated2[Size];
+        size_t length = char_traits<TChar>::length(str);
+
+        size_t s1 = Convert::ToHexStringLower(value, allocated1);
+        size_t s2 = Convert::ToHexStringLower(value, allocated2, Size);
+        EXPECT_EQ(length, s1);
+        EXPECT_EQ(s1, s2);
+        EXPECT_STREQ(allocated1, allocated2);
+        EXPECT_STREQ(str, allocated1);
+        EXPECT_STREQ(str, allocated2);
+    }
+
+    template <typename TChar>
+    inline void TestParseInt(const TChar* str, int64_t expectResult, int expectReadCount=-1)
+    {
+        size_t readCount = 0;
+        int64_t result = Convert::ParseInt<TChar>(str, readCount);
+
+        EXPECT_EQ(expectResult, result);
+        if (expectReadCount < 0)
+            EXPECT_EQ(char_traits<TChar>::length(str), readCount);
+        else
+            EXPECT_EQ(static_cast<size_t>(expectReadCount), readCount);
+    }
+
+    template <typename TChar>
+    inline void TestParseUInt(const TChar* str, uint64_t expectResult, int expectReadCount=-1)
+    {
+        size_t readCount = 0;
+        uint64_t result = Convert::ParseUInt<TChar>(str, readCount);
+
+        EXPECT_EQ(expectResult, result);
+        if (expectReadCount < 0)
+            EXPECT_EQ(char_traits<TChar>::length(str), readCount);
+        else
+            EXPECT_EQ(static_cast<size_t>(expectReadCount), readCount);
+    }
+}
+
+TEST(Convert, ToDecimalString)
+{
+    TestToDecimal<int8_t, char, 5>(-128, "-128");
+    TestToDecimal<int8_t, char, 5>(127, "127");
+    TestToDecimal<uint8_t, char, 4>(0, "0");
+    TestToDecimal<uint8_t, char, 4>(255, "255");
+    TestToDecimal<int16_t, char, 7>(-32768, "-32768");
+    TestToDecimal<int16_t, char, 7>(32767, "32767");
+    TestToDecimal<uint16_t, char, 6>(0, "0");
+    TestToDecimal<uint16_t, char, 6>(65535, "65535");
+    TestToDecimal<int32_t, char, 12>(-2147483648, "-2147483648");
+    TestToDecimal<int32_t, char, 12>(2147483647, "2147483647");
+    TestToDecimal<uint32_t, char, 11>(0, "0");
+    TestToDecimal<uint32_t, char, 11>(4294967295, "4294967295");
+    TestToDecimal<int64_t, char, 21>(-9223372036854775808ull, "-9223372036854775808");
+    TestToDecimal<int64_t, char, 21>(9223372036854775807ull, "9223372036854775807");
+    TestToDecimal<uint64_t, char, 21>(0, "0");
+    TestToDecimal<uint64_t, char, 21>(18446744073709551615ull, "18446744073709551615");
+
+    TestToDecimal<int8_t, wchar_t, 5>(-128, L"-128");
+    TestToDecimal<int8_t, wchar_t, 5>(127, L"127");
+    TestToDecimal<uint8_t, wchar_t, 4>(0, L"0");
+    TestToDecimal<uint8_t, wchar_t, 4>(255, L"255");
+    TestToDecimal<int16_t, wchar_t, 7>(-32768, L"-32768");
+    TestToDecimal<int16_t, wchar_t, 7>(32767, L"32767");
+    TestToDecimal<uint16_t, wchar_t, 6>(0, L"0");
+    TestToDecimal<uint16_t, wchar_t, 6>(65535, L"65535");
+    TestToDecimal<int32_t, wchar_t, 12>(-2147483648, L"-2147483648");
+    TestToDecimal<int32_t, wchar_t, 12>(2147483647, L"2147483647");
+    TestToDecimal<uint32_t, wchar_t, 11>(0, L"0");
+    TestToDecimal<uint32_t, wchar_t, 11>(4294967295, L"4294967295");
+    TestToDecimal<int64_t, wchar_t, 21>(-9223372036854775808ull, L"-9223372036854775808");
+    TestToDecimal<int64_t, wchar_t, 21>(9223372036854775807ull, L"9223372036854775807");
+    TestToDecimal<uint64_t, wchar_t, 21>(0, L"0");
+    TestToDecimal<uint64_t, wchar_t, 21>(18446744073709551615ull, L"18446744073709551615");
+
+    TestToDecimal<int8_t, char, 5>(1, "1");
+    TestToDecimal<int8_t, char, 5>(123, "123");
+    TestToDecimal<uint8_t, char, 4>(1, "1");
+    TestToDecimal<uint8_t, char, 4>(123, "123");
+    TestToDecimal<int16_t, char, 7>(1, "1");
+    TestToDecimal<int16_t, char, 7>(12345, "12345");
+    TestToDecimal<uint16_t, char, 6>(1, "1");
+    TestToDecimal<uint16_t, char, 6>(12345, "12345");
+    TestToDecimal<int32_t, char, 12>(1, "1");
+    TestToDecimal<int32_t, char, 12>(1234567890, "1234567890");
+    TestToDecimal<uint32_t, char, 11>(1, "1");
+    TestToDecimal<uint32_t, char, 11>(1234567890, "1234567890");
+    TestToDecimal<int64_t, char, 21>(1, "1");
+    TestToDecimal<int64_t, char, 21>(1234567890987654321ull, "1234567890987654321");
+    TestToDecimal<uint64_t, char, 21>(1, "1");
+    TestToDecimal<uint64_t, char, 21>(1234567890987654321ull, "1234567890987654321");
+}
+
+TEST(Convert, ToHexString)
+{
+    TestToHex<uint64_t, char, 17>(0, "0");
+    TestToHex<uint64_t, char, 17>(0xABCDEF, "ABCDEF");
+    TestToHex<uint64_t, char, 17>(0x12345678, "12345678");
+    TestToHex<uint64_t, char, 17>(0xFFFFFFFFFFFFFFFFull, "FFFFFFFFFFFFFFFF");
+
+    TestToHexLower<uint64_t, char, 17>(0, "0");
+    TestToHexLower<uint64_t, char, 17>(0xABCDEF, "abcdef");
+    TestToHexLower<uint64_t, char, 17>(0x12345678, "12345678");
+    TestToHexLower<uint64_t, char, 17>(0xFFFFFFFFFFFFFFFFull, "ffffffffffffffff");
+
+    TestToHex<uint32_t, char, 9>(0, "0");
+    TestToHex<uint32_t, char, 9>(0xABCD, "ABCD");
+    TestToHex<uint32_t, char, 9>(0x12345678, "12345678");
+    TestToHex<uint32_t, char, 9>(0xFFFFFFFF, "FFFFFFFF");
+
+    TestToHexLower<uint32_t, char, 9>(0, "0");
+    TestToHexLower<uint32_t, char, 9>(0xABCD, "abcd");
+    TestToHexLower<uint32_t, char, 9>(0x12345678, "12345678");
+    TestToHexLower<uint32_t, char, 9>(0xFFFFFFFF, "ffffffff");
+
+    TestToHex<uint16_t, char, 5>(0, "0");
+    TestToHex<uint16_t, char, 5>(0xEF, "EF");
+    TestToHex<uint16_t, char, 5>(0xABCD, "ABCD");
+    TestToHex<uint16_t, char, 5>(0x1234, "1234");
+    TestToHex<uint16_t, char, 5>(0xFFFF, "FFFF");
+
+    TestToHexLower<uint16_t, char, 5>(0, "0");
+    TestToHexLower<uint16_t, char, 5>(0xEF, "ef");
+    TestToHexLower<uint16_t, char, 5>(0xABCD, "abcd");
+    TestToHexLower<uint16_t, char, 5>(0x1234, "1234");
+    TestToHexLower<uint16_t, char, 5>(0xFFFF, "ffff");
+
+    TestToHex<uint8_t, char, 3>(0, "0");
+    TestToHex<uint8_t, char, 3>(0xAB, "AB");
+    TestToHex<uint8_t, char, 3>(0xCD, "CD");
+    TestToHex<uint8_t, char, 3>(0xEF, "EF");
+    TestToHex<uint8_t, char, 3>(0x12, "12");
+    TestToHex<uint8_t, char, 3>(0xFF, "FF");
+
+    TestToHexLower<uint8_t, char, 3>(0, "0");
+    TestToHexLower<uint8_t, char, 3>(0xAB, "ab");
+    TestToHexLower<uint8_t, char, 3>(0xCD, "cd");
+    TestToHexLower<uint8_t, char, 3>(0xEF, "ef");
+    TestToHexLower<uint8_t, char, 3>(0x12, "12");
+    TestToHexLower<uint8_t, char, 3>(0xFF, "ff");
+}
+
+TEST(Convert, ParseInt)
+{
+    TestParseInt<char>("", 0, 0);
+    TestParseInt<char>("a0", 0, 0);
+    TestParseInt<char>(" a 0", 0, 0);
+    TestParseInt<char>(" -x0", 0, 0);
+    TestParseInt<char>("0x", 0, 0);
+    TestParseInt<char>("x 0", 0, 0);
+    TestParseInt<char>("-", 0, 0);
+
+    TestParseInt<char>("0", 0);
+    TestParseInt<char>(" 0", 0);
+    TestParseInt<char>(" +0", 0);
+    TestParseInt<char>(" -0", 0);
+    TestParseInt<char>(" + 0", 0);
+    TestParseInt<char>(" - 0", 0);
+    TestParseInt<char>(" 0.", 0, 2);
+    TestParseInt<char>(" 0 ", 0, 3);
+    TestParseInt<char>("0 x ", 0, 2);
+    TestParseInt<char>("0 x 0", 0, 2);
+
+    TestParseInt<char>("1", 1);
+    TestParseInt<char>(" 1", 1);
+    TestParseInt<char>(" +1", 1);
+    TestParseInt<char>(" -1", -1);
+    TestParseInt<char>(" + 1", 1);
+    TestParseInt<char>(" - 1", -1);
+    TestParseInt<char>(" 1.", 1, 2);
+    TestParseInt<char>(" 1 ", 1, 3);
+
+    TestParseInt<char>("1234567890", 1234567890);
+    TestParseInt<char>("01234567890", 1234567890);
+    TestParseInt<char>("  1234567890", 1234567890);
+    TestParseInt<char>("1234567890  ", 1234567890);
+    TestParseInt<char>("-1234567890", -1234567890);
+    TestParseInt<char>("-01234567890", -1234567890);
+    TestParseInt<char>("  -1234567890", -1234567890);
+    TestParseInt<char>(" -  1234567890", -1234567890);
+    TestParseInt<char>("-  1234567890", -1234567890);
+    TestParseInt<char>("-1234 567890", -1234, 6);
+    TestParseInt<char>("+1234567890", 1234567890);
+    TestParseInt<char>("+01234567890", 1234567890);
+    TestParseInt<char>("  +1234567890", 1234567890);
+    TestParseInt<char>(" +  1234567890", 1234567890);
+    TestParseInt<char>("+  1234567890", 1234567890);
+    TestParseInt<char>("+1234 567890", 1234, 6);
+
+    TestParseInt<char>("0xABCDEF", 0xABCDEF);
+    TestParseInt<char>("0x12345678", 0x12345678);
+    TestParseInt<char>("0x00ABCD", 0xABCD);
+    TestParseInt<char>("0x000", 0x0);
+    TestParseInt<char>("0x1", 0x1);
+    TestParseInt<char>("A", 0, 0);
+
+    TestParseInt<char>("0Xabcdef", 0xABCDEF);
+    TestParseInt<char>("0X12345678", 0x12345678);
+    TestParseInt<char>("0X00abcd", 0xABCD);
+    TestParseInt<char>("0X000", 0x0);
+    TestParseInt<char>("0X1", 0x1);
+    TestParseInt<char>("a", 0, 0);
+
+    TestParseInt<char>("0", 0);
+    TestParseInt<char>("-9223372036854775808", numeric_limits<int64_t>::min());
+    TestParseInt<char>("9223372036854775807", numeric_limits<int64_t>::max());
+
+    TestParseUInt<char>("0", 0);
+    TestParseUInt<char>("18446744073709551615", numeric_limits<uint64_t>::max());
+}
