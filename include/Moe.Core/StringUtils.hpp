@@ -1066,14 +1066,14 @@ namespace moe
          *   Format := [^} ]  // C#允许在Format中对'{'和'}'进行转义，这个语法被去除了
          *   ws := ' '
          *
-         * 正文中，连续的"{{"会被转换为"}"，连续的"}}"同理。
-         * 注意到这里的实现不会抛出异常（但用户自定义ToString函数可以抛出异常），如果格式字符串出现任何问题会原封不同拷贝到结果中。
+         * 正文中，连续的"{{"会被转换为"{"，连续的"}}"同理。
+         * 注意到该实现不会抛出异常（但用户自定义ToString函数可以抛出异常），如果格式字符串出现任何问题会原封不同拷贝到结果中。
          * 这也意味着正文中出现的独立'}'不会被当成未配对括号抛出异常（而被直接拷贝到结果中）。
          *
          * 支持的格式化语法如下：
          *   - 布尔类型：
          *     - 默认：true/false
-         *     - .*|.*：用户定义的假值和真值
+         *     - .* '|' .*：用户定义的假值和真值
          *   - 整数类型：
          *     - 默认：以十进制转换到字符串
          *     - D: 以十进制转换到字符串（同默认）
@@ -1089,9 +1089,11 @@ namespace moe
          *   - const TChar* 或者 const TChar[] / std::basic_string<TChar>：
          *     - 默认：直接拷贝
          *   - 其他指针：
-         *     - 默认：以十六进制展示
+         *     - 默认：以十六进制展示（0x??...）
          *   - nullptr_t：
          *     - 默认：以null展示
+         *   - 用户自定义类型：
+         *     - 默认：调用 ToString(const ArrayView<TChar>&)，若不可用，调用 ToString()
          */
         template <typename TChar = char, typename... Args>
         void FormatInPlace(std::basic_string<TChar>& out, const ArrayView<TChar>& format, const Args&... args)
