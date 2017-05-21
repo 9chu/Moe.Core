@@ -8293,7 +8293,7 @@ namespace
     }
 
     template <typename TChar>
-    inline void TestParseInt(const TChar* str, int64_t expectResult, int expectReadCount=-1)
+    inline void TestParseInt(const TChar* str, int64_t expectResult, int expectReadCount = -1)
     {
         size_t readCount = 0;
         int64_t result = Convert::ParseInt<TChar>(str, readCount);
@@ -8306,7 +8306,7 @@ namespace
     }
 
     template <typename TChar>
-    inline void TestParseUInt(const TChar* str, uint64_t expectResult, int expectReadCount=-1)
+    inline void TestParseUInt(const TChar* str, uint64_t expectResult, int expectReadCount = -1)
     {
         size_t readCount = 0;
         uint64_t result = Convert::ParseUInt<TChar>(str, readCount);

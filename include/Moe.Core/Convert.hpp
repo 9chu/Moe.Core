@@ -4,18 +4,25 @@
  * @see https://github.com/google/double-conversion, https://github.com/miloyip/itoa-benchmark
  */
 #pragma once
-#include "Utils.hpp"
-#include "ArrayView.hpp"
-
 #include <limits>
 #include <string>
 
+#include "Utils.hpp"
+#include "ArrayView.hpp"
+
 namespace moe
 {
+    /**
+     * @brief 转换
+     *
+     * 实现基本类型到字符串的转换。
+     */
     namespace Convert
     {
         namespace details
         {
+            //////////////////////////////////////// <editor-fold desc="基础数据类型">
+
             /**
              * @brief Do It Yourself Floating Point
              *
@@ -599,7 +606,424 @@ namespace moe
                 static void GetCachedPowerForDecimalExponent(int requestedExponent, DiyFp& power, int& foundExponent);
             };
 
-            /////////////////////////////////////////////////////////////////////////////////////////////////////////
+            class UInt128
+            {
+            private:
+                static const uint64_t kMask32 = 0xFFFFFFFF;
+
+            public:
+                UInt128()
+                    : m_ulHighBits(0), m_ulLowBits(0) {}
+                UInt128(uint64_t high, uint64_t low)
+                    : m_ulHighBits(high), m_ulLowBits(low) {}
+
+                void Multiply(uint32_t multiplicand)
+                {
+                    uint64_t accumulator;
+
+                    accumulator = (m_ulLowBits & kMask32) * multiplicand;
+                    uint32_t part = static_cast<uint32_t>(accumulator & kMask32);
+                    accumulator >>= 32;
+                    accumulator = accumulator + (m_ulLowBits >> 32) * multiplicand;
+                    m_ulLowBits = (accumulator << 32) + part;
+                    accumulator >>= 32;
+                    accumulator = accumulator + (m_ulHighBits & kMask32) * multiplicand;
+                    part = static_cast<uint32_t>(accumulator & kMask32);
+                    accumulator >>= 32;
+                    accumulator = accumulator + (m_ulHighBits >> 32) * multiplicand;
+                    m_ulHighBits = (accumulator << 32) + part;
+
+                    assert((accumulator >> 32) == 0);
+                }
+
+                void Shift(int shiftAmount)
+                {
+                    assert(-64 <= shiftAmount && shiftAmount <= 64);
+
+                    if (shiftAmount == 0)
+                        return;
+
+                    if (shiftAmount == -64)
+                    {
+                        m_ulHighBits = m_ulLowBits;
+                        m_ulLowBits = 0;
+                    }
+                    else if (shiftAmount == 64)
+                    {
+                        m_ulLowBits = m_ulHighBits;
+                        m_ulHighBits = 0;
+                    }
+                    else if (shiftAmount <= 0)
+                    {
+                        m_ulHighBits <<= -shiftAmount;
+                        m_ulHighBits += m_ulLowBits >> (64 + shiftAmount);
+                        m_ulLowBits <<= -shiftAmount;
+                    }
+                    else
+                    {
+                        m_ulLowBits >>= shiftAmount;
+                        m_ulLowBits += m_ulHighBits << (64 - shiftAmount);
+                        m_ulHighBits >>= shiftAmount;
+                    }
+                }
+
+                int DivModPowerOf2(int power)
+                {
+                    if (power >= 64)
+                    {
+                        int result = static_cast<int>(m_ulHighBits >> (power - 64));
+                        m_ulHighBits -= static_cast<uint64_t>(result) << (power - 64);
+                        return result;
+                    }
+
+                    uint64_t partLow = m_ulLowBits >> power;
+                    uint64_t partHigh = m_ulHighBits << (64 - power);
+                    int result = static_cast<int>(partLow + partHigh);
+                    m_ulHighBits = 0;
+                    m_ulLowBits -= partLow << power;
+                    return result;
+                }
+
+                bool IsZero()const { return m_ulHighBits == 0 && m_ulLowBits == 0; }
+
+                int BitAt(size_t position)const
+                {
+                    if (position >= 64)
+                        return static_cast<int>(m_ulHighBits >> (position - 64)) & 1;
+                    return static_cast<int>(m_ulLowBits >> position) & 1;
+                }
+
+            private:
+                uint64_t m_ulHighBits;
+                uint64_t m_ulLowBits;
+            };
+
+            class Bignum :
+                public NonCopyable
+            {
+            public:
+                static const size_t kMaxSignificantBits = 3584;
+
+                static int Compare(const Bignum& a, const Bignum& b);
+                static bool Equal(const Bignum& a, const Bignum& b) { return Compare(a, b) == 0; }
+                static bool LessEqual(const Bignum& a, const Bignum& b) { return Compare(a, b) <= 0; }
+                static bool Less(const Bignum& a, const Bignum& b) { return Compare(a, b) < 0; }
+
+                static int PlusCompare(const Bignum& a, const Bignum& b, const Bignum& c);
+
+                static bool PlusEqual(const Bignum& a, const Bignum& b, const Bignum& c)
+                {
+                    return PlusCompare(a, b, c) == 0;
+                }
+
+                static bool PlusLessEqual(const Bignum& a, const Bignum& b, const Bignum& c)
+                {
+                    return PlusCompare(a, b, c) <= 0;
+                }
+
+                static bool PlusLess(const Bignum& a, const Bignum& b, const Bignum& c)
+                {
+                    return PlusCompare(a, b, c) < 0;
+                }
+
+            private:
+                using Chunk = uint32_t;
+                using DoubleChunk = uint64_t;
+
+                static const int kChunkSize = sizeof(Chunk) * 8;
+                static const int kDoubleChunkSize = sizeof(DoubleChunk) * 8;
+                static const size_t kBigitSize = 28;
+                static const Chunk kBigitMask = (1 << kBigitSize) - 1;
+                static const size_t kBigitCapacity = kMaxSignificantBits / kBigitSize;
+
+                template<typename T>
+                static size_t BitSize(T value)
+                {
+                    MOE_UNUSED(value);
+                    return 8 * sizeof(value);
+                }
+
+                template <typename T>
+                static size_t SizeInHexChars(T number)
+                {
+                    assert(number > 0);
+                    T val = number;
+                    size_t result = 0;
+
+                    while (val != 0)
+                    {
+                        val >>= 4;
+                        result++;
+                    }
+
+                    return result;
+                }
+
+                template <typename T>
+                static T HexCharOfValue(int value)
+                {
+                    assert(0 <= value && value <= 16);
+                    if (value < 10)
+                        return static_cast<T>(value + '0');
+                    return static_cast<T>(value - 10 + 'A');
+                }
+
+                template <typename T>
+                static uint64_t ReadUInt64(const ArrayView<T>& buffer, size_t from, size_t digitsToRead)
+                {
+                    uint64_t result = 0;
+                    for (size_t i = from; i < from + digitsToRead; ++i)
+                    {
+                        int digit = buffer[i] - '0';
+                        assert(0 <= digit && digit <= 9);
+                        result = result * 10 + digit;
+                    }
+                    return result;
+                }
+
+                template <typename T>
+                static int HexCharValue(T c)
+                {
+                    if ('0' <= c && c <= '9')
+                        return c - '0';
+                    if ('a' <= c && c <= 'f')
+                        return 10 + c - 'a';
+                    assert('A' <= c && c <= 'F');
+                    return 10 + c - 'A';
+                }
+
+            public:
+                Bignum();
+
+            public:
+                void AssignUInt16(uint16_t value);
+                void AssignUInt64(uint64_t value);
+                void AssignBignum(const Bignum& other);
+                void AssignPowerUInt16(uint16_t base, int powerExponent);
+
+                template <typename T = char>
+                void AssignDecimalString(const ArrayView<T>& value)
+                {
+                    const int kMaxUint64DecimalDigits = 19;
+
+                    Zero();
+                    size_t length = value.Size();
+                    unsigned int pos = 0;
+                    while (length >= kMaxUint64DecimalDigits)
+                    {
+                        uint64_t digits = ReadUInt64(value, pos, kMaxUint64DecimalDigits);
+                        pos += kMaxUint64DecimalDigits;
+                        length -= kMaxUint64DecimalDigits;
+                        MultiplyByPowerOfTen(kMaxUint64DecimalDigits);
+                        AddUInt64(digits);
+                    }
+
+                    uint64_t digits = ReadUInt64(value, pos, length);
+                    MultiplyByPowerOfTen(length);
+                    AddUInt64(digits);
+                    Clamp();
+                }
+
+                template <typename T = char>
+                void AssignHexString(const ArrayView<T>& value)
+                {
+                    Zero();
+                    size_t length = value.Size();
+
+                    size_t neededBigits = length * 4 / kBigitSize + 1;
+                    EnsureCapacity(neededBigits);
+                    int stringIndex = static_cast<int>(length) - 1;
+                    for (size_t i = 0; i < neededBigits - 1; ++i)
+                    {
+                        Chunk currentBigit = 0;
+                        for (int j = 0; j < static_cast<int>(kBigitSize) / 4; j++)
+                            currentBigit += HexCharValue(value[stringIndex--]) << (j * 4);
+                        m_stBigits[i] = currentBigit;
+                    }
+                    m_uUsedDigits = neededBigits - 1;
+
+                    Chunk mostSignificantBigit = 0;
+                    for (int j = 0; j <= stringIndex; ++j)
+                    {
+                        mostSignificantBigit <<= 4;
+                        mostSignificantBigit += HexCharValue(value[j]);
+                    }
+
+                    if (mostSignificantBigit != 0)
+                    {
+                        m_stBigits[m_uUsedDigits] = mostSignificantBigit;
+                        m_uUsedDigits++;
+                    }
+
+                    Clamp();
+                }
+
+                void AddUInt64(uint64_t operand);
+                void AddBignum(const Bignum& other);
+                void SubtractBignum(const Bignum& other);
+
+                void Square();
+                void ShiftLeft(int shiftAmount);
+                void MultiplyByUInt32(uint32_t factor);
+                void MultiplyByUInt64(uint64_t factor);
+                void MultiplyByPowerOfTen(int exponent);
+                void Times10() { return MultiplyByUInt32(10); }
+                uint16_t DivideModuloIntBignum(const Bignum& other);
+
+                template <typename T = char>
+                bool ToHexString(T* buffer, size_t bufferSize)const
+                {
+                    assert(IsClamped());
+                    assert(kBigitSize % 4 == 0);
+                    const int kHexCharsPerBigit = kBigitSize / 4;
+
+                    if (m_uUsedDigits == 0)
+                    {
+                        if (bufferSize < 2)
+                            return false;
+                        buffer[0] = '0';
+                        buffer[1] = '\0';
+                        return true;
+                    }
+
+                    size_t neededChars = (BigitLength() - 1) * kHexCharsPerBigit +
+                        SizeInHexChars(m_stBigits[m_uUsedDigits - 1]) + 1;
+                    if (neededChars > bufferSize)
+                        return false;
+
+                    size_t stringIndex = neededChars - 1;
+                    buffer[stringIndex--] = '\0';
+                    for (int i = 0; i < m_iExponent; ++i)
+                    {
+                        for (int j = 0; j < kHexCharsPerBigit; ++j)
+                        {
+                            buffer[stringIndex--] = '0';
+                        }
+                    }
+                    for (size_t i = 0; i < m_uUsedDigits - 1; ++i)
+                    {
+                        Chunk currentBigit = m_stBigits[i];
+                        for (int j = 0; j < kHexCharsPerBigit; ++j)
+                        {
+                            buffer[stringIndex--] = HexCharOfValue<T>(currentBigit & 0xF);
+                            currentBigit >>= 4;
+                        }
+                    }
+
+                    Chunk mostSignificantBigit = m_stBigits[m_uUsedDigits - 1];
+                    while (mostSignificantBigit != 0)
+                    {
+                        buffer[stringIndex--] = HexCharOfValue<T>(mostSignificantBigit & 0xF);
+                        mostSignificantBigit >>= 4;
+                    }
+
+                    return true;
+                }
+
+            private:
+                void EnsureCapacity(size_t size)
+                {
+                    if (size > kBigitCapacity)
+                        MOE_UNREACHABLE();
+                }
+                void Align(const Bignum& other);
+                void Clamp();
+                bool IsClamped()const;
+                void Zero();
+                void BigitsShiftLeft(int shiftAmount);
+                int BigitLength()const { return static_cast<int>(m_uUsedDigits) + m_iExponent; }
+                Chunk BigitAt(int index)const;
+                void SubtractTimes(const Bignum& other, int factor);
+
+            private:
+                Chunk m_aBigitsBuffer[kBigitCapacity];
+                MutableArrayView<Chunk> m_stBigits;
+                size_t m_uUsedDigits;
+                int m_iExponent;
+            };
+
+            template <typename T = char>
+            class StringBuilder :
+                public NonCopyable
+            {
+            public:
+                StringBuilder(T* buffer, size_t bufferSize)
+                    : m_stBuffer(buffer, bufferSize) {}
+
+                ~StringBuilder()
+                {
+                    if (!isFinalized())
+                        Finalize();
+                }
+
+            public:
+                size_t Size()const
+                {
+                    return m_stBuffer.Size();
+                }
+
+                size_t Position()const
+                {
+                    return m_uPosition;
+                }
+
+                void Reset()
+                {
+                    m_uPosition = 0;
+                    m_bFinalized = false;
+                }
+
+                void AddCharacter(T c)
+                {
+                    assert(c != '\0');
+                    assert(!isFinalized() && m_uPosition < m_stBuffer.Size());
+                    m_stBuffer[m_uPosition++] = c;
+                }
+
+                void AddString(const T* s)
+                {
+                    AddSubstring(s, std::char_traits<T>::length(s));
+                }
+
+                void AddSubstring(const T* s, size_t n)
+                {
+                    assert(!isFinalized() && m_uPosition + n < m_stBuffer.Size());
+                    assert(n <= std::char_traits<T>::length(s));
+                    ::memmove(&m_stBuffer[m_uPosition], s, n * sizeof(T));
+                    m_uPosition += n;
+                }
+
+                void AddPadding(T c, size_t count)
+                {
+                    for (size_t i = 0; i < count; i++)
+                        AddCharacter(c);
+                }
+
+                bool isFinalized()const
+                {
+                    return m_bFinalized;
+                }
+
+                T* Finalize()
+                {
+                    assert(!isFinalized() && m_uPosition < m_stBuffer.Size());
+                    m_stBuffer[m_uPosition] = static_cast<T>('\0');
+                    // Make sure nobody managed to add a 0-character to the
+                    // buffer while building the string.
+                    assert(std::char_traits<T>::length(m_stBuffer.GetBuffer()) == static_cast<size_t>(m_uPosition));
+                    m_bFinalized = true;
+                    return m_stBuffer.GetBuffer();
+                }
+
+            private:
+                MutableArrayView<T> m_stBuffer;
+                size_t m_uPosition = 0;
+                bool m_bFinalized = false;
+            };
+
+            //////////////////////////////////////// </editor-fold>
+
+            //////////////////////////////////////// <editor-fold desc="Fast-Dtoa实现">
 
             enum FastDtoaMode
             {
@@ -909,99 +1333,9 @@ namespace moe
                 }
             };
 
-            /////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //////////////////////////////////////// </editor-fold>
 
-            class UInt128
-            {
-            private:
-                static const uint64_t kMask32 = 0xFFFFFFFF;
-
-            public:
-                UInt128()
-                    : m_ulHighBits(0), m_ulLowBits(0) {}
-                UInt128(uint64_t high, uint64_t low)
-                    : m_ulHighBits(high), m_ulLowBits(low) {}
-
-                void Multiply(uint32_t multiplicand)
-                {
-                    uint64_t accumulator;
-
-                    accumulator = (m_ulLowBits & kMask32) * multiplicand;
-                    uint32_t part = static_cast<uint32_t>(accumulator & kMask32);
-                    accumulator >>= 32;
-                    accumulator = accumulator + (m_ulLowBits >> 32) * multiplicand;
-                    m_ulLowBits = (accumulator << 32) + part;
-                    accumulator >>= 32;
-                    accumulator = accumulator + (m_ulHighBits & kMask32) * multiplicand;
-                    part = static_cast<uint32_t>(accumulator & kMask32);
-                    accumulator >>= 32;
-                    accumulator = accumulator + (m_ulHighBits >> 32) * multiplicand;
-                    m_ulHighBits = (accumulator << 32) + part;
-
-                    assert((accumulator >> 32) == 0);
-                }
-
-                void Shift(int shiftAmount)
-                {
-                    assert(-64 <= shiftAmount && shiftAmount <= 64);
-
-                    if (shiftAmount == 0)
-                        return;
-
-                    if (shiftAmount == -64)
-                    {
-                        m_ulHighBits = m_ulLowBits;
-                        m_ulLowBits = 0;
-                    }
-                    else if (shiftAmount == 64)
-                    {
-                        m_ulLowBits = m_ulHighBits;
-                        m_ulHighBits = 0;
-                    }
-                    else if (shiftAmount <= 0)
-                    {
-                        m_ulHighBits <<= -shiftAmount;
-                        m_ulHighBits += m_ulLowBits >> (64 + shiftAmount);
-                        m_ulLowBits <<= -shiftAmount;
-                    }
-                    else
-                    {
-                        m_ulLowBits >>= shiftAmount;
-                        m_ulLowBits += m_ulHighBits << (64 - shiftAmount);
-                        m_ulHighBits >>= shiftAmount;
-                    }
-                }
-
-                int DivModPowerOf2(int power)
-                {
-                    if (power >= 64)
-                    {
-                        int result = static_cast<int>(m_ulHighBits >> (power - 64));
-                        m_ulHighBits -= static_cast<uint64_t>(result) << (power - 64);
-                        return result;
-                    }
-
-                    uint64_t partLow = m_ulLowBits >> power;
-                    uint64_t partHigh = m_ulHighBits << (64 - power);
-                    int result = static_cast<int>(partLow + partHigh);
-                    m_ulHighBits = 0;
-                    m_ulLowBits -= partLow << power;
-                    return result;
-                }
-
-                bool IsZero()const { return m_ulHighBits == 0 && m_ulLowBits == 0; }
-
-                int BitAt(size_t position)const
-                {
-                    if (position >= 64)
-                        return static_cast<int>(m_ulHighBits >> (position - 64)) & 1;
-                    return static_cast<int>(m_ulLowBits >> position) & 1;
-                }
-
-            private:
-                uint64_t m_ulHighBits;
-                uint64_t m_ulLowBits;
-            };
+            //////////////////////////////////////// <editor-fold desc="Fixed-Dtoa实现">
 
             class FixedDtoa
             {
@@ -1265,253 +1599,9 @@ namespace moe
                 }
             };
 
-            /////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //////////////////////////////////////// </editor-fold>
 
-            class Bignum :
-                public NonCopyable
-            {
-            public:
-                static const size_t kMaxSignificantBits = 3584;
-
-                static int Compare(const Bignum& a, const Bignum& b);
-                static bool Equal(const Bignum& a, const Bignum& b) { return Compare(a, b) == 0; }
-                static bool LessEqual(const Bignum& a, const Bignum& b) { return Compare(a, b) <= 0; }
-                static bool Less(const Bignum& a, const Bignum& b) { return Compare(a, b) < 0; }
-
-                static int PlusCompare(const Bignum& a, const Bignum& b, const Bignum& c);
-
-                static bool PlusEqual(const Bignum& a, const Bignum& b, const Bignum& c)
-                {
-                    return PlusCompare(a, b, c) == 0;
-                }
-
-                static bool PlusLessEqual(const Bignum& a, const Bignum& b, const Bignum& c)
-                {
-                    return PlusCompare(a, b, c) <= 0;
-                }
-
-                static bool PlusLess(const Bignum& a, const Bignum& b, const Bignum& c)
-                {
-                    return PlusCompare(a, b, c) < 0;
-                }
-
-            private:
-                using Chunk = uint32_t;
-                using DoubleChunk = uint64_t;
-
-                static const int kChunkSize = sizeof(Chunk) * 8;
-                static const int kDoubleChunkSize = sizeof(DoubleChunk) * 8;
-                static const size_t kBigitSize = 28;
-                static const Chunk kBigitMask = (1 << kBigitSize) - 1;
-                static const size_t kBigitCapacity = kMaxSignificantBits / kBigitSize;
-
-                template<typename T>
-                static size_t BitSize(T value)
-                {
-                    MOE_UNUSED(value);
-                    return 8 * sizeof(value);
-                }
-
-                template <typename T>
-                static size_t SizeInHexChars(T number)
-                {
-                    assert(number > 0);
-                    T val = number;
-                    size_t result = 0;
-
-                    while (val != 0)
-                    {
-                        val >>= 4;
-                        result++;
-                    }
-
-                    return result;
-                }
-
-                template <typename T>
-                static T HexCharOfValue(int value)
-                {
-                    assert(0 <= value && value <= 16);
-                    if (value < 10)
-                        return static_cast<T>(value + '0');
-                    return static_cast<T>(value - 10 + 'A');
-                }
-
-                template <typename T>
-                static uint64_t ReadUInt64(const ArrayView<T>& buffer, size_t from, size_t digitsToRead)
-                {
-                    uint64_t result = 0;
-                    for (size_t i = from; i < from + digitsToRead; ++i)
-                    {
-                        int digit = buffer[i] - '0';
-                        assert(0 <= digit && digit <= 9);
-                        result = result * 10 + digit;
-                    }
-                    return result;
-                }
-
-                template <typename T>
-                static int HexCharValue(T c)
-                {
-                    if ('0' <= c && c <= '9')
-                        return c - '0';
-                    if ('a' <= c && c <= 'f')
-                        return 10 + c - 'a';
-                    assert('A' <= c && c <= 'F');
-                    return 10 + c - 'A';
-                }
-
-            public:
-                Bignum();
-
-            public:
-                void AssignUInt16(uint16_t value);
-                void AssignUInt64(uint64_t value);
-                void AssignBignum(const Bignum& other);
-                void AssignPowerUInt16(uint16_t base, int powerExponent);
-
-                template <typename T = char>
-                void AssignDecimalString(const ArrayView<T>& value)
-                {
-                    const int kMaxUint64DecimalDigits = 19;
-
-                    Zero();
-                    size_t length = value.Size();
-                    unsigned int pos = 0;
-                    while (length >= kMaxUint64DecimalDigits)
-                    {
-                        uint64_t digits = ReadUInt64(value, pos, kMaxUint64DecimalDigits);
-                        pos += kMaxUint64DecimalDigits;
-                        length -= kMaxUint64DecimalDigits;
-                        MultiplyByPowerOfTen(kMaxUint64DecimalDigits);
-                        AddUInt64(digits);
-                    }
-
-                    uint64_t digits = ReadUInt64(value, pos, length);
-                    MultiplyByPowerOfTen(length);
-                    AddUInt64(digits);
-                    Clamp();
-                }
-
-                template <typename T = char>
-                void AssignHexString(const ArrayView<T>& value)
-                {
-                    Zero();
-                    size_t length = value.Size();
-
-                    size_t neededBigits = length * 4 / kBigitSize + 1;
-                    EnsureCapacity(neededBigits);
-                    int stringIndex = static_cast<int>(length) - 1;
-                    for (size_t i = 0; i < neededBigits - 1; ++i)
-                    {
-                        Chunk currentBigit = 0;
-                        for (int j = 0; j < static_cast<int>(kBigitSize) / 4; j++)
-                            currentBigit += HexCharValue(value[stringIndex--]) << (j * 4);
-                        m_stBigits[i] = currentBigit;
-                    }
-                    m_uUsedDigits = neededBigits - 1;
-
-                    Chunk mostSignificantBigit = 0;
-                    for (int j = 0; j <= stringIndex; ++j)
-                    {
-                        mostSignificantBigit <<= 4;
-                        mostSignificantBigit += HexCharValue(value[j]);
-                    }
-
-                    if (mostSignificantBigit != 0)
-                    {
-                        m_stBigits[m_uUsedDigits] = mostSignificantBigit;
-                        m_uUsedDigits++;
-                    }
-
-                    Clamp();
-                }
-
-                void AddUInt64(uint64_t operand);
-                void AddBignum(const Bignum& other);
-                void SubtractBignum(const Bignum& other);
-
-                void Square();
-                void ShiftLeft(int shiftAmount);
-                void MultiplyByUInt32(uint32_t factor);
-                void MultiplyByUInt64(uint64_t factor);
-                void MultiplyByPowerOfTen(int exponent);
-                void Times10() { return MultiplyByUInt32(10); }
-                uint16_t DivideModuloIntBignum(const Bignum& other);
-
-                template <typename T = char>
-                bool ToHexString(T* buffer, size_t bufferSize)const
-                {
-                    assert(IsClamped());
-                    assert(kBigitSize % 4 == 0);
-                    const int kHexCharsPerBigit = kBigitSize / 4;
-
-                    if (m_uUsedDigits == 0)
-                    {
-                        if (bufferSize < 2)
-                            return false;
-                        buffer[0] = '0';
-                        buffer[1] = '\0';
-                        return true;
-                    }
-
-                    size_t neededChars = (BigitLength() - 1) * kHexCharsPerBigit +
-                        SizeInHexChars(m_stBigits[m_uUsedDigits - 1]) + 1;
-                    if (neededChars > bufferSize)
-                        return false;
-
-                    size_t stringIndex = neededChars - 1;
-                    buffer[stringIndex--] = '\0';
-                    for (int i = 0; i < m_iExponent; ++i)
-                    {
-                        for (int j = 0; j < kHexCharsPerBigit; ++j)
-                        {
-                            buffer[stringIndex--] = '0';
-                        }
-                    }
-                    for (size_t i = 0; i < m_uUsedDigits - 1; ++i)
-                    {
-                        Chunk currentBigit = m_stBigits[i];
-                        for (int j = 0; j < kHexCharsPerBigit; ++j)
-                        {
-                            buffer[stringIndex--] = HexCharOfValue<T>(currentBigit & 0xF);
-                            currentBigit >>= 4;
-                        }
-                    }
-
-                    Chunk mostSignificantBigit = m_stBigits[m_uUsedDigits - 1];
-                    while (mostSignificantBigit != 0)
-                    {
-                        buffer[stringIndex--] = HexCharOfValue<T>(mostSignificantBigit & 0xF);
-                        mostSignificantBigit >>= 4;
-                    }
-
-                    return true;
-                }
-
-            private:
-                void EnsureCapacity(size_t size)
-                {
-                    if (size > kBigitCapacity)
-                        MOE_UNREACHABLE();
-                }
-                void Align(const Bignum& other);
-                void Clamp();
-                bool IsClamped()const;
-                void Zero();
-                void BigitsShiftLeft(int shiftAmount);
-                int BigitLength()const { return static_cast<int>(m_uUsedDigits) + m_iExponent; }
-                Chunk BigitAt(int index)const;
-                void SubtractTimes(const Bignum& other, int factor);
-
-            private:
-                Chunk m_aBigitsBuffer[kBigitCapacity];
-                MutableArrayView<Chunk> m_stBigits;
-                size_t m_uUsedDigits;
-                int m_iExponent;
-            };
-
-            /////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //////////////////////////////////////// <editor-fold desc="BigNum-Dtoa实现">
 
             enum class BignumDtoaMode
             {
@@ -1746,88 +1836,9 @@ namespace moe
                 }
             };
 
-            /////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //////////////////////////////////////// </editor-fold>
 
-            template <typename T = char>
-            class StringBuilder :
-                public NonCopyable
-            {
-            public:
-                StringBuilder(T* buffer, size_t bufferSize)
-                    : m_stBuffer(buffer, bufferSize) {}
-
-                ~StringBuilder()
-                {
-                    if (!isFinalized())
-                        Finalize();
-                }
-
-            public:
-                size_t Size()const
-                {
-                    return m_stBuffer.Size();
-                }
-
-                size_t Position()const
-                {
-                    return m_uPosition;
-                }
-
-                void Reset()
-                {
-                    m_uPosition = 0;
-                    m_bFinalized = false;
-                }
-
-                void AddCharacter(T c)
-                {
-                    assert(c != '\0');
-                    assert(!isFinalized() && m_uPosition < m_stBuffer.Size());
-                    m_stBuffer[m_uPosition++] = c;
-                }
-
-                void AddString(const T* s)
-                {
-                    AddSubstring(s, std::char_traits<T>::length(s));
-                }
-
-                void AddSubstring(const T* s, size_t n)
-                {
-                    assert(!isFinalized() && m_uPosition + n < m_stBuffer.Size());
-                    assert(n <= std::char_traits<T>::length(s));
-                    ::memmove(&m_stBuffer[m_uPosition], s, n * sizeof(T));
-                    m_uPosition += n;
-                }
-
-                void AddPadding(T c, size_t count)
-                {
-                    for (size_t i = 0; i < count; i++)
-                        AddCharacter(c);
-                }
-
-                bool isFinalized()const
-                {
-                    return m_bFinalized;
-                }
-
-                T* Finalize()
-                {
-                    assert(!isFinalized() && m_uPosition < m_stBuffer.Size());
-                    m_stBuffer[m_uPosition] = static_cast<T>('\0');
-                    // Make sure nobody managed to add a 0-character to the
-                    // buffer while building the string.
-                    assert(std::char_traits<T>::length(m_stBuffer.GetBuffer()) == static_cast<size_t>(m_uPosition));
-                    m_bFinalized = true;
-                    return m_stBuffer.GetBuffer();
-                }
-
-            private:
-                MutableArrayView<T> m_stBuffer;
-                size_t m_uPosition = 0;
-                bool m_bFinalized = false;
-            };
-
-            /////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //////////////////////////////////////// <editor-fold desc="混合Dtoa实现">
 
             enum class DtoaFlags
             {
@@ -2507,6 +2518,10 @@ namespace moe
                 const int m_iMaxTrailingPaddingZeroesInPrecisionMode;
             };
 
+            //////////////////////////////////////// </editor-fold>
+
+            //////////////////////////////////////// <editor-fold desc="Atoa实现">
+
             // Enumeration for allowing octals and ignoring junk when converting
             // strings to numbers.
             enum class AtodFlags
@@ -3103,24 +3118,24 @@ namespace moe
 
                 static const size_t kMaxSignificantDigits = 772;
 
-                static bool IsDigit(int x, int radix)
+                static constexpr bool IsDigit(int x, int radix)
                 {
                     return (x >= '0' && x <= '9' && x < '0' + radix) ||
                         (radix > 10 && x >= 'a' && x < 'a' + radix - 10) ||
                         (radix > 10 && x >= 'A' && x < 'A' + radix - 10);
                 }
 
-                static bool IsCharacterDigitForRadix(int c, int radix, T aCharacter)
+                static constexpr bool IsCharacterDigitForRadix(int c, int radix, T aCharacter)
                 {
                     return radix > 10 && c >= aCharacter && c < aCharacter + radix - 10;
                 }
 
-                static bool IsDecimalDigitForRadix(int c, int radix)
+                static constexpr bool IsDecimalDigitForRadix(int c, int radix)
                 {
                     return '0' <= c && c <= '9' && (c - '0') < radix;
                 }
 
-                static bool IsWhitespace(int x)
+                static bool IsWhitespace(int x)  // 无法引用StringUtils里面的IsUnicodeWhitespace，会产生循环依赖
                 {
                     static const int kWhitespaceTable7[] = { 32, 13, 10, 9, 11, 12 };
                     static const int kWhitespaceTable16[] = {
@@ -3148,7 +3163,7 @@ namespace moe
                     return false;
                 }
 
-                static double SignedZero(bool sign)
+                static constexpr double SignedZero(bool sign)
                 {
                     return sign ? -0.0 : 0.0;
                 }
@@ -3770,7 +3785,9 @@ namespace moe
                 const T* m_pszNanSymbol;
             };
 
-            /////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //////////////////////////////////////// </editor-fold>
+
+            //////////////////////////////////////// <editor-fold desc="Itoa实现">
 
             template <typename TChar>
             inline const TChar* GetDigitLookupTable100()
@@ -4166,7 +4183,9 @@ namespace moe
                 return UInt64ToBuffer(u, buffer);
             }
 
-            /////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //////////////////////////////////////// </editor-fold>
+
+            //////////////////////////////////////// <editor-fold desc="Itoh实现">
 
             template <typename TChar>
             inline const TChar* GetHexDigitLookupTable32()
@@ -4379,6 +4398,10 @@ namespace moe
                 return static_cast<size_t>(buffer - start);
             }
 
+            //////////////////////////////////////// </editor-fold>
+
+            //////////////////////////////////////// <editor-fold desc="Atoi实现">
+
             template <typename TChar>
             inline size_t ParseInt(const ArrayView<TChar>& buffer, bool& sign, uint64_t& result)
             {
@@ -4459,6 +4482,8 @@ namespace moe
 
                 return static_cast<size_t>(current - input);
             }
+
+            //////////////////////////////////////// </editor-fold>
         }  // details
 
         /**
@@ -4481,18 +4506,6 @@ namespace moe
             return ok ? builder.Position() : 0;
         }
 
-        /**
-         * @brief 以最小表示转换单精度浮点到字符串
-         * @tparam T 目标字符串类型
-         * @pre length足够大以容纳所有结果
-         * @param d 被转换浮点
-         * @param buffer 目标缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0），若为0则转换失败
-         *
-         * 转换单精度浮点到最小字符串表示。
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToShortestString(float d, T* buffer, size_t length)
         {
@@ -4521,18 +4534,6 @@ namespace moe
             return ok ? builder.Position() : 0;
         }
 
-        /**
-         * @brief 以最小表示转换双精度浮点到字符串
-         * @tparam T 目标字符串类型
-         * @pre length足够大以容纳所有结果
-         * @param d 被转换浮点
-         * @param buffer 目标缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0），若为0则转换失败
-         *
-         * 转换双精度浮点到最小字符串表示。
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToShortestString(double d, T* buffer, size_t length)
         {
@@ -4565,19 +4566,6 @@ namespace moe
             return ok ? builder.Position() : 0;
         }
 
-        /**
-         * @brief 以定点数表示转换双精度浮点到字符串
-         * @tparam T 目标字符串类型
-         * @pre length足够大以容纳所有结果且 requestDigits <= 20
-         * @param d 被转换浮点数
-         * @param requestDigits 需要的小数位数
-         * @param buffer 目标缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0），若为0则转换失败
-         *
-         * 转换双精度浮点到字符串并四舍五入指定的小数位数。
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToFixedString(double d, size_t requestDigits, T* buffer, size_t length)
         {
@@ -4613,19 +4601,6 @@ namespace moe
             return ok ? builder.Position() : 0;
         }
 
-        /**
-         * @brief 以有效数字表示转换双精度浮点到字符串
-         * @tparam T 目标字符串类型
-         * @pre length足够大以容纳所有结果且 1 <= precision && precision <= 21
-         * @param d 被转换浮点数
-         * @param precision 精度
-         * @param buffer 目标缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0），若为0则转换失败
-         *
-         * 转换双精度浮点且四舍五入到保留指定的有效数字。
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToPrecisionString(double d, size_t precision, T* buffer, size_t length)
         {
@@ -4662,19 +4637,6 @@ namespace moe
             return ok ? builder.Position() : 0;
         }
 
-        /**
-         * @brief 使用科学计数法表示转换双精度浮点到字符串
-         * @tparam T 目标字符串类型
-         * @pre length足够大以容纳所有结果且 0 <= requestedDigits && requestedDigits <= 20
-         * @param d 被转换浮点数
-         * @param requestedDigits 小数点后保留的有效位数
-         * @param buffer 目标缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0），若为0则转换失败
-         *
-         * 以科学计数法表示转换双精度浮点。
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToExponentialString(double d, size_t requestedDigits, T* buffer, size_t length)
         {
@@ -4691,7 +4653,6 @@ namespace moe
          * @brief 使用科学计数法表示转换双精度浮点到字符串
          * @tparam T 目标字符串类型
          * @tparam Size 缓冲区大小
-         * @pre length足够大以容纳所有结果且 0 <= requestedDigits && requestedDigits <= 20
          * @param d 被转换浮点数
          * @param buffer 目标缓冲区
          * @return 转换的字符数量（不含\0），若为0则转换失败
@@ -4707,17 +4668,6 @@ namespace moe
             return ok ? builder.Position() : 0;
         }
 
-        /**
-         * @brief 使用科学计数法表示转换双精度浮点到字符串
-         * @tparam T 目标字符串类型
-         * @param d 被转换浮点数
-         * @param buffer 目标缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0），若为0则转换失败
-         *
-         * 以科学计数法表示转换双精度浮点。本方法尽可能保留足够的小数位数。
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToExponentialString(double d, T* buffer, size_t length)
         {
@@ -4743,16 +4693,6 @@ namespace moe
             return details::Int8ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToDecimalString(int8_t value, T* buffer, size_t length)
         {
@@ -4760,16 +4700,6 @@ namespace moe
             return details::Int8ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToDecimalString(uint8_t value, T (&buffer)[Size])
         {
@@ -4777,16 +4707,6 @@ namespace moe
             return details::UInt8ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToDecimalString(uint8_t value, T* buffer, size_t length)
         {
@@ -4794,16 +4714,6 @@ namespace moe
             return details::UInt8ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToDecimalString(int16_t value, T (&buffer)[Size])
         {
@@ -4811,16 +4721,6 @@ namespace moe
             return details::Int16ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToDecimalString(int16_t value, T* buffer, size_t length)
         {
@@ -4828,16 +4728,6 @@ namespace moe
             return details::Int16ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToDecimalString(uint16_t value, T (&buffer)[Size])
         {
@@ -4845,16 +4735,6 @@ namespace moe
             return details::UInt16ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToDecimalString(uint16_t value, T* buffer, size_t length)
         {
@@ -4862,16 +4742,6 @@ namespace moe
             return details::UInt16ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToDecimalString(int32_t value, T (&buffer)[Size])
         {
@@ -4879,16 +4749,6 @@ namespace moe
             return details::Int32ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToDecimalString(int32_t value, T* buffer, size_t length)
         {
@@ -4896,16 +4756,6 @@ namespace moe
             return details::Int32ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToDecimalString(uint32_t value, T (&buffer)[Size])
         {
@@ -4913,16 +4763,6 @@ namespace moe
             return details::UInt32ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToDecimalString(uint32_t value, T* buffer, size_t length)
         {
@@ -4930,16 +4770,6 @@ namespace moe
             return details::UInt32ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToDecimalString(int64_t value, T (&buffer)[Size])
         {
@@ -4947,16 +4777,6 @@ namespace moe
             return details::Int64ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToDecimalString(int64_t value, T* buffer, size_t length)
         {
@@ -4964,16 +4784,6 @@ namespace moe
             return details::Int64ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToDecimalString(uint64_t value, T (&buffer)[Size])
         {
@@ -4981,16 +4791,6 @@ namespace moe
             return details::UInt64ToBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十进制字符串
-         * @tparam T 目标字符串类型
-         * @param value 被转换数值类型
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToDecimalString(uint64_t value, T* buffer, size_t length)
         {
@@ -5015,16 +4815,6 @@ namespace moe
             return details::UInt8ToHexBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串
-         * @tparam T 目标字符串类型
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToHexString(uint8_t value, T* buffer, size_t length)
         {
@@ -5032,16 +4822,6 @@ namespace moe
             return details::UInt8ToHexBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToHexString(uint16_t value, T (&buffer)[Size])
         {
@@ -5049,16 +4829,6 @@ namespace moe
             return details::UInt16ToHexBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串
-         * @tparam T 目标字符串类型
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToHexString(uint16_t value, T* buffer, size_t length)
         {
@@ -5066,16 +4836,6 @@ namespace moe
             return details::UInt16ToHexBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToHexString(uint32_t value, T (&buffer)[Size])
         {
@@ -5083,16 +4843,6 @@ namespace moe
             return details::UInt32ToHexBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串
-         * @tparam T 目标字符串类型
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToHexString(uint32_t value, T* buffer, size_t length)
         {
@@ -5100,16 +4850,6 @@ namespace moe
             return details::UInt32ToHexBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToHexString(uint64_t value, T (&buffer)[Size])
         {
@@ -5117,16 +4857,6 @@ namespace moe
             return details::UInt64ToHexBuffer(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串
-         * @tparam T 目标字符串类型
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToHexString(uint64_t value, T* buffer, size_t length)
         {
@@ -5151,16 +4881,6 @@ namespace moe
             return details::UInt8ToHexBufferLower(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串（小写）
-         * @tparam T 目标字符串类型
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToHexStringLower(uint8_t value, T* buffer, size_t length)
         {
@@ -5168,16 +4888,6 @@ namespace moe
             return details::UInt8ToHexBufferLower(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串（小写）
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToHexStringLower(uint16_t value, T (&buffer)[Size])
         {
@@ -5185,16 +4895,6 @@ namespace moe
             return details::UInt16ToHexBufferLower(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串（小写）
-         * @tparam T 目标字符串类型
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToHexStringLower(uint16_t value, T* buffer, size_t length)
         {
@@ -5202,16 +4902,6 @@ namespace moe
             return details::UInt16ToHexBufferLower(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串（小写）
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToHexStringLower(uint32_t value, T (&buffer)[Size])
         {
@@ -5219,16 +4909,6 @@ namespace moe
             return details::UInt32ToHexBufferLower(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串（小写）
-         * @tparam T 目标字符串类型
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToHexStringLower(uint32_t value, T* buffer, size_t length)
         {
@@ -5236,16 +4916,6 @@ namespace moe
             return details::UInt32ToHexBufferLower(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串（小写）
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char, size_t Size>
         inline size_t ToHexStringLower(uint64_t value, T (&buffer)[Size])
         {
@@ -5253,21 +4923,107 @@ namespace moe
             return details::UInt64ToHexBufferLower(value, buffer);
         }
 
-        /**
-         * @brief 转换到十六进制字符串（小写）
-         * @tparam T 目标字符串类型
-         * @param value 被转换的值
-         * @param buffer 缓冲区
-         * @param length 缓冲区大小
-         * @return 转换的字符数量（不含\0）
-         *
-         * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
-         */
         template <typename T = char>
         inline size_t ToHexStringLower(uint64_t value, T* buffer, size_t length)
         {
             assert(buffer && length >= 17);
             return details::UInt64ToHexBufferLower(value, buffer);
+        }
+
+        template <typename T = char, size_t Size>
+        inline size_t ToHexString(int8_t value, T (&buffer)[Size])
+        {
+            return ToHexString(static_cast<uint8_t>(value), buffer);
+        }
+
+        template <typename T = char>
+        inline size_t ToHexString(int8_t value, T* buffer, size_t length)
+        {
+            return ToHexString(static_cast<uint8_t>(value), buffer, length);
+        }
+
+        template <typename T = char, size_t Size>
+        inline size_t ToHexString(int16_t value, T (&buffer)[Size])
+        {
+            return ToHexString(static_cast<uint16_t>(value), buffer);
+        }
+
+        template <typename T = char>
+        inline size_t ToHexString(int16_t value, T* buffer, size_t length)
+        {
+            return ToHexString(static_cast<uint16_t>(value), buffer, length);
+        }
+
+        template <typename T = char, size_t Size>
+        inline size_t ToHexString(int32_t value, T (&buffer)[Size])
+        {
+            return ToHexString(static_cast<uint32_t>(value), buffer);
+        }
+
+        template <typename T = char>
+        inline size_t ToHexString(int32_t value, T* buffer, size_t length)
+        {
+            return ToHexString(static_cast<uint32_t>(value), buffer, length);
+        }
+
+        template <typename T = char, size_t Size>
+        inline size_t ToHexString(int64_t value, T (&buffer)[Size])
+        {
+            return ToHexString(static_cast<uint64_t>(value), buffer);
+        }
+
+        template <typename T = char>
+        inline size_t ToHexString(int64_t value, T* buffer, size_t length)
+        {
+            return ToHexString(static_cast<uint64_t>(value), buffer, length);
+        }
+
+        template <typename T = char, size_t Size>
+        inline size_t ToHexStringLower(int8_t value, T (&buffer)[Size])
+        {
+            return ToHexStringLower(static_cast<uint8_t>(value), buffer);
+        }
+
+        template <typename T = char>
+        inline size_t ToHexStringLower(int8_t value, T* buffer, size_t length)
+        {
+            return ToHexStringLower(static_cast<uint8_t>(value), buffer, length);
+        }
+
+        template <typename T = char, size_t Size>
+        inline size_t ToHexStringLower(int16_t value, T (&buffer)[Size])
+        {
+            return ToHexStringLower(static_cast<uint16_t>(value), buffer);
+        }
+
+        template <typename T = char>
+        inline size_t ToHexStringLower(int16_t value, T* buffer, size_t length)
+        {
+            return ToHexStringLower(static_cast<uint16_t>(value), buffer, length);
+        }
+
+        template <typename T = char, size_t Size>
+        inline size_t ToHexStringLower(int32_t value, T (&buffer)[Size])
+        {
+            return ToHexStringLower(static_cast<uint32_t>(value), buffer);
+        }
+
+        template <typename T = char>
+        inline size_t ToHexStringLower(int32_t value, T* buffer, size_t length)
+        {
+            return ToHexStringLower(static_cast<uint32_t>(value), buffer, length);
+        }
+
+        template <typename T = char, size_t Size>
+        inline size_t ToHexStringLower(int64_t value, T (&buffer)[Size])
+        {
+            return ToHexStringLower(static_cast<uint64_t>(value), buffer);
+        }
+
+        template <typename T = char>
+        inline size_t ToHexStringLower(int64_t value, T* buffer, size_t length)
+        {
+            return ToHexStringLower(static_cast<uint64_t>(value), buffer, length);
         }
 
         /**
@@ -5292,45 +5048,12 @@ namespace moe
             return details::StringToDoubleConverter<T>::EcmaScriptConverter().StringToFloat(buffer, length, processed);
         }
 
-        /**
-         * @brief 解析单精度浮点
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param buffer 文本缓冲区
-         * @param[out] processed 处理的字符数
-         * @return 解析结果
-         *
-         * 符合ECMA标准的浮点数解析函数。
-         *   - 允许前置空白符
-         *   - 允许后置无效字符
-         *   - 读取后置空白
-         *   - 支持解析无穷字符串 Infinity
-         *   - 支持解析非数字字符串 NaN
-         *   - 无效或空缓冲区返回 NaN
-         */
         template <typename T = char, size_t Size>
         inline float ParseFloat(const T (&buffer)[Size], size_t& processed)
         {
             return details::StringToDoubleConverter<T>::EcmaScriptConverter().StringToFloat(buffer, Size, processed);
         }
 
-        /**
-         * @brief 解析单精度浮点
-         * @tparam T 目标字符串类型
-         * @pre buffer非空
-         * @param buffer 文本缓冲区
-         * @param length 缓冲区大小
-         * @param[out] processed 处理的字符数
-         * @return 解析结果
-         *
-         * 符合ECMA标准的浮点数解析函数。
-         *   - 允许前置空白符
-         *   - 允许后置无效字符
-         *   - 读取后置空白
-         *   - 支持解析无穷字符串 Infinity
-         *   - 支持解析非数字字符串 NaN
-         *   - 无效或空缓冲区返回 NaN
-         */
         template <typename T = char>
         inline float ParseFloat(const T* buffer, size_t length, size_t& processed)
         {
@@ -5360,45 +5083,12 @@ namespace moe
             return details::StringToDoubleConverter<T>::EcmaScriptConverter().StringToDouble(buffer, length, processed);
         }
 
-        /**
-         * @brief 解析双精度浮点
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param buffer 文本缓冲区
-         * @param[out] processed 处理的字符数
-         * @return 解析结果
-         *
-         * 符合ECMA标准的浮点数解析函数。
-         *   - 允许前置空白符
-         *   - 允许后置无效字符
-         *   - 读取后置空白
-         *   - 支持解析无穷字符串 Infinity
-         *   - 支持解析非数字字符串 NaN
-         *   - 无效或空缓冲区返回 NaN
-         */
         template <typename T = char, size_t Size>
         inline double ParseDouble(const T (&buffer)[Size], size_t& processed)
         {
             return details::StringToDoubleConverter<T>::EcmaScriptConverter().StringToDouble(buffer, Size, processed);
         }
 
-        /**
-         * @brief 解析双精度浮点
-         * @tparam T 目标字符串类型
-         * @pre buffer非空
-         * @param buffer 文本缓冲区
-         * @param length 缓冲区大小
-         * @param[out] processed 处理的字符数
-         * @return 解析结果
-         *
-         * 符合ECMA标准的浮点数解析函数。
-         *   - 允许前置空白符
-         *   - 允许后置无效字符
-         *   - 读取后置空白
-         *   - 支持解析无穷字符串 Infinity
-         *   - 支持解析非数字字符串 NaN
-         *   - 无效或空缓冲区返回 NaN
-         */
         template <typename T = char>
         inline double ParseDouble(const T* buffer, size_t length, size_t& processed)
         {
@@ -5437,22 +5127,6 @@ namespace moe
             return sign ? -static_cast<int64_t>(number) : static_cast<int64_t>(number);
         }
 
-        /**
-         * @brief 解析有符号整数
-         * @tparam T 目标字符串类型
-         * @param buffer 文本缓冲区，以'\0'结尾
-         * @param processed 处理的字符数
-         * @return 解析结果
-         *
-         * 解析函数符合：
-         *   - 允许前置空白
-         *   - 允许后置无效字符
-         *   - 读取后置空白
-         *   - 支持读取十六进制表达
-         *
-         * 当 processed = 0 时表明解析失败。
-         * 被解析字符串超过字符类型所能表达上限时将出现未定义行为。
-         */
         template <typename T = char>
         inline int64_t ParseInt(const T* buffer, size_t& processed)
         {
@@ -5460,23 +5134,6 @@ namespace moe
             return ParseInt<T>(buffer, length, processed);
         }
 
-        /**
-         * @brief 解析有符号整数
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param buffer 文本缓冲区
-         * @param processed 处理的字符数
-         * @return 解析结果
-         *
-         * 解析函数符合：
-         *   - 允许前置空白
-         *   - 允许后置无效字符
-         *   - 读取后置空白
-         *   - 支持读取十六进制表达
-         *
-         * 当 processed = 0 时表明解析失败。
-         * 被解析字符串超过字符类型所能表达上限时将出现未定义行为。
-         */
         template <typename T = char, size_t Size>
         inline int64_t ParseInt(const T (&buffer)[Size], size_t& processed)
         {
@@ -5522,22 +5179,6 @@ namespace moe
             return number;
         }
 
-        /**
-         * @brief 解析无符号整数
-         * @tparam T 目标字符串类型
-         * @param buffer 文本缓冲区，以'\0'结尾
-         * @param processed 处理的字符数
-         * @return 解析结果
-         *
-         * 解析函数符合：
-         *   - 允许前置空白
-         *   - 允许后置无效字符
-         *   - 读取后置空白
-         *   - 支持读取十六进制表达
-         *
-         * 当 processed = 0 时表明解析失败。
-         * 被解析字符串超过字符类型所能表达上限时将出现未定义行为。
-         */
         template <typename T = char>
         inline uint64_t ParseUInt(const T* buffer, size_t& processed)
         {
@@ -5545,23 +5186,6 @@ namespace moe
             return ParseUInt<T>(buffer, length, processed);
         }
 
-        /**
-         * @brief 解析无符号整数
-         * @tparam T 目标字符串类型
-         * @tparam Size 缓冲区大小
-         * @param buffer 文本缓冲区
-         * @param processed 处理的字符数
-         * @return 解析结果
-         *
-         * 解析函数符合：
-         *   - 允许前置空白
-         *   - 允许后置无效字符
-         *   - 读取后置空白
-         *   - 支持读取十六进制表达
-         *
-         * 当 processed = 0 时表明解析失败。
-         * 被解析字符串超过字符类型所能表达上限时将出现未定义行为。
-         */
         template <typename T = char, size_t Size>
         inline uint64_t ParseUInt(const T (&buffer)[Size], size_t& processed)
         {
