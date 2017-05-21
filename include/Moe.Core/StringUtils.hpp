@@ -648,6 +648,28 @@ namespace moe
         namespace details
         {
             template <typename TChar>
+            struct StringConstant
+            {
+                static inline const TChar* GetTrue()
+                {
+                    static const TChar kTrue[] = { 't', 'r', 'u', 'e', '\0' };
+                    return kTrue;
+                }
+
+                static inline const TChar* GetFalse()
+                {
+                    static const TChar kFalse[] = { 'f', 'a', 'l', 's', 'e', '\0' };
+                    return kFalse;
+                }
+
+                static inline const TChar* GetNull()
+                {
+                    static const TChar kNull[] = { 'n', 'u', 'l', 'l', '\0' };
+                    return kNull;
+                }
+            };
+
+            template <typename TChar>
             struct HasMethodToStringValidator
             {
                 template <class T,
@@ -697,15 +719,12 @@ namespace moe
                 static bool AppendToString(std::basic_string<TChar>& output, const void* object,
                     const ArrayView<TChar>& format)
                 {
-                    static const TChar kTrue[] = { 't', 'r', 'u', 'e', '\0' };
-                    static const TChar kFalse[] = { 'f', 'a', 'l', 's', 'e', '\0' };
-
                     const T& value = *static_cast<const T*>(object);
 
                     output.reserve(output.length() + kPreAllocate);
 
                     if (format.Size() == 0)
-                        output.append(value ? kTrue : kFalse);
+                        output.append(value ? StringConstant<TChar>::GetTrue() : StringConstant<TChar>::GetFalse());
                     else
                     {
                         auto where = std::char_traits<TChar>::find(format.GetBuffer(), format.Size(), '|');
@@ -946,14 +965,12 @@ namespace moe
                 static bool AppendToString(std::basic_string<TChar>& output, const void* object,
                     const ArrayView<TChar>& format)
                 {
-                    static const TChar kNull[] = { 'n', 'u', 'l', 'l', '\0' };
-
                     MOE_UNUSED(object);
 
                     if (format.Size() != 0)
                         return false;
 
-                    output.append(kNull);
+                    output.append(StringConstant<TChar>::GetNull());
                     return true;
                 }
             };
