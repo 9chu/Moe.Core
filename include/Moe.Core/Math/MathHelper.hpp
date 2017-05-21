@@ -119,7 +119,7 @@ namespace moe
     /**
      * @brief sin三角函数
      */
-    template <typename T>
+    template <typename T = float>
     constexpr T Sin(T v)
     {
         return static_cast<T>(std::sin(v));
@@ -128,7 +128,7 @@ namespace moe
     /**
      * @brief cos三角函数
      */
-    template <typename T>
+    template <typename T = float>
     constexpr T Cos(T v)
     {
         return static_cast<T>(std::cos(v));
@@ -137,7 +137,7 @@ namespace moe
     /**
      * @brief tan三角函数
      */
-    template <typename T>
+    template <typename T = float>
     constexpr T Tan(T v)
     {
         return static_cast<T>(std::tan(v));
@@ -147,7 +147,7 @@ namespace moe
      * @brief asin三角函数
      * 用来计算参数v的反正弦值, 参数v范围应该保留在[-1, 1]之间
      */
-    template <typename T>
+    template <typename T = float>
     constexpr T Asin(T v)
     {
         return static_cast<T>(std::asin(Clamp(v, T(-1), T(1))));
@@ -157,7 +157,7 @@ namespace moe
      * @brief acos三角函数
      * 用来计算参数v的反余弦值, 参数v范围应该保留在[-1, 1]之间
      */
-    template <typename T>
+    template <typename T = float>
     constexpr T Acos(T v)
     {
         return static_cast<T>(std::acos(Clamp(v, T(-1), T(1))));
@@ -168,7 +168,7 @@ namespace moe
      * 假设p1(x1, y1), p2(x2, y2), T angle = Atan((y2-y1)/(x2-x1))
      * 显然当x1 == x2时会报错
      */
-    template <typename T>
+    template <typename T = float>
     constexpr T Atan(T v)
     {
         return static_cast<T>(std::atan(v));
@@ -178,31 +178,31 @@ namespace moe
      * @brief atan2三角函数
      * 假设p1(x1, y1), p2(x2, y2), T angle = Atan2((y2-y1), (x2-x1))
      */
-    template <typename T>
+    template <typename T = float>
     constexpr T Atan2(T y, T x)
     {
         return static_cast<T>(std::atan2(y, x));
     }
 
-    template <typename T>
+    template <typename T = float>
     constexpr T Exp(T v)
     {
         return static_cast<T>(std::exp(v));
     }
 
-    template <typename T>
+    template <typename T = float>
     constexpr T Log(T v)
     {
         return static_cast<T>(std::log(v));
     }
 
-    template <typename T>
+    template <typename T = float>
     constexpr T Pow(T x, T y)
     {
         return static_cast<T>(std::pow(x, y));
     }
 
-    template <typename T>
+    template <typename T = float>
     constexpr T Mod(T x, T y)
     {
         return static_cast<T>(std::fmod(x, y));
@@ -211,7 +211,7 @@ namespace moe
     /**
      * @brief 将角度区间为[-Pi, Pi]之间
      */
-    template <typename T>
+    template <typename T = float>
     T WrapAngle(T angle)
     {
         angle = Mod(angle, MathConstants<T>::TwoPi);
@@ -234,7 +234,7 @@ namespace moe
         /*
          * @brief 线性插值
          */
-        template <typename T>
+        template <typename T = float>
         struct Lerp
         {
             constexpr T operator() (T t) const
@@ -246,7 +246,7 @@ namespace moe
         /*
          * @brief 平方插值
          */
-        template <typename T>
+        template <typename T = float>
         struct Square
         {
             constexpr T operator() (T t) const
@@ -258,7 +258,7 @@ namespace moe
         /*
          * @brief 反平方插值
          */
-        template <typename T>
+        template <typename T = float>
         struct InverseSquare
         {
             constexpr T operator() (T t) const
@@ -271,7 +271,7 @@ namespace moe
     /*
      * @brief SmoothStep插值
      */
-    template <typename T>
+    template <typename T = float>
     struct SmoothStep
     {
         constexpr T operator() (T t) const
@@ -284,7 +284,7 @@ namespace moe
      * @brief 重心插值
      */
 
-    template <typename T>
+    template <typename T = float>
     constexpr T BaryCentric(T v1, T v2, T v3, T t1, T t2)
     {
         return v1 + (v2 - v1) * t1 + (v3 - v1) * t2;
@@ -293,7 +293,7 @@ namespace moe
     /*
      * @brief Catmull-Rom样条插值
      */
-    template <typename T>
+    template <typename T = float>
     T CatmullRom(T v1, T v2, T v3, T v4, T t)
     {
         T t2 = Pow(t, T(2.));
@@ -311,7 +311,7 @@ namespace moe
      * @brief Hermite插值
      * @ref http://www.cubic.org/docs/hermite.htm
      */
-    template <typename T>
+    template <typename T = float>
     T Hermite(T v1, T tangent1, T v2, T tangent2, T t)
     {
         T t2 = Pow(t, T(2.));
