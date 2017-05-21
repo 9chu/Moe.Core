@@ -909,8 +909,7 @@ namespace moe
 
                     output[pos] = '0';
                     output[pos + 1] = 'x';
-                    count = Convert::ToHexString(reinterpret_cast<std::ptrdiff_t>(value), &output[pos + 2],
-                        kPreAllocate);
+                    count = Convert::ToHexString(reinterpret_cast<uint64_t>(value), &output[pos + 2], kPreAllocate);
 
                     output.resize(pos + count + 2);
                     return true;
@@ -934,8 +933,7 @@ namespace moe
 
                     output[pos] = '0';
                     output[pos + 1] = 'x';
-                    count = Convert::ToHexString(reinterpret_cast<std::ptrdiff_t>(object), &output[pos + 2],
-                        kPreAllocate);
+                    count = Convert::ToHexString(reinterpret_cast<uint64_t>(object), &output[pos + 2], kPreAllocate);
 
                     output.resize(pos + count + 2);
                     return true;
@@ -1004,7 +1002,7 @@ namespace moe
 
             template <typename TChar, typename T>
             using ToStringFormatterSelectNullptrOrNot = typename std::conditional<
-                std::is_null_pointer<T>::value,
+                std::is_same<typename std::remove_cv<typename std::decay<T>::type>::type, std::nullptr_t>::value,
                 NullptrToStringFormatter<TChar, T>,
                 ToStringFormatterSelectCustomExOrNot<TChar, T>>::type;
 

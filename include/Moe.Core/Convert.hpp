@@ -4556,7 +4556,7 @@ namespace moe
          * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
          */
         template <typename T = char, size_t Size>
-        inline size_t ToFixedString(double d, size_t requestDigits, T (&buffer)[Size])
+        inline size_t ToFixedString(double d, unsigned requestDigits, T (&buffer)[Size])
         {
             assert(requestDigits <= 20);
             requestDigits = std::min(requestDigits, 20u);
@@ -4567,7 +4567,7 @@ namespace moe
         }
 
         template <typename T = char>
-        inline size_t ToFixedString(double d, size_t requestDigits, T* buffer, size_t length)
+        inline size_t ToFixedString(double d, unsigned requestDigits, T* buffer, size_t length)
         {
             assert(requestDigits <= 20);
             requestDigits = std::min(requestDigits, 20u);
@@ -4591,7 +4591,7 @@ namespace moe
          * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
          */
         template <typename T = char, size_t Size>
-        inline size_t ToPrecisionString(double d, size_t precision, T (&buffer)[Size])
+        inline size_t ToPrecisionString(double d, unsigned precision, T (&buffer)[Size])
         {
             assert(1 <= precision && precision <= 21);
             precision = std::max(std::min(precision, 21u), 1u);
@@ -4602,7 +4602,7 @@ namespace moe
         }
 
         template <typename T = char>
-        inline size_t ToPrecisionString(double d, size_t precision, T* buffer, size_t length)
+        inline size_t ToPrecisionString(double d, unsigned precision, T* buffer, size_t length)
         {
             assert(1 <= precision && precision <= 21);
             precision = std::max(std::min(precision, 21u), 1u);
@@ -4626,7 +4626,7 @@ namespace moe
          * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
          */
         template <typename T = char, size_t Size>
-        inline size_t ToExponentialString(double d, size_t requestedDigits, T (&buffer)[Size])
+        inline size_t ToExponentialString(double d, unsigned requestedDigits, T (&buffer)[Size])
         {
             assert(0 <= requestedDigits && requestedDigits <= 20);
             requestedDigits = std::min(requestedDigits, 20u);
@@ -4638,7 +4638,7 @@ namespace moe
         }
 
         template <typename T = char>
-        inline size_t ToExponentialString(double d, size_t requestedDigits, T* buffer, size_t length)
+        inline size_t ToExponentialString(double d, unsigned requestedDigits, T* buffer, size_t length)
         {
             assert(0 <= requestedDigits && requestedDigits <= 20);
             requestedDigits = std::min(requestedDigits, 20u);
