@@ -243,7 +243,7 @@ namespace moe
         }
 
     public:
-        void Clear()
+        void Clear()noexcept
         {
             if (!IsEmpty())
             {
@@ -281,7 +281,7 @@ namespace moe
             }
         }
 
-        bool IsEmpty()const
+        bool IsEmpty()const noexcept
         {
             return m_pManager == nullptr;
         }

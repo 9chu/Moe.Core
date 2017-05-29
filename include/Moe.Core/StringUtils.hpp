@@ -885,7 +885,11 @@ namespace moe
                     if (format.Size() != 0)
                         return false;
 
-                    output.append(value);
+                    if (value == nullptr)
+                        output.append(StringConstant<TChar>::GetNull());
+                    else
+                        output.append(value);
+
                     return true;
                 }
             };

@@ -18,18 +18,18 @@ namespace moe
     class ArrayView
     {
     public:
-        ArrayView()
+        ArrayView()noexcept
             : m_pBuffer(nullptr), m_uSize(0) {}
 
-        ArrayView(const T* data, size_t size)
+        ArrayView(const T* data, size_t size)noexcept
             : m_pBuffer(data), m_uSize(size)
         {
             assert(size == 0 || (size > 0 && data != nullptr));
         }
 
-        explicit operator bool()const { return m_pBuffer != nullptr; }
+        explicit operator bool()const noexcept { return m_pBuffer != nullptr; }
 
-        const T& operator[](size_t index)const
+        const T& operator[](size_t index)const noexcept
         {
             assert(0 <= index && index < m_uSize);
             return m_pBuffer[index];
@@ -40,25 +40,25 @@ namespace moe
          * @brief 获取缓冲区大小
          * @return 缓冲区元素个数
          */
-        size_t Size()const { return m_uSize; }
+        size_t Size()const noexcept { return m_uSize; }
 
         /**
          * @brief 缓冲区是否为空
          * @return 是否空
          */
-        bool IsEmpty()const { return m_uSize == 0; }
+        bool IsEmpty()const noexcept { return m_uSize == 0; }
 
         /**
          * @brief 获取缓冲区
          * @return 缓冲区指针
          */
-        const T* GetBuffer()const { return m_pBuffer; }
+        const T* GetBuffer()const noexcept { return m_pBuffer; }
 
         /**
          * @brief 获取第一个元素
          * @return 第一个元素
          */
-        const T& First()const
+        const T& First()const noexcept
         {
             assert(!IsEmpty());
             return m_pBuffer[0];
@@ -68,7 +68,7 @@ namespace moe
          * @brief 获取最后一个元素
          * @return 最后一个元素
          */
-        const T& Last()const
+        const T& Last()const noexcept
         {
             assert(!IsEmpty());
             return m_pBuffer[m_uSize - 1];
@@ -80,7 +80,7 @@ namespace moe
          * @param to 结束位置
          * @return 具有相同内存位置的片段
          */
-        ArrayView<T> Slice(size_t from, size_t to)const
+        ArrayView<T> Slice(size_t from, size_t to)const noexcept
         {
             assert(to <= m_uSize);
             assert(from < to);
@@ -107,7 +107,7 @@ namespace moe
         using ArrayView<T>::ArrayView;
         using ArrayView<T>::operator[];
 
-        T& operator[](size_t index)
+        T& operator[](size_t index)noexcept
         {
             assert(0 <= index && index < ArrayView<T>::m_uSize);
             return const_cast<T*>(ArrayView<T>::m_pBuffer)[index];
@@ -123,13 +123,13 @@ namespace moe
          * @brief 获取缓冲区
          * @return 缓冲区指针
          */
-        T* GetBuffer() { return const_cast<T*>(ArrayView<T>::m_pBuffer); }
+        T* GetBuffer()noexcept { return const_cast<T*>(ArrayView<T>::m_pBuffer); }
 
         /**
          * @brief 获取第一个元素
          * @return 第一个元素
          */
-        T& First()
+        T& First()noexcept
         {
             assert(!ArrayView<T>::IsEmpty());
             return const_cast<T*>(ArrayView<T>::m_pBuffer)[0];
@@ -139,7 +139,7 @@ namespace moe
          * @brief 获取最后一个元素
          * @return 最后一个元素
          */
-        T& Last()
+        T& Last()noexcept
         {
             assert(!ArrayView<T>::IsEmpty());
             return const_cast<T*>(ArrayView<T>::m_pBuffer)[ArrayView<T>::m_uSize - 1];
@@ -151,7 +151,7 @@ namespace moe
          * @param to 结束位置
          * @return 具有相同内存位置的片段
          */
-        MutableArrayView<T> Slice(size_t from, size_t to)
+        MutableArrayView<T> Slice(size_t from, size_t to)noexcept
         {
             assert(to <= ArrayView<T>::m_uSize);
             assert(from < to);
