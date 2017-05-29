@@ -9,13 +9,25 @@
 
 namespace moe
 {
+    /**
+     * @brief Any容器
+     *
+     * 可以存放任意类型的值容器。
+     *
+     * Any在实现上提供了SOO(Small-Object-Optimize)，若需要使用这一特性，需要保证：
+     *   - 对象大小小于等于32字节
+     *   - 对象的align小于等于8字节
+     *   - 对象的move constructor必须是noexcept的
+     * 当不满足上述任意条件时，对象将在堆上分配。
+     *
+     * 实现应当保证std::string可以使用SOO。
+     */
     class Any
     {
         union Storage
         {
-            // 保证小对象优化能够用在float4和string上
-            static const size_t StorageSize = (sizeof(void*) > 16u ? sizeof(void*) : 16u) > sizeof(std::string) ?
-                (sizeof(void*) > 16u ? sizeof(void*) : 16u) : sizeof(std::string);
+            static const size_t StorageSize = (sizeof(void*) > 32u ? sizeof(void*) : 32u) > sizeof(std::string) ?
+                (sizeof(void*) > 32u ? sizeof(void*) : 32u) : sizeof(std::string);
             static const size_t AlignSize = (alignof(void*) > 8u ? alignof(void*) : 8u) > alignof(std::string) ?
                 (alignof(void*) > 8u ? alignof(void*) : 8u) : alignof(std::string);
 
@@ -45,6 +57,9 @@ namespace moe
 
         template <typename T, typename Decayed = typename std::decay<T>::type>
         using Decay = typename std::enable_if<!std::is_same<Decayed, Any>::value, Decayed>::type;
+
+        static_assert(std::is_same<LocalStorageManager<std::string>, StorageManager<std::string>>::value,
+            "Adjustment required");
 
         enum class ManagerOperator
         {
@@ -145,13 +160,13 @@ namespace moe
         }
 
         template <typename T>
-        void* InternalCastTo()const
+        T* InternalCastTo()const
         {
             if (m_pManager != &StorageManager<typename std::decay<T>::type>::Manager)
                 return nullptr;
             ManagerArg arg;
             m_pManager(ManagerOperator::Access, this, &arg);
-            return arg.Object;
+            return static_cast<T*>(arg.Object);
         }
 
     public:
@@ -242,6 +257,11 @@ namespace moe
             return *this;
         }
 
+        operator bool()noexcept
+        {
+            return IsEmpty();
+        }
+
     public:
         void Clear()noexcept
         {
@@ -295,12 +315,19 @@ namespace moe
             return *arg.TypeInfo;
         }
 
+        /**
+         * @brief 转换到指定类型
+         * @tparam TRaw 需要的类型
+         * @exception std::runtime_error
+         * @return 值
+         *
+         * 若转换成功，返回对应的值。若失败，抛出runtime_error。
+         */
         template <typename TRaw>
         inline TRaw CastTo()const
         {
             static_assert(IsValidCast<TRaw>(), "Template argument must be a reference or CopyConstructible type");
-            auto p = static_cast<const TRaw*>(
-                InternalCastTo<typename std::add_const<typename std::remove_reference<TRaw>::type>::type>());
+            auto p = InternalCastTo<typename std::add_const<typename std::remove_reference<TRaw>::type>::type>();
             if (p)
                 return *p;
             throw std::runtime_error("Bad cast");
@@ -310,20 +337,27 @@ namespace moe
         inline TRaw CastTo()
         {
             static_assert(IsValidCast<TRaw>(), "Template argument must be a reference or CopyConstructible type");
-            auto p = static_cast<const TRaw*>(InternalCastTo<typename std::remove_reference<TRaw>::type>());
+            auto p = InternalCastTo<typename std::remove_reference<TRaw>::type>();
             if (p)
                 return *p;
             throw std::runtime_error("Bad cast");
         }
 
+        /**
+         * @brief 转换到指定类型(无异常)
+         * @tparam TRaw 需要的类型
+         * @return 值
+         *
+         * 若转换成功，返回对应的值。若失败，构造一个TRaw的临时变量并返回。
+         * 需要注意，使用这一方法时，TRaw不能为引用类型（无法返回栈上的临时变量作为引用）。
+         */
         template <typename TRaw>
         inline TRaw SafeCastTo()const noexcept
         {
             static_assert(IsValidCast<TRaw>(), "Template argument must be a reference or CopyConstructible type");
-            static_assert(!std::is_reference<TRaw>(), "SafeCast cannot apply on reference type");
+            static_assert(!std::is_reference<TRaw>(), "SafeCast cannot be applied on a reference type");
 
-            auto p = static_cast<const TRaw*>(
-                InternalCastTo<typename std::add_const<TRaw>::type>());
+            auto p = InternalCastTo<typename std::add_const<TRaw>::type>();
             if (p)
                 return *p;
             return TRaw();
@@ -333,12 +367,42 @@ namespace moe
         inline TRaw SafeCastTo()noexcept
         {
             static_assert(IsValidCast<TRaw>(), "Template argument must be a reference or CopyConstructible type");
-            static_assert(!std::is_reference<TRaw>(), "SafeCast cannot apply on reference type");
+            static_assert(!std::is_reference<TRaw>(), "SafeCast cannot be applied on a reference type");
 
-            auto p = static_cast<const TRaw*>(InternalCastTo<TRaw>());
+            auto p = InternalCastTo<TRaw>();
             if (p)
                 return *p;
             return TRaw();
+        }
+
+        /**
+         * @brief 转换到指定类型(无异常)
+         * @tparam TRaw 需要的类型
+         * @param defaultIfBadCast 若转换失败时需要返回的默认值
+         * @return 值
+         *
+         * 若转换成功，返回对应的值。若失败，返回defaultIfBadCast。
+         */
+        template <typename TRaw>
+        inline TRaw SafeCastTo(TRaw defaultIfBadCast)const noexcept
+        {
+            static_assert(IsValidCast<TRaw>(), "Template argument must be a reference or CopyConstructible type");
+
+            auto p = InternalCastTo<typename std::add_const<typename std::remove_reference<TRaw>::type>::type>();
+            if (p)
+                return *p;
+            return defaultIfBadCast;
+        }
+
+        template <typename TRaw>
+        inline TRaw SafeCastTo(TRaw defaultIfBadCast)noexcept
+        {
+            static_assert(IsValidCast<TRaw>(), "Template argument must be a reference or CopyConstructible type");
+
+            auto p = InternalCastTo<typename std::remove_reference<TRaw>::type>();
+            if (p)
+                return *p;
+            return defaultIfBadCast;
         }
 
     private:

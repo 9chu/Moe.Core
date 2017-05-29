@@ -29,7 +29,20 @@ TEST(Any, Test)
 
     Any c = std::move(a);
     EXPECT_EQ(123.45, c.SafeCastTo<double>());
-    EXPECT_TRUE(a.IsEmpty());
+    EXPECT_TRUE(a);
+
+    a = 1;
+    b = 2;
+    a.Swap(b);
+    EXPECT_EQ(2, a.SafeCastTo<int>());
+    EXPECT_EQ(1, b.SafeCastTo<int>());
+
+    a = 1;
+    EXPECT_EQ(0., a.SafeCastTo<const double&>(0.));
+
+    a = 1;
+    a.CastTo<int&>() = 2;
+    EXPECT_EQ(2, a.SafeCastTo<int>());
 }
 
 TEST(Any, TestHeapObject)
@@ -47,5 +60,5 @@ TEST(Any, TestHeapObject)
     Any b = std::move(a);
     EXPECT_EQ("hello", b.SafeCastTo<SthBig>().A);
     EXPECT_EQ("world", b.SafeCastTo<SthBig>().B);
-    EXPECT_TRUE(a.IsEmpty());
+    EXPECT_TRUE(a);
 }
