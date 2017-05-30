@@ -318,10 +318,10 @@ namespace moe
         /**
          * @brief 转换到指定类型
          * @tparam TRaw 需要的类型
-         * @exception std::runtime_error
+         * @throw std::bad_cast
          * @return 值
          *
-         * 若转换成功，返回对应的值。若失败，抛出runtime_error。
+         * 若转换成功，返回对应的值。若失败，抛出 bad_cast。
          */
         template <typename TRaw>
         inline TRaw CastTo()const

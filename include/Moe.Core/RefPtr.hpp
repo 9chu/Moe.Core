@@ -275,28 +275,28 @@ namespace moe
         void ReserveWeakRef()const volatile { RequireWeakView(); }
 
         template <typename U = T>
-        RefPtr<const volatile U> SharedFromThis()const volatile noexcept { return ForkStrong<const volatile U>(this); }
+        RefPtr<const volatile U> RefFromThis()const volatile noexcept { return ForkStrong<const volatile U>(this); }
 
         template <typename U = T>
-        RefPtr<const U> SharedFromThis()const noexcept { return ForkStrong<const U>(this); }
+        RefPtr<const U> RefFromThis()const noexcept { return ForkStrong<const U>(this); }
 
         template <typename U = T>
-        RefPtr<volatile U> SharedFromThis()volatile noexcept { return ForkStrong<volatile U>(this); }
+        RefPtr<volatile U> RefFromThis()volatile noexcept { return ForkStrong<volatile U>(this); }
 
         template <typename U = T>
-        RefPtr<U> SharedFromThis()noexcept { return ForkStrong<U>(this); }
+        RefPtr<U> RefFromThis()noexcept { return ForkStrong<U>(this); }
 
         template <typename U = T>
-        RefWeakPtr<const volatile U> WeakFromThis()const volatile { return ForkWeak<const volatile U>(this); }
+        RefWeakPtr<const volatile U> WeakRefFromThis()const volatile { return ForkWeak<const volatile U>(this); }
 
         template <typename U = T>
-        RefWeakPtr<const U> WeakFromThis()const { return ForkWeak<const U>(this); }
+        RefWeakPtr<const U> WeakRefFromThis()const { return ForkWeak<const U>(this); }
 
         template <typename U = T>
-        RefWeakPtr<volatile U> WeakFromThis()volatile { return ForkWeak<volatile U>(this); }
+        RefWeakPtr<volatile U> WeakRefFromThis()volatile { return ForkWeak<volatile U>(this); }
 
         template <typename U = T>
-        RefWeakPtr<U> WeakFromThis() { return ForkWeak<U>(this); }
+        RefWeakPtr<U> WeakRefFromThis() { return ForkWeak<U>(this); }
 
     private:
         WeakView* GetWeakView()const volatile noexcept

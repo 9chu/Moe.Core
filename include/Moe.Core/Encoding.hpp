@@ -162,7 +162,7 @@ namespace moe
          * @tparam DestEncoding 目标编码
          * @tparam TSrcChar 原始字符类型
          * @tparam TDestChar 目标字符类型
-         * @exception InvalidEncoding
+         * @throw InvalidEncoding 无效转换
          * @param src 原始字符串
          * @param replacer 非法字符替换字符, 若为0则在错误时抛出异常
          * @return 目标字符串

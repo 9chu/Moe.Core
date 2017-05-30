@@ -56,7 +56,7 @@ namespace moe
         /**
          * @brief 规范化文件路径
          * @tparam TChar 字符类型
-         * @exception BadFormat
+         * @throw BadFormat 无效格式
          * @param path 路径
          * @param flags 规范化参数
          * @return 规范化后路径
@@ -119,7 +119,7 @@ namespace moe
         /**
          * @brief 规范化文件夹路径
          * @tparam TChar 字符类型
-         * @exception BadFormat
+         * @throw BadFormat 无效格式
          * @param path 路径
          * @param flags 规范化参数
          * @return 规范化后路径

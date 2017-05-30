@@ -46,7 +46,7 @@ namespace moe
 
         /**
          * @brief 追加一个元素
-         * @exception OutOfRangeException
+         * @throw OutOfRangeException 数据越界
          */
         void Push(const T &obj)
         {
@@ -66,7 +66,7 @@ namespace moe
 
         /**
          * @brief 弹出一个元素
-         * @exception OutOfRangeException
+         * @throw OutOfRangeException 数据越界
          */
         T Pop()
         {
