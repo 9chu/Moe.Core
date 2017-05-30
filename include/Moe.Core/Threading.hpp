@@ -8,6 +8,10 @@
 #include <atomic>
 #include <condition_variable>
 
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
+
 #include "Utils.hpp"
 
 namespace moe
@@ -20,6 +24,90 @@ namespace moe
     namespace Threading
     {
         using WaitingDuration = std::chrono::milliseconds;
+
+        /**
+         * @brief 瞬时休眠器
+         *
+         * 用于进行短时间的快速睡眠操作以交出CPU控制权。
+         */
+        class Sleeper
+        {
+            static const uint32_t kMaxActiveSpin = 4000;
+
+        public:
+            static inline void AsmVolatilePause()
+            {
+#if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
+                ::_mm_pause();
+#elif defined(__i386__) || (defined(__x86_64__) || defined(_M_X64))
+                asm volatile("pause");
+#elif defined(__aarch64__) || defined(__arm__)
+                asm volatile("yield");
+#elif defined(__powerpc64__)
+                asm volatile("or 27,27,27");
+#else
+                #error "Unknown platform"
+#endif
+            }
+
+        public:
+            Sleeper() = default;
+
+        public:
+            void Wait();
+
+        private:
+            uint32_t m_uSpinCount = 0;
+        };
+
+        /**
+         * @brief 自旋锁
+         */
+        class SpinLock :
+            public NonCopyable
+        {
+            enum class State
+            {
+                Free,
+                Locked,
+            };
+
+        public:
+            SpinLock()
+            {
+                m_stLock.store(static_cast<uint8_t>(State::Free));
+            }
+
+            bool TryLock()
+            {
+                uint8_t compare = static_cast<uint8_t>(State::Free);
+                uint8_t val = static_cast<uint8_t>(State::Locked);
+
+                return std::atomic_compare_exchange_strong_explicit(&m_stLock, &compare, val, std::memory_order_acquire,
+                    std::memory_order_relaxed);
+            }
+
+            void Lock()
+            {
+                Sleeper sleeper;
+                do
+                {
+                    while (m_stLock.load() != static_cast<uint8_t>(State::Free))
+                        sleeper.Wait();
+                }
+                while (!TryLock());
+                assert(m_stLock.load() == static_cast<uint8_t>(State::Locked));
+            }
+
+            void Unlock()
+            {
+                assert(m_stLock.load() == static_cast<uint8_t>(State::Locked));
+                m_stLock.store(static_cast<uint8_t>(State::Free), std::memory_order_release);
+            }
+
+        private:
+            std::atomic<uint8_t> m_stLock;
+        };
 
         /**
          * @brief 事件

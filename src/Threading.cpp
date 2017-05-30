@@ -4,9 +4,38 @@
  */
 #include <Moe.Core/Threading.hpp>
 
+#include <Windows.h>
+
 using namespace std;
 using namespace moe;
 using namespace Threading;
+
+//////////////////////////////////////////////////////////////////////////////// Sleeper
+
+void Sleeper::Wait()
+{
+    if (m_uSpinCount < kMaxActiveSpin)
+    {
+        ++m_uSpinCount;
+        AsmVolatilePause();
+    }
+    else
+    {
+#ifdef MOE_WINDOWS
+        ::Sleep(0);
+#else
+        /*
+         * Always sleep 0.5ms, assuming this will make the kernel put
+         * us down for whatever its minimum timer resolution is (in
+         * linux this varies by kernel version from 1ms to 10ms).
+         */
+        struct timespec ts = { 0, 500000 };
+        ::nanosleep(&ts, nullptr);
+#endif
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////// Event
 
 Event::Event(bool set, bool autoReset)
     : m_bEventSet(set), m_bAutoReset(autoReset) {}
