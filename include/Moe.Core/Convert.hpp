@@ -3118,24 +3118,24 @@ namespace moe
 
                 static const size_t kMaxSignificantDigits = 772;
 
-                static constexpr bool IsDigit(int x, int radix)
+                static constexpr bool IsDigit(int x, int radix)noexcept
                 {
                     return (x >= '0' && x <= '9' && x < '0' + radix) ||
                         (radix > 10 && x >= 'a' && x < 'a' + radix - 10) ||
                         (radix > 10 && x >= 'A' && x < 'A' + radix - 10);
                 }
 
-                static constexpr bool IsCharacterDigitForRadix(int c, int radix, T aCharacter)
+                static constexpr bool IsCharacterDigitForRadix(int c, int radix, T aCharacter)noexcept
                 {
                     return radix > 10 && c >= aCharacter && c < aCharacter + radix - 10;
                 }
 
-                static constexpr bool IsDecimalDigitForRadix(int c, int radix)
+                static constexpr bool IsDecimalDigitForRadix(int c, int radix)noexcept
                 {
                     return '0' <= c && c <= '9' && (c - '0') < radix;
                 }
 
-                static bool IsWhitespace(int x)  // 无法引用StringUtils里面的IsUnicodeWhitespace，会产生循环依赖
+                static bool IsWhitespace(int x)noexcept  // 无法引用StringUtils里面的IsUnicodeWhitespace，会产生循环依赖
                 {
                     static const int kWhitespaceTable7[] = { 32, 13, 10, 9, 11, 12 };
                     static const int kWhitespaceTable16[] = {
@@ -3163,13 +3163,13 @@ namespace moe
                     return false;
                 }
 
-                static constexpr double SignedZero(bool sign)
+                static constexpr double SignedZero(bool sign)noexcept
                 {
                     return sign ? -0.0 : 0.0;
                 }
 
                 template <class Iterator>
-                static inline bool AdvanceToNonSpace(Iterator& current, Iterator end)
+                static inline bool AdvanceToNonSpace(Iterator& current, Iterator end)noexcept
                 {
                     while (current != end)
                     {
@@ -3182,7 +3182,7 @@ namespace moe
                 }
 
                 template <class Iterator>
-                static bool ConsumeSubString(Iterator& current, Iterator end, const T* subString)
+                static bool ConsumeSubString(Iterator& current, Iterator end, const T* subString)noexcept
                 {
                     assert(*current == subString[0]);
                     for (subString++; *subString != '\0'; subString++)
@@ -3790,7 +3790,7 @@ namespace moe
             //////////////////////////////////////// <editor-fold desc="Itoa实现">
 
             template <typename TChar>
-            inline const TChar* GetDigitLookupTable100()
+            inline const TChar* GetDigitLookupTable100()noexcept
             {
                 static const TChar kLookupTable[200] = {
                     '0','0','0','1','0','2','0','3','0','4','0','5','0','6','0','7','0','8','0','9',
@@ -3809,7 +3809,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t UInt8ToBuffer(uint8_t value, TChar* buffer)
+            inline size_t UInt8ToBuffer(uint8_t value, TChar* buffer)noexcept
             {
                 const TChar* start = buffer;
                 const TChar* lut = GetDigitLookupTable100<TChar>();
@@ -3838,7 +3838,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t Int8ToBuffer(int8_t value, TChar* buffer)
+            inline size_t Int8ToBuffer(int8_t value, TChar* buffer)noexcept
             {
                 uint8_t u = static_cast<uint8_t>(value);
                 if (value < 0)
@@ -3852,7 +3852,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t UInt16ToBuffer(uint16_t value, TChar* buffer)
+            inline size_t UInt16ToBuffer(uint16_t value, TChar* buffer)noexcept
             {
                 const TChar* start = buffer;
                 const TChar* lut = GetDigitLookupTable100<TChar>();
@@ -3891,7 +3891,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t Int16ToBuffer(int16_t value, TChar* buffer)
+            inline size_t Int16ToBuffer(int16_t value, TChar* buffer)noexcept
             {
                 uint16_t u = static_cast<uint16_t>(value);
                 if (value < 0)
@@ -3905,7 +3905,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t UInt32ToBuffer(uint32_t value, TChar* buffer)
+            inline size_t UInt32ToBuffer(uint32_t value, TChar* buffer)noexcept
             {
                 const TChar* start = buffer;
                 const TChar* lut = GetDigitLookupTable100<TChar>();
@@ -3985,7 +3985,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t Int32ToBuffer(int32_t value, TChar* buffer)
+            inline size_t Int32ToBuffer(int32_t value, TChar* buffer)noexcept
             {
                 uint32_t u = static_cast<uint32_t>(value);
                 if (value < 0)
@@ -3999,7 +3999,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t UInt64ToBuffer(uint64_t value, TChar* buffer)
+            inline size_t UInt64ToBuffer(uint64_t value, TChar* buffer)noexcept
             {
                 const TChar* start = buffer;
                 const TChar* lut = GetDigitLookupTable100<TChar>();
@@ -4170,7 +4170,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t Int64ToBuffer(int64_t value, TChar* buffer)
+            inline size_t Int64ToBuffer(int64_t value, TChar* buffer)noexcept
             {
                 uint64_t u = static_cast<uint64_t>(value);
                 if (value < 0)
@@ -4188,7 +4188,7 @@ namespace moe
             //////////////////////////////////////// <editor-fold desc="Itoh实现">
 
             template <typename TChar>
-            inline const TChar* GetHexDigitLookupTable32()
+            inline const TChar* GetHexDigitLookupTable32()noexcept
             {
                 static const TChar kLookupTable[32] = {
                     '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F',
@@ -4199,7 +4199,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t UInt8ToHexBuffer(uint16_t value, TChar* buffer)
+            inline size_t UInt8ToHexBuffer(uint16_t value, TChar* buffer)noexcept
             {
                 const TChar* start = buffer;
                 const TChar* lut = GetHexDigitLookupTable32<TChar>();
@@ -4213,7 +4213,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t UInt8ToHexBufferLower(uint8_t value, TChar* buffer)
+            inline size_t UInt8ToHexBufferLower(uint8_t value, TChar* buffer)noexcept
             {
                 const TChar* start = buffer;
                 const TChar* lut = GetHexDigitLookupTable32<TChar>() + 16;
@@ -4227,7 +4227,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t UInt16ToHexBuffer(uint16_t value, TChar* buffer)
+            inline size_t UInt16ToHexBuffer(uint16_t value, TChar* buffer)noexcept
             {
                 const TChar* start = buffer;
                 const TChar* lut = GetHexDigitLookupTable32<TChar>();
@@ -4245,7 +4245,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t UInt16ToHexBufferLower(uint16_t value, TChar* buffer)
+            inline size_t UInt16ToHexBufferLower(uint16_t value, TChar* buffer)noexcept
             {
                 const TChar* start = buffer;
                 const TChar* lut = GetHexDigitLookupTable32<TChar>() + 16;
@@ -4263,7 +4263,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t UInt32ToHexBuffer(uint32_t value, TChar* buffer)
+            inline size_t UInt32ToHexBuffer(uint32_t value, TChar* buffer)noexcept
             {
                 const TChar* start = buffer;
                 const TChar* lut = GetHexDigitLookupTable32<TChar>();
@@ -4289,7 +4289,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t UInt32ToHexBufferLower(uint32_t value, TChar* buffer)
+            inline size_t UInt32ToHexBufferLower(uint32_t value, TChar* buffer)noexcept
             {
                 const TChar* start = buffer;
                 const TChar* lut = GetHexDigitLookupTable32<TChar>() + 16;
@@ -4315,7 +4315,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t UInt64ToHexBuffer(uint64_t value, TChar* buffer)
+            inline size_t UInt64ToHexBuffer(uint64_t value, TChar* buffer)noexcept
             {
                 const TChar* start = buffer;
                 const TChar* lut = GetHexDigitLookupTable32<TChar>();
@@ -4357,7 +4357,7 @@ namespace moe
             }
 
             template <typename TChar>
-            inline size_t UInt64ToHexBufferLower(uint64_t value, TChar* buffer)
+            inline size_t UInt64ToHexBufferLower(uint64_t value, TChar* buffer)noexcept
             {
                 const TChar* start = buffer;
                 const TChar* lut = GetHexDigitLookupTable32<TChar>() + 16;
@@ -4403,7 +4403,7 @@ namespace moe
             //////////////////////////////////////// <editor-fold desc="Atoi实现">
 
             template <typename TChar>
-            inline size_t ParseInt(const ArrayView<TChar>& buffer, bool& sign, uint64_t& result)
+            inline size_t ParseInt(const ArrayView<TChar>& buffer, bool& sign, uint64_t& result)noexcept
             {
                 const TChar* input = buffer.GetBuffer();
                 const TChar* current = input;
@@ -4687,112 +4687,112 @@ namespace moe
          * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
          */
         template <typename T = char, size_t Size>
-        inline size_t ToDecimalString(int8_t value, T (&buffer)[Size])
+        inline size_t ToDecimalString(int8_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 5, "Buffer is not enough");
             return details::Int8ToBuffer(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToDecimalString(int8_t value, T* buffer, size_t length)
+        inline size_t ToDecimalString(int8_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 5);
             return details::Int8ToBuffer(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToDecimalString(uint8_t value, T (&buffer)[Size])
+        inline size_t ToDecimalString(uint8_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 4, "Buffer is not enough");
             return details::UInt8ToBuffer(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToDecimalString(uint8_t value, T* buffer, size_t length)
+        inline size_t ToDecimalString(uint8_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 4);
             return details::UInt8ToBuffer(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToDecimalString(int16_t value, T (&buffer)[Size])
+        inline size_t ToDecimalString(int16_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 7, "Buffer is not enough");
             return details::Int16ToBuffer(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToDecimalString(int16_t value, T* buffer, size_t length)
+        inline size_t ToDecimalString(int16_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 7);
             return details::Int16ToBuffer(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToDecimalString(uint16_t value, T (&buffer)[Size])
+        inline size_t ToDecimalString(uint16_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 6, "Buffer is not enough");
             return details::UInt16ToBuffer(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToDecimalString(uint16_t value, T* buffer, size_t length)
+        inline size_t ToDecimalString(uint16_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 6);
             return details::UInt16ToBuffer(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToDecimalString(int32_t value, T (&buffer)[Size])
+        inline size_t ToDecimalString(int32_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 12, "Buffer is not enough");
             return details::Int32ToBuffer(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToDecimalString(int32_t value, T* buffer, size_t length)
+        inline size_t ToDecimalString(int32_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 12);
             return details::Int32ToBuffer(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToDecimalString(uint32_t value, T (&buffer)[Size])
+        inline size_t ToDecimalString(uint32_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 11, "Buffer is not enough");
             return details::UInt32ToBuffer(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToDecimalString(uint32_t value, T* buffer, size_t length)
+        inline size_t ToDecimalString(uint32_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 11);
             return details::UInt32ToBuffer(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToDecimalString(int64_t value, T (&buffer)[Size])
+        inline size_t ToDecimalString(int64_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 21, "Buffer is not enough");
             return details::Int64ToBuffer(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToDecimalString(int64_t value, T* buffer, size_t length)
+        inline size_t ToDecimalString(int64_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 21);
             return details::Int64ToBuffer(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToDecimalString(uint64_t value, T (&buffer)[Size])
+        inline size_t ToDecimalString(uint64_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 21, "Buffer is not enough");
             return details::UInt64ToBuffer(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToDecimalString(uint64_t value, T* buffer, size_t length)
+        inline size_t ToDecimalString(uint64_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 21);
             return details::UInt64ToBuffer(value, buffer);
@@ -4809,56 +4809,56 @@ namespace moe
          * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
          */
         template <typename T = char, size_t Size>
-        inline size_t ToHexString(uint8_t value, T (&buffer)[Size])
+        inline size_t ToHexString(uint8_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 3, "Buffer is not enough");
             return details::UInt8ToHexBuffer(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexString(uint8_t value, T* buffer, size_t length)
+        inline size_t ToHexString(uint8_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 3);
             return details::UInt8ToHexBuffer(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexString(uint16_t value, T (&buffer)[Size])
+        inline size_t ToHexString(uint16_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 5, "Buffer is not enough");
             return details::UInt16ToHexBuffer(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexString(uint16_t value, T* buffer, size_t length)
+        inline size_t ToHexString(uint16_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 5);
             return details::UInt16ToHexBuffer(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexString(uint32_t value, T (&buffer)[Size])
+        inline size_t ToHexString(uint32_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 9, "Buffer is not enough");
             return details::UInt32ToHexBuffer(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexString(uint32_t value, T* buffer, size_t length)
+        inline size_t ToHexString(uint32_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 9);
             return details::UInt32ToHexBuffer(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexString(uint64_t value, T (&buffer)[Size])
+        inline size_t ToHexString(uint64_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 17, "Buffer is not enough");
             return details::UInt64ToHexBuffer(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexString(uint64_t value, T* buffer, size_t length)
+        inline size_t ToHexString(uint64_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 17);
             return details::UInt64ToHexBuffer(value, buffer);
@@ -4875,153 +4875,153 @@ namespace moe
          * 缓冲区需要足够大以容纳结果，否则可能在运行时导致崩溃。
          */
         template <typename T = char, size_t Size>
-        inline size_t ToHexStringLower(uint8_t value, T (&buffer)[Size])
+        inline size_t ToHexStringLower(uint8_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 3, "Buffer is not enough");
             return details::UInt8ToHexBufferLower(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexStringLower(uint8_t value, T* buffer, size_t length)
+        inline size_t ToHexStringLower(uint8_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 3);
             return details::UInt8ToHexBufferLower(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexStringLower(uint16_t value, T (&buffer)[Size])
+        inline size_t ToHexStringLower(uint16_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 5, "Buffer is not enough");
             return details::UInt16ToHexBufferLower(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexStringLower(uint16_t value, T* buffer, size_t length)
+        inline size_t ToHexStringLower(uint16_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 5);
             return details::UInt16ToHexBufferLower(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexStringLower(uint32_t value, T (&buffer)[Size])
+        inline size_t ToHexStringLower(uint32_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 9, "Buffer is not enough");
             return details::UInt32ToHexBufferLower(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexStringLower(uint32_t value, T* buffer, size_t length)
+        inline size_t ToHexStringLower(uint32_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 9);
             return details::UInt32ToHexBufferLower(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexStringLower(uint64_t value, T (&buffer)[Size])
+        inline size_t ToHexStringLower(uint64_t value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 17, "Buffer is not enough");
             return details::UInt64ToHexBufferLower(value, buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexStringLower(uint64_t value, T* buffer, size_t length)
+        inline size_t ToHexStringLower(uint64_t value, T* buffer, size_t length)noexcept
         {
             assert(buffer && length >= 17);
             return details::UInt64ToHexBufferLower(value, buffer);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexString(int8_t value, T (&buffer)[Size])
+        inline size_t ToHexString(int8_t value, T (&buffer)[Size])noexcept
         {
             return ToHexString(static_cast<uint8_t>(value), buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexString(int8_t value, T* buffer, size_t length)
+        inline size_t ToHexString(int8_t value, T* buffer, size_t length)noexcept
         {
             return ToHexString(static_cast<uint8_t>(value), buffer, length);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexString(int16_t value, T (&buffer)[Size])
+        inline size_t ToHexString(int16_t value, T (&buffer)[Size])noexcept
         {
             return ToHexString(static_cast<uint16_t>(value), buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexString(int16_t value, T* buffer, size_t length)
+        inline size_t ToHexString(int16_t value, T* buffer, size_t length)noexcept
         {
             return ToHexString(static_cast<uint16_t>(value), buffer, length);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexString(int32_t value, T (&buffer)[Size])
+        inline size_t ToHexString(int32_t value, T (&buffer)[Size])noexcept
         {
             return ToHexString(static_cast<uint32_t>(value), buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexString(int32_t value, T* buffer, size_t length)
+        inline size_t ToHexString(int32_t value, T* buffer, size_t length)noexcept
         {
             return ToHexString(static_cast<uint32_t>(value), buffer, length);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexString(int64_t value, T (&buffer)[Size])
+        inline size_t ToHexString(int64_t value, T (&buffer)[Size])noexcept
         {
             return ToHexString(static_cast<uint64_t>(value), buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexString(int64_t value, T* buffer, size_t length)
+        inline size_t ToHexString(int64_t value, T* buffer, size_t length)noexcept
         {
             return ToHexString(static_cast<uint64_t>(value), buffer, length);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexStringLower(int8_t value, T (&buffer)[Size])
+        inline size_t ToHexStringLower(int8_t value, T (&buffer)[Size])noexcept
         {
             return ToHexStringLower(static_cast<uint8_t>(value), buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexStringLower(int8_t value, T* buffer, size_t length)
+        inline size_t ToHexStringLower(int8_t value, T* buffer, size_t length)noexcept
         {
             return ToHexStringLower(static_cast<uint8_t>(value), buffer, length);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexStringLower(int16_t value, T (&buffer)[Size])
+        inline size_t ToHexStringLower(int16_t value, T (&buffer)[Size])noexcept
         {
             return ToHexStringLower(static_cast<uint16_t>(value), buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexStringLower(int16_t value, T* buffer, size_t length)
+        inline size_t ToHexStringLower(int16_t value, T* buffer, size_t length)noexcept
         {
             return ToHexStringLower(static_cast<uint16_t>(value), buffer, length);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexStringLower(int32_t value, T (&buffer)[Size])
+        inline size_t ToHexStringLower(int32_t value, T (&buffer)[Size])noexcept
         {
             return ToHexStringLower(static_cast<uint32_t>(value), buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexStringLower(int32_t value, T* buffer, size_t length)
+        inline size_t ToHexStringLower(int32_t value, T* buffer, size_t length)noexcept
         {
             return ToHexStringLower(static_cast<uint32_t>(value), buffer, length);
         }
 
         template <typename T = char, size_t Size>
-        inline size_t ToHexStringLower(int64_t value, T (&buffer)[Size])
+        inline size_t ToHexStringLower(int64_t value, T (&buffer)[Size])noexcept
         {
             return ToHexStringLower(static_cast<uint64_t>(value), buffer);
         }
 
         template <typename T = char>
-        inline size_t ToHexStringLower(int64_t value, T* buffer, size_t length)
+        inline size_t ToHexStringLower(int64_t value, T* buffer, size_t length)noexcept
         {
             return ToHexStringLower(static_cast<uint64_t>(value), buffer, length);
         }
@@ -5042,20 +5042,20 @@ namespace moe
          *   - 无效或空缓冲区返回 NaN
          */
         template <typename T = char>
-        inline float ParseFloat(const T* buffer, size_t& processed)
+        inline float ParseFloat(const T* buffer, size_t& processed)noexcept
         {
             size_t length = std::char_traits<T>::length(buffer);
             return details::StringToDoubleConverter<T>::EcmaScriptConverter().StringToFloat(buffer, length, processed);
         }
 
         template <typename T = char, size_t Size>
-        inline float ParseFloat(const T (&buffer)[Size], size_t& processed)
+        inline float ParseFloat(const T (&buffer)[Size], size_t& processed)noexcept
         {
             return details::StringToDoubleConverter<T>::EcmaScriptConverter().StringToFloat(buffer, Size, processed);
         }
 
         template <typename T = char>
-        inline float ParseFloat(const T* buffer, size_t length, size_t& processed)
+        inline float ParseFloat(const T* buffer, size_t length, size_t& processed)noexcept
         {
             assert(buffer);
             return details::StringToDoubleConverter<T>::EcmaScriptConverter().StringToFloat(buffer, length, processed);
@@ -5077,20 +5077,20 @@ namespace moe
          *   - 无效或空缓冲区返回 NaN
          */
         template <typename T = char>
-        inline double ParseDouble(const T* buffer, size_t& processed)
+        inline double ParseDouble(const T* buffer, size_t& processed)noexcept
         {
             size_t length = std::char_traits<T>::length(buffer);
             return details::StringToDoubleConverter<T>::EcmaScriptConverter().StringToDouble(buffer, length, processed);
         }
 
         template <typename T = char, size_t Size>
-        inline double ParseDouble(const T (&buffer)[Size], size_t& processed)
+        inline double ParseDouble(const T (&buffer)[Size], size_t& processed)noexcept
         {
             return details::StringToDoubleConverter<T>::EcmaScriptConverter().StringToDouble(buffer, Size, processed);
         }
 
         template <typename T = char>
-        inline double ParseDouble(const T* buffer, size_t length, size_t& processed)
+        inline double ParseDouble(const T* buffer, size_t length, size_t& processed)noexcept
         {
             assert(buffer);
             return details::StringToDoubleConverter<T>::EcmaScriptConverter().StringToDouble(buffer, length, processed);
@@ -5115,7 +5115,7 @@ namespace moe
          * 被解析字符串超过字符类型所能表达上限时将出现未定义行为。
          */
         template <typename T = char>
-        inline int64_t ParseInt(const T* buffer, size_t length, size_t& processed)
+        inline int64_t ParseInt(const T* buffer, size_t length, size_t& processed)noexcept
         {
             assert(buffer);
 
@@ -5128,14 +5128,14 @@ namespace moe
         }
 
         template <typename T = char>
-        inline int64_t ParseInt(const T* buffer, size_t& processed)
+        inline int64_t ParseInt(const T* buffer, size_t& processed)noexcept
         {
             size_t length = std::char_traits<T>::length(buffer);
             return ParseInt<T>(buffer, length, processed);
         }
 
         template <typename T = char, size_t Size>
-        inline int64_t ParseInt(const T (&buffer)[Size], size_t& processed)
+        inline int64_t ParseInt(const T (&buffer)[Size], size_t& processed)noexcept
         {
             return ParseInt<T>(buffer, Size, processed);
         }
@@ -5160,7 +5160,7 @@ namespace moe
          * 被解析字符串超过字符类型所能表达上限时将出现未定义行为。
          */
         template <typename T = char>
-        inline uint64_t ParseUInt(const T* buffer, size_t length, size_t& processed)
+        inline uint64_t ParseUInt(const T* buffer, size_t length, size_t& processed)noexcept
         {
             assert(buffer);
 
@@ -5180,14 +5180,14 @@ namespace moe
         }
 
         template <typename T = char>
-        inline uint64_t ParseUInt(const T* buffer, size_t& processed)
+        inline uint64_t ParseUInt(const T* buffer, size_t& processed)noexcept
         {
             size_t length = std::char_traits<T>::length(buffer);
             return ParseUInt<T>(buffer, length, processed);
         }
 
         template <typename T = char, size_t Size>
-        inline uint64_t ParseUInt(const T (&buffer)[Size], size_t& processed)
+        inline uint64_t ParseUInt(const T (&buffer)[Size], size_t& processed)noexcept
         {
             return ParseUInt<T>(buffer, Size, processed);
         }

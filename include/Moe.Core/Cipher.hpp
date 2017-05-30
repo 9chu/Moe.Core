@@ -24,7 +24,7 @@ namespace moe
             uint8_t S[256];
 
         public:
-            void operator()(ArrayView<uint8_t> buffer, MutableArrayView<uint8_t> output)
+            void operator()(ArrayView<uint8_t> buffer, MutableArrayView<uint8_t> output)noexcept
             {
                 assert(buffer.Size() <= output.Size());
 
@@ -45,7 +45,7 @@ namespace moe
             }
 
         public:
-            RC4(ArrayView<uint8_t> password)
+            RC4(ArrayView<uint8_t> password)noexcept
             {
                 size_t len = std::min(len, 256u);
 

@@ -330,7 +330,7 @@ namespace moe
             auto p = InternalCastTo<typename std::add_const<typename std::remove_reference<TRaw>::type>::type>();
             if (p)
                 return *p;
-            throw std::runtime_error("Bad cast");
+            throw std::bad_cast();
         }
 
         template <typename TRaw>
@@ -340,7 +340,7 @@ namespace moe
             auto p = InternalCastTo<typename std::remove_reference<TRaw>::type>();
             if (p)
                 return *p;
-            throw std::runtime_error("Bad cast");
+            throw std::bad_cast();
         }
 
         /**

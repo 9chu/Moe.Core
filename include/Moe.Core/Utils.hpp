@@ -71,7 +71,7 @@ namespace moe
      * @return 结果，元素个数
      */
     template <typename T, size_t S>
-    constexpr size_t CountOf(T(&)[S])
+    constexpr size_t CountOf(T(&)[S])noexcept
     {
         return S;
     }
@@ -82,11 +82,11 @@ namespace moe
     class NonCopyable
     {
     protected:
-        constexpr NonCopyable() = default;
-        ~NonCopyable() = default;
+        constexpr NonCopyable()noexcept = default;
+        ~NonCopyable()noexcept = default;
 
-        NonCopyable(const NonCopyable&) = delete;
-        NonCopyable& operator=(const NonCopyable&) = delete;
+        NonCopyable(const NonCopyable&)noexcept = delete;
+        NonCopyable& operator=(const NonCopyable&)noexcept = delete;
     };
 
     /**
@@ -105,7 +105,7 @@ namespace moe
      * 下述方法基于char、unsigned char类型的特殊规则，从而保证不会出现上述情况。
      */
     template <typename T, typename P>
-    constexpr T BitCast(const P& source)
+    constexpr T BitCast(const P& source)noexcept
     {
         static_assert(sizeof(T) == sizeof(P), "Type size mismatched");
         static_assert(std::is_same<uint8_t, unsigned char>::value, "Bad compiler");
@@ -124,24 +124,24 @@ namespace moe
          * @param time 时间
          * @return 本地日期
          */
-        static ::tm ToLocalDateTime(::time_t time);
+        static ::tm ToLocalDateTime(::time_t time)noexcept;
 
         /**
          * @brief 获取当前的系统时间
          * @return UNIX时间戳
          */
-        static ::time_t CurrentTime();
+        static ::time_t CurrentTime()noexcept;
 
         /**
          * @brief 获取当前的系统日期
          * @return UNIX日期格式
          */
-        static inline ::tm CurrentDateTime() { return ToLocalDateTime(CurrentTime()); }
+        static inline ::tm CurrentDateTime()noexcept { return ToLocalDateTime(CurrentTime()); }
 
         /**
          * @brief 获取当前的CPU时间
          * @return CPU时间（毫秒）
          */
-        static unsigned GetSystemTick();
+        static unsigned GetSystemTick()noexcept;
     };
 }

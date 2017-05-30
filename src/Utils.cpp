@@ -7,7 +7,7 @@
 using namespace std;
 using namespace moe;
 
-::tm Time::ToLocalDateTime(::time_t time)
+::tm Time::ToLocalDateTime(::time_t time)noexcept
 {
     ::tm ret = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
@@ -20,12 +20,12 @@ using namespace moe;
     return ret;
 }
 
-::time_t Time::CurrentTime()
+::time_t Time::CurrentTime()noexcept
 {
     return time(NULL);
 }
 
-unsigned Time::GetSystemTick()
+unsigned Time::GetSystemTick()noexcept
 {
     return static_cast<unsigned>(clock() * 1000ull / CLOCKS_PER_SEC);
 }
