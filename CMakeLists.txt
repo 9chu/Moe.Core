@@ -5,6 +5,9 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "-g -Wall -Wextra")
 set(CMAKE_C_FLAGS "-g -Wall -Wextra")
 
+# 对外暴露Include目录
+set(MoeCore_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING "Include-dir for MoeCore." FORCE)
+
 include_directories(include)
 file(GLOB_RECURSE MOE_CORE_INCLUDE include/*.hpp)  # 无助于编译，仅帮助IDE产生代码提示
 file(GLOB_RECURSE MOE_CORE_SRC src/*.cpp)
