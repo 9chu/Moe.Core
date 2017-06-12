@@ -195,16 +195,29 @@ namespace moe
 
     /**
      * @brief 非法编码
+     *
+     * 通常用于指示字符串编码错误。
      */
     MOE_DEFINE_EXCEPTION(InvalidEncoding);
 
     /**
      * @brief 无效格式
+     *
+     * 通常用于指示文件/参数等格式的错误。
      */
     MOE_DEFINE_EXCEPTION(BadFormat);
 
     /**
+     * @brief API错误
+     *
+     * 通常用来指示平台或者第三方组件产生的异常。
+     */
+    MOE_DEFINE_EXCEPTION(APIException);
+
+    /**
      * @brief IO错误
+     *
+     * 区别于APIException，通常明确指示特定的IO异常。
      */
     MOE_DEFINE_EXCEPTION(IOException);
 }

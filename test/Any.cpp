@@ -14,14 +14,14 @@ TEST(Any, Test)
     Any a = 12345;
     EXPECT_EQ(12345, a.SafeCastTo<int>());
     EXPECT_EQ(12345, const_cast<const Any&>(a).SafeCastTo<int>());
-    EXPECT_THROW(a.CastTo<unsigned>(), std::runtime_error);
-    EXPECT_THROW(const_cast<const Any&>(a).CastTo<unsigned>(), std::runtime_error);
+    EXPECT_THROW(a.CastTo<unsigned>(), std::bad_cast);
+    EXPECT_THROW(const_cast<const Any&>(a).CastTo<unsigned>(), std::bad_cast);
 
     a = 12345u;
     EXPECT_EQ(12345u, a.SafeCastTo<unsigned>());
     EXPECT_EQ(12345u, const_cast<const Any&>(a).SafeCastTo<unsigned>());
-    EXPECT_THROW(a.CastTo<int>(), std::runtime_error);
-    EXPECT_THROW(const_cast<const Any&>(a).CastTo<int>(), std::runtime_error);
+    EXPECT_THROW(a.CastTo<int>(), std::bad_cast);
+    EXPECT_THROW(const_cast<const Any&>(a).CastTo<int>(), std::bad_cast);
 
     a = 123.45;
     Any b = a;
