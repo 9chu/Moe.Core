@@ -40,7 +40,7 @@ namespace moe
          * @brief 获取缓冲区大小
          * @return 缓冲区元素个数
          */
-        size_t Size()const noexcept { return m_uSize; }
+        size_t GetSize()const noexcept { return m_uSize; }
 
         /**
          * @brief 缓冲区是否为空

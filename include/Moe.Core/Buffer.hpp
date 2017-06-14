@@ -4,8 +4,9 @@
  */
 #pragma once
 #include <cstring>
-#include <type_traits>
 #include <new>
+#include <type_traits>
+
 #include "Math.hpp"
 #include "ArrayView.hpp"
 
@@ -18,6 +19,9 @@ namespace moe
     template <size_t LocalStorageSize = 128>
     class Buffer
     {
+        template <size_t>
+        friend class Buffer;
+
         static_assert(LocalStorageSize > 0, "LocalStorageSize must be non-zero");
 
     public:
@@ -31,27 +35,27 @@ namespace moe
 
         Buffer(ArrayView<uint8_t> view)
         {
-            Resize(view.Size());
-            ::memcpy(GetBuffer(), view.GetBuffer(), view.Size());
+            Resize(view.GetSize());
+            ::memcpy(GetBuffer(), view.GetBuffer(), view.GetSize());
         }
 
         template <size_t I>
         Buffer(const Buffer<I>& rhs)
         {
-            Resize(rhs.Size());
-            ::memcpy(GetBuffer(), rhs.GetBuffer(), rhs.Size());
+            Resize(rhs.GetSize());
+            ::memcpy(GetBuffer(), rhs.GetBuffer(), rhs.GetSize());
         }
 
         template <size_t I>
         Buffer(Buffer<I>&& rhs)
         {
-            const uint8_t* buffer = rhs.GetBuffer();
-
-            if (rhs.Size() <= LocalStorageSize)
+            if (rhs.GetSize() <= LocalStorageSize)
             {
                 // 原地拷贝
-                ::memcpy(&m_stStorage, buffer, rhs.Size());
-                std::swap(m_uSize, rhs.m_uSize);
+                m_uSize = rhs.m_uSize;
+                ::memcpy(&m_stStorage, rhs.GetBuffer(), rhs.GetSize());
+
+                rhs.m_uSize = 0;
             }
             else
             {
@@ -60,44 +64,106 @@ namespace moe
                     // 直接move指针
                     m_pBuffer = rhs.m_pBuffer;
                     m_uHeapCapacity = rhs.m_uHeapCapacity;
+                    m_uSize = rhs.m_uSize;
 
                     rhs.m_pBuffer = nullptr;
                     rhs.m_uHeapCapacity = 0;
-                    std::swap(m_uSize, rhs.m_uSize);
+                    rhs.m_uSize = 0;
                 }
                 else
                 {
                     // 需要分配堆空间
-                    Resize(rhs.Size());
-                    ::memcpy(GetBuffer(), rhs.GetBuffer(), rhs.Size());
+                    Resize(rhs.GetSize());
+                    ::memcpy(GetBuffer(), rhs.GetBuffer(), rhs.GetSize());
 
                     rhs.m_uSize = 0;
                 }
             }
         }
 
+        ~Buffer()
+        {
+            if (m_uHeapCapacity > 0)
+            {
+                ::free(m_pBuffer);
+                m_pBuffer = nullptr;
+                m_uHeapCapacity = 0;
+            }
+            m_uSize = 0;
+        }
+
         template <size_t I>
         Buffer& operator=(const Buffer<I>& rhs)
         {
-            Resize(rhs.Size());
-            ::memcpy(GetBuffer(), rhs.GetBuffer(), rhs.Size());
+            Resize(rhs.GetSize());
+            ::memcpy(GetBuffer(), rhs.GetBuffer(), rhs.GetSize());
 
             return *this;
         }
 
-        /*
         template <size_t I>
         Buffer& operator=(Buffer<I>&& rhs)
         {
+            // 无论如何都需要释放对象自己申请的堆空间
+            if (m_uHeapCapacity > 0)
+            {
+                ::free(m_pBuffer);
+                m_uHeapCapacity = 0;
+            }
+            m_pBuffer = nullptr;
+            m_uSize = 0;
 
+            if (rhs.GetSize() <= LocalStorageSize)
+            {
+                // 原地拷贝
+                m_uSize = rhs.m_uSize;
+                ::memcpy(&m_stStorage, rhs.GetBuffer(), rhs.GetSize());
+
+                rhs.m_uSize = 0;
+            }
+            else
+            {
+                if (rhs.m_uHeapCapacity != 0)
+                {
+                    // 直接move指针
+                    m_pBuffer = rhs.m_pBuffer;
+                    m_uHeapCapacity = rhs.m_uHeapCapacity;
+                    m_uSize = rhs.m_uSize;
+
+                    rhs.m_pBuffer = nullptr;
+                    rhs.m_uHeapCapacity = 0;
+                    rhs.m_uSize = 0;
+                }
+                else
+                {
+                    // 需要分配堆空间
+                    Resize(rhs.GetSize());
+                    ::memcpy(GetBuffer(), rhs.GetBuffer(), rhs.GetSize());
+
+                    rhs.m_uSize = 0;
+                }
+            }
+
+            return *this;
         }
-         */
+
+        uint8_t& operator[](size_t i)noexcept
+        {
+            assert(i < GetSize());
+            return GetBuffer()[i];
+        }
+
+        uint8_t operator[](size_t i)const noexcept
+        {
+            assert(i < GetSize());
+            return GetBuffer()[i];
+        }
 
     public:
         /**
          * @brief 获取使用的大小
          */
-        size_t Size()const noexcept
+        size_t GetSize()const noexcept
         {
             return m_uSize;
         }
@@ -105,7 +171,7 @@ namespace moe
         /**
          * @brief 获取分配的大小
          */
-        size_t Capacity()const noexcept
+        size_t GetCapacity()const noexcept
         {
             return m_uHeapCapacity == 0 ? LocalStorageSize : m_uHeapCapacity;
         }
@@ -115,12 +181,12 @@ namespace moe
          */
         const uint8_t* GetBuffer()const noexcept
         {
-            return m_uHeapCapacity == 0 ? static_cast<const uint8_t*>(&m_stStorage) : m_pBuffer;
+            return m_uHeapCapacity == 0 ? reinterpret_cast<const uint8_t*>(&m_stStorage) : m_pBuffer;
         }
 
         uint8_t* GetBuffer()noexcept
         {
-            return m_uHeapCapacity == 0 ? static_cast<uint8_t*>(&m_stStorage) : m_pBuffer;
+            return m_uHeapCapacity == 0 ? reinterpret_cast<uint8_t*>(&m_stStorage) : m_pBuffer;
         }
 
         /**
@@ -154,7 +220,7 @@ namespace moe
                 return;
 
             // 否则需要分配足够内存
-            size_t required = NextPowerOf2(sz);
+            size_t required = Math::NextPowerOf2(sz);
             assert(required >= LocalStorageSize);
             if (required <= m_uHeapCapacity)
                 return;
@@ -192,7 +258,7 @@ namespace moe
          */
         void Append(void* data, size_t sz)
         {
-            size_t osz = Size();
+            size_t osz = GetSize();
             Resize(osz + sz);
 
             // 空间分配成功后拷贝data的内容
@@ -201,11 +267,11 @@ namespace moe
 
         void Append(ArrayView<uint8_t> data)
         {
-            size_t osz = Size();
-            Resize(osz + data.Size());
+            size_t osz = GetSize();
+            Resize(osz + data.GetSize());
 
             // 空间分配成功后拷贝data的内容
-            ::memcpy(GetBuffer() + osz, data.GetBuffer(), data.Size());
+            ::memcpy(GetBuffer() + osz, data.GetBuffer(), data.GetSize());
         }
 
         template <size_t I>
@@ -216,11 +282,21 @@ namespace moe
             *this = std::move(temp);
         }
 
+        ArrayView<uint8_t> ToArrayView()const noexcept
+        {
+            return ArrayView<uint8_t>(GetBuffer(), GetSize());
+        }
+
+        MutableArrayView<uint8_t> ToMutableArrayView()noexcept
+        {
+            return MutableArrayView<uint8_t>(GetBuffer(), GetSize());
+        }
+
     private:
         union
         {
             uint8_t* m_pBuffer;
-            std::aligned_storage<LocalStorageSize, alignof(uint8_t*)>::type m_stStorage;
+            typename std::aligned_storage<LocalStorageSize, alignof(uint8_t*)>::type m_stStorage;
         };
 
         size_t m_uSize = 0;

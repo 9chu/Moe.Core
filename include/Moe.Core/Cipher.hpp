@@ -26,12 +26,12 @@ namespace moe
         public:
             void operator()(ArrayView<uint8_t> buffer, MutableArrayView<uint8_t> output)noexcept
             {
-                assert(buffer.Size() <= output.Size());
+                assert(buffer.GetSize() <= output.GetSize());
 
                 uint8_t Scpy[256];
                 ::memcpy(Scpy, S, sizeof(S));
 
-                for (size_t i = 0, j = 0; i < buffer.Size(); ++i)
+                for (size_t i = 0, j = 0; i < buffer.GetSize(); ++i)
                 {
                     // S盒置换
                     size_t i2 = (i + 1) % 256;

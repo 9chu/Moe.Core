@@ -2181,7 +2181,7 @@ TEST(Convert, FastDtoaGayShortest)
     bool neededMaxLength = false;
 
     const ArrayView<Testing::PrecomputedShortest> precomputed = Testing::PrecomputedShortestRepresentations();
-    for (size_t i = 0; i < precomputed.Size(); ++i)
+    for (size_t i = 0; i < precomputed.GetSize(); ++i)
     {
         const Testing::PrecomputedShortest& currentTest = precomputed[i];
         ++total;
@@ -2214,7 +2214,7 @@ TEST(Convert, FastDtoaGayShortestSingle)
 
     const ArrayView<Testing::PrecomputedShortestSingle> precomputed =
         Testing::PrecomputedShortestSingleRepresentations();
-    for (size_t i = 0; i < precomputed.Size(); ++i)
+    for (size_t i = 0; i < precomputed.GetSize(); ++i)
     {
         const Testing::PrecomputedShortestSingle& currentTest = precomputed[i];
         total++;
@@ -2246,7 +2246,7 @@ TEST(Convert, FastDtoaGayPrecision)
     int total15 = 0;
 
     const ArrayView<Testing::PrecomputedPrecision> precomputed = Testing::PrecomputedPrecisionRepresentations();
-    for (size_t i = 0; i < precomputed.Size(); ++i) {
+    for (size_t i = 0; i < precomputed.GetSize(); ++i) {
         const Testing::PrecomputedPrecision& currentTest = precomputed[i];
         double v = currentTest.v;
         size_t numberDigits = static_cast<size_t>(currentTest.numberDigits);
@@ -2727,7 +2727,7 @@ TEST(Convert, FastFixedDtoaGayFixed)
     int point;
 
     const ArrayView<Testing::PrecomputedFixed> precomputed = Testing::PrecomputedFixedRepresentations();
-    for (size_t i = 0; i < precomputed.Size(); ++i)
+    for (size_t i = 0; i < precomputed.GetSize(); ++i)
     {
         ::memset(bufferContainer, 0, sizeof(bufferContainer));
 
@@ -2993,7 +2993,7 @@ TEST(Convert, BignumDtoaGayShortest)
     int point;
 
     const ArrayView<Testing::PrecomputedShortest> precomputed = Testing::PrecomputedShortestRepresentations();
-    for (size_t i = 0; i < precomputed.Size(); ++i)
+    for (size_t i = 0; i < precomputed.GetSize(); ++i)
     {
         const Testing::PrecomputedShortest& currentTest = precomputed[i];
         double v = currentTest.v;
@@ -3012,7 +3012,7 @@ TEST(Convert, BignumDtoaGayShortestSingle)
 
     const ArrayView<Testing::PrecomputedShortestSingle> precomputed =
         Testing::PrecomputedShortestSingleRepresentations();
-    for (size_t i = 0; i < precomputed.Size(); ++i)
+    for (size_t i = 0; i < precomputed.GetSize(); ++i)
     {
         const Testing::PrecomputedShortestSingle& currentTest = precomputed[i];
         float v = currentTest.v;
@@ -3030,7 +3030,7 @@ TEST(Convert, BignumDtoaGayFixed)
     int point;
 
     const ArrayView<Testing::PrecomputedFixed> precomputed = Testing::PrecomputedFixedRepresentations();
-    for (size_t i = 0; i < precomputed.Size(); ++i)
+    for (size_t i = 0; i < precomputed.GetSize(); ++i)
     {
         const Testing::PrecomputedFixed& currentTest = precomputed[i];
         double v = currentTest.v;
@@ -3051,7 +3051,7 @@ TEST(Convert, BignumDtoaGayPrecision)
     int point;
 
     const ArrayView<Testing::PrecomputedPrecision> precomputed = Testing::PrecomputedPrecisionRepresentations();
-    for (size_t i = 0; i < precomputed.Size(); ++i)
+    for (size_t i = 0; i < precomputed.GetSize(); ++i)
     {
         const Testing::PrecomputedPrecision& currentTest = precomputed[i];
         double v = currentTest.v;

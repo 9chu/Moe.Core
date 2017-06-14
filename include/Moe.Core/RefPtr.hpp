@@ -72,8 +72,7 @@ namespace moe
                 {
                     if (old == 0)
                         return false;
-                }
-                while(!m_iRef.compare_exchange_strong(old, old + 1, std::memory_order_relaxed));
+                } while(!m_iRef.compare_exchange_strong(old, old + 1, std::memory_order_relaxed));
 
                 return true;
             }

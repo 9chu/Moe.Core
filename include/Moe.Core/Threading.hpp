@@ -94,8 +94,7 @@ namespace moe
                 {
                     while (m_stLock.load() != static_cast<uint8_t>(State::Free))
                         sleeper.Wait();
-                }
-                while (!TryLock());
+                } while (!TryLock());
                 assert(m_stLock.load() == static_cast<uint8_t>(State::Locked));
             }
 

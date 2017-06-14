@@ -807,7 +807,7 @@ namespace moe
                     const int kMaxUint64DecimalDigits = 19;
 
                     Zero();
-                    size_t length = value.Size();
+                    size_t length = value.GetSize();
                     unsigned int pos = 0;
                     while (length >= kMaxUint64DecimalDigits)
                     {
@@ -828,7 +828,7 @@ namespace moe
                 void AssignHexString(const ArrayView<T>& value)
                 {
                     Zero();
-                    size_t length = value.Size();
+                    size_t length = value.GetSize();
 
                     size_t neededBigits = length * 4 / kBigitSize + 1;
                     EnsureCapacity(neededBigits);
@@ -959,7 +959,7 @@ namespace moe
             public:
                 size_t Size()const
                 {
-                    return m_stBuffer.Size();
+                    return m_stBuffer.GetSize();
                 }
 
                 size_t Position()const
@@ -976,7 +976,7 @@ namespace moe
                 void AddCharacter(T c)
                 {
                     assert(c != '\0');
-                    assert(!isFinalized() && m_uPosition < m_stBuffer.Size());
+                    assert(!isFinalized() && m_uPosition < m_stBuffer.GetSize());
                     m_stBuffer[m_uPosition++] = c;
                 }
 
@@ -987,7 +987,7 @@ namespace moe
 
                 void AddSubstring(const T* s, size_t n)
                 {
-                    assert(!isFinalized() && m_uPosition + n < m_stBuffer.Size());
+                    assert(!isFinalized() && m_uPosition + n < m_stBuffer.GetSize());
                     assert(n <= std::char_traits<T>::length(s));
                     ::memmove(&m_stBuffer[m_uPosition], s, n * sizeof(T));
                     m_uPosition += n;
@@ -1006,7 +1006,7 @@ namespace moe
 
                 T* Finalize()
                 {
-                    assert(!isFinalized() && m_uPosition < m_stBuffer.Size());
+                    assert(!isFinalized() && m_uPosition < m_stBuffer.GetSize());
                     m_stBuffer[m_uPosition] = static_cast<T>('\0');
                     // Make sure nobody managed to add a 0-character to the
                     // buffer while building the string.
@@ -2612,10 +2612,10 @@ namespace moe
 
                 static ArrayView<T> TrimLeadingZeros(const ArrayView<T>& buffer)
                 {
-                    for (size_t i = 0; i < buffer.Size(); ++i)
+                    for (size_t i = 0; i < buffer.GetSize(); ++i)
                     {
                         if (buffer[i] != '0')
-                            return buffer.Slice(i, buffer.Size());
+                            return buffer.Slice(i, buffer.GetSize());
                     }
 
                     return ArrayView<T>(buffer.GetBuffer(), 0);
@@ -2623,7 +2623,7 @@ namespace moe
 
                 static ArrayView<T> TrimTrailingZeros(const ArrayView<T>& buffer)
                 {
-                    for (size_t i = buffer.Size(); i-- > 0;)
+                    for (size_t i = buffer.GetSize(); i-- > 0;)
                     {
                         if (buffer[i] != '0')
                             return buffer.Slice(0, i + 1);
@@ -2640,12 +2640,12 @@ namespace moe
 
                     // The input buffer has been trimmed. Therefore the last digit must be
                     // different from '0'.
-                    assert(buffer[buffer.Size() - 1] != '0');
+                    assert(buffer[buffer.GetSize() - 1] != '0');
 
                     // Set the last digit to be non-zero. This is sufficient to guarantee
                     // correct rounding.
                     significantBuffer[kMaxSignificantDecimalDigits - 1] = '1';
-                    significantExponent = exponent + (buffer.Size() - kMaxSignificantDecimalDigits);
+                    significantExponent = exponent + (buffer.GetSize() - kMaxSignificantDecimalDigits);
                 }
 
                 static void TrimAndCut(ArrayView<T> buffer, int exponent, T bufferCopySpace[], size_t spaceSize,
@@ -2653,8 +2653,8 @@ namespace moe
                 {
                     ArrayView<T> leftTrimmed = TrimLeadingZeros(buffer);
                     ArrayView<T> rightTrimmed = TrimTrailingZeros(leftTrimmed);
-                    exponent += leftTrimmed.Size() - rightTrimmed.Size();
-                    if (rightTrimmed.Size() > kMaxSignificantDecimalDigits)
+                    exponent += leftTrimmed.GetSize() - rightTrimmed.GetSize();
+                    if (rightTrimmed.GetSize() > kMaxSignificantDecimalDigits)
                     {
                         MOE_UNUSED(spaceSize);
                         assert(spaceSize >= kMaxSignificantDecimalDigits);
@@ -2677,7 +2677,7 @@ namespace moe
                 {
                     uint64_t result = 0;
                     size_t i = 0;
-                    while (i < buffer.Size() && result <= (std::numeric_limits<uint64_t>::max() / 10 - 1))
+                    while (i < buffer.GetSize() && result <= (std::numeric_limits<uint64_t>::max() / 10 - 1))
                     {
                         int digit = buffer[i++] - '0';
                         assert(0 <= digit && digit <= 9);
@@ -2695,7 +2695,7 @@ namespace moe
                 {
                     size_t readDigits;
                     uint64_t significand = ReadUInt64(buffer, readDigits);
-                    if (buffer.Size() == readDigits)
+                    if (buffer.GetSize() == readDigits)
                     {
                         result = DiyFp(significand, 0);
                         remainingDecimals = 0;
@@ -2709,7 +2709,7 @@ namespace moe
                         // Compute the binary exponent.
                         int exponent = 0;
                         result = DiyFp(significand, exponent);
-                        remainingDecimals = buffer.Size() - readDigits;
+                        remainingDecimals = buffer.GetSize() - readDigits;
                     }
                 }
 
@@ -2746,7 +2746,7 @@ namespace moe
                     if (!kPlatformCorrectDoubleOperations)
                         return false;
 
-                    if (trimmed.Size() <= kMaxExactDoubleIntegerDecimalDigits)
+                    if (trimmed.GetSize() <= kMaxExactDoubleIntegerDecimalDigits)
                     {
                         size_t readDigits;
 
@@ -2760,7 +2760,7 @@ namespace moe
                         {
                             // 10^-exponent fits into a double.
                             result = static_cast<double>(ReadUInt64(trimmed, readDigits));
-                            assert(readDigits == trimmed.Size());
+                            assert(readDigits == trimmed.GetSize());
                             result /= kExactPowersOfTen[-exponent];
                             return true;
                         }
@@ -2769,19 +2769,19 @@ namespace moe
                         {
                             // 10^exponent fits into a double.
                             result = static_cast<double>(ReadUInt64(trimmed, readDigits));
-                            assert(readDigits == trimmed.Size());
+                            assert(readDigits == trimmed.GetSize());
                             result *= kExactPowersOfTen[exponent];
                             return true;
                         }
 
-                        int remainingDigits = kMaxExactDoubleIntegerDecimalDigits - trimmed.Size();
+                        int remainingDigits = kMaxExactDoubleIntegerDecimalDigits - trimmed.GetSize();
                         if ((0 <= exponent) && (exponent - remainingDigits < kExactPowersOfTenSize))
                         {
                             // The trimmed string was short and we can multiply it with
                             // 10^remaining_digits. As a result the remaining exponent now fits
                             // into a double too.
                             result = static_cast<double>(ReadUInt64(trimmed, readDigits));
-                            assert(readDigits == trimmed.Size());
+                            assert(readDigits == trimmed.GetSize());
                             result *= kExactPowersOfTen[remainingDigits];
                             result *= kExactPowersOfTen[exponent - remainingDigits];
                             return true;
@@ -2865,7 +2865,7 @@ namespace moe
                         DiyFp adjustmentPower = AdjustmentPowerOfTen(adjustmentExponent);
                         input.Multiply(adjustmentPower);
 
-                        if (kMaxUInt64DecimalDigits - static_cast<int>(buffer.Size()) >= adjustmentExponent)
+                        if (kMaxUInt64DecimalDigits - static_cast<int>(buffer.GetSize()) >= adjustmentExponent)
                         {
                             // The product of input with the adjustment power fits into a 64 bit
                             // integer.
@@ -2949,19 +2949,19 @@ namespace moe
                 // Returns false, when guess is either correct or the next-lower double.
                 static bool ComputeGuess(ArrayView<T> trimmed, int exponent, double& guess)
                 {
-                    if (trimmed.Size() == 0)
+                    if (trimmed.GetSize() == 0)
                     {
                         guess = 0.0;
                         return true;
                     }
 
-                    if (exponent + static_cast<int>(trimmed.Size()) - 1 >= kMaxDecimalPower)
+                    if (exponent + static_cast<int>(trimmed.GetSize()) - 1 >= kMaxDecimalPower)
                     {
                         guess = Double::Infinity();
                         return true;
                     }
 
-                    if (exponent + static_cast<int>(trimmed.Size()) <= kMinDecimalPower)
+                    if (exponent + static_cast<int>(trimmed.GetSize()) <= kMinDecimalPower)
                     {
                         guess = 0.0;
                         return true;
@@ -2983,9 +2983,9 @@ namespace moe
                 //   buffer.length() <= kMaxDecimalSignificantDigits
                 static int CompareBufferWithDiyFp(const ArrayView<T>& buffer, int exponent, DiyFp diyFp)
                 {
-                    assert(static_cast<int>(buffer.Size()) + exponent <= kMaxDecimalPower + 1);
-                    assert(static_cast<int>(buffer.Size()) + exponent > kMinDecimalPower);
-                    assert(buffer.Size() <= kMaxSignificantDecimalDigits);
+                    assert(static_cast<int>(buffer.GetSize()) + exponent <= kMaxDecimalPower + 1);
+                    assert(static_cast<int>(buffer.GetSize()) + exponent > kMinDecimalPower);
+                    assert(buffer.GetSize() <= kMaxSignificantDecimalDigits);
 
                     // Make sure that the Bignum will be able to hold all our numbers.
                     // Our Bignum implementation has a separate field for exponents. Shifts will
@@ -3292,8 +3292,7 @@ namespace moe
                         }
 
                         ++current;
-                    }
-                    while (current != end);
+                    } while (current != end);
 
                     assert(number < ((int64_t)1 << kSignificandSize));
                     assert(static_cast<int64_t>(static_cast<double>(number)) == number);
@@ -3728,8 +3727,7 @@ namespace moe
                             else
                                 num = num * 10 + digit;
                             ++current;
-                        }
-                        while (current != end && *current >= '0' && *current <= '9');
+                        } while (current != end && *current >= '0' && *current <= '9');
 
                         exponent += (exponenSign == '-' ? -num : num);
                     }
@@ -4407,7 +4405,7 @@ namespace moe
             {
                 const TChar* input = buffer.GetBuffer();
                 const TChar* current = input;
-                const TChar* end = input + buffer.Size();
+                const TChar* end = input + buffer.GetSize();
 
                 sign = false;
                 result = 0;

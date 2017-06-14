@@ -285,8 +285,7 @@ namespace moe
                 if (set.find(*(it - 1)) == set.end())
                     break;
                 --it;
-            }
-            while (it != str.begin());
+            } while (it != str.begin());
 
             str.erase(it, str.end());
             return str;
@@ -332,8 +331,7 @@ namespace moe
                 if (!IsUnicodeWhitespace(*(it - 1)))
                     break;
                 --it;
-            }
-            while (it != str.begin());
+            } while (it != str.begin());
 
             str.erase(it, str.end());
             return str;
@@ -723,18 +721,18 @@ namespace moe
 
                     output.reserve(output.length() + kPreAllocate);
 
-                    if (format.Size() == 0)
+                    if (format.GetSize() == 0)
                         output.append(value ? StringConstant<TChar>::GetTrue() : StringConstant<TChar>::GetFalse());
                     else
                     {
-                        auto where = std::char_traits<TChar>::find(format.GetBuffer(), format.Size(), '|');
+                        auto where = std::char_traits<TChar>::find(format.GetBuffer(), format.GetSize(), '|');
                         if (where == nullptr)
                             return false;
 
                         ArrayView<TChar> falseString(format.GetBuffer(), where - format.GetBuffer()),
-                            trueString(where + 1, format.Size() - (where + 1 - format.GetBuffer()));
+                            trueString(where + 1, format.GetSize() - (where + 1 - format.GetBuffer()));
 
-                        size_t count = value ? trueString.Size() : falseString.Size();
+                        size_t count = value ? trueString.GetSize() : falseString.GetSize();
                         output.append(value ? trueString.GetBuffer() : falseString.GetBuffer(), count);
                     }
 
@@ -757,9 +755,9 @@ namespace moe
                     auto pos = output.length();
                     output.resize(pos + kPreAllocate);
 
-                    if (format.Size() == 0)
+                    if (format.GetSize() == 0)
                         count = Convert::ToDecimalString(value, &output[pos], kPreAllocate);
-                    else if (format.Size() == 1)
+                    else if (format.GetSize() == 1)
                     {
                         if (format[0] == 'H')
                             count = Convert::ToHexString(value, &output[pos], kPreAllocate);
@@ -797,9 +795,9 @@ namespace moe
                     auto pos = output.length();
                     output.resize(pos + kPreAllocate);
 
-                    if (format.Size() == 0)
+                    if (format.GetSize() == 0)
                         count = Convert::ToShortestString(value, &output[pos], kPreAllocate);
-                    else if (format.Size() == 1)
+                    else if (format.GetSize() == 1)
                     {
                         if (format[0] == 'E')
                             count = Convert::ToExponentialString(value, &output[pos], kPreAllocate);
@@ -812,7 +810,7 @@ namespace moe
                     {
                         TChar t = format[0];
                         unsigned digit = 0;
-                        for (size_t i = 1; i < format.Size(); ++i)
+                        for (size_t i = 1; i < format.GetSize(); ++i)
                         {
                             TChar ch = format[i];
                             if (!(ch >= '0' && ch <= '9'))
@@ -862,7 +860,7 @@ namespace moe
                 {
                     const T& value = *static_cast<const T*>(object);
 
-                    if (format.Size() != 0)
+                    if (format.GetSize() != 0)
                         return false;
 
                     output.reserve(output.length() + value.length());
@@ -882,7 +880,7 @@ namespace moe
                 {
                     const T& value = *static_cast<const T*>(object);
 
-                    if (format.Size() != 0)
+                    if (format.GetSize() != 0)
                         return false;
 
                     if (value == nullptr)
@@ -902,7 +900,7 @@ namespace moe
                 {
                     const TChar* value = static_cast<const TChar*>(object);
 
-                    if (format.Size() != 0)
+                    if (format.GetSize() != 0)
                         return false;
 
                     output.append(value);
@@ -923,7 +921,7 @@ namespace moe
                 {
                     const T& value = *static_cast<const T*>(object);
 
-                    if (format.Size() != 0)
+                    if (format.GetSize() != 0)
                         return false;
 
                     size_t count = 0;
@@ -947,7 +945,7 @@ namespace moe
                 static bool AppendToString(std::basic_string<TChar>& output, const void* object,
                     const ArrayView<TChar>& format)
                 {
-                    if (format.Size() != 0)
+                    if (format.GetSize() != 0)
                         return false;
 
                     size_t count = 0;
@@ -971,7 +969,7 @@ namespace moe
                 {
                     MOE_UNUSED(object);
 
-                    if (format.Size() != 0)
+                    if (format.GetSize() != 0)
                         return false;
 
                     output.append(StringConstant<TChar>::GetNull());
@@ -1125,7 +1123,7 @@ namespace moe
 
             TChar ch = '\0';
             size_t pos = 0;
-            size_t len = format.Size();
+            size_t len = format.GetSize();
             const void* objects[] = { static_cast<const void*>(&args)... };
             details::ToStringFormatter<TChar> formatters[] = {
                 details::ToStringFormatterSelector<TChar, Args>::AppendToString...
@@ -1191,8 +1189,7 @@ namespace moe
                         goto badFormat;
 
                     ch = format[pos];
-                }
-                while (ch >= '0' && ch <= '9' && index < kIndexLimit);
+                } while (ch >= '0' && ch <= '9' && index < kIndexLimit);
 
                 if (index >= std::extent<decltype(formatters)>::value)  // 索引越界
                     goto badFormat;
@@ -1231,8 +1228,7 @@ namespace moe
                             goto badFormat;
 
                         ch = format[pos];
-                    }
-                    while (ch >= '0' && ch <= '9' && padding < kWidthLimit);
+                    } while (ch >= '0' && ch <= '9' && padding < kWidthLimit);
 
                     // 扩展语法：如果紧跟一个'['，则读取PaddingCharacter
                     if (ch == '[')
