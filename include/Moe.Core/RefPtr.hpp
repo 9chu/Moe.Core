@@ -376,7 +376,7 @@ namespace moe
             decltype(details::LocateRefBase(std::declval<T*>()))>::type::DeleterType;
 
     public:
-        constexpr RefPtr(nullptr_t = nullptr)noexcept
+        constexpr RefPtr(std::nullptr_t = nullptr)noexcept
             : m_pObject(nullptr) {}
 
         explicit constexpr RefPtr(T* t)noexcept
@@ -565,7 +565,7 @@ namespace moe
         /**
          * @brief 重置
          */
-        void Reset(nullptr_t = nullptr)noexcept
+        void Reset(std::nullptr_t = nullptr)noexcept
         {
             RefPtr().Swap(*this);
         }
@@ -656,7 +656,7 @@ namespace moe
         WeakView* m_pObject;
 
     public:
-        constexpr RefWeakPtr(nullptr_t = nullptr)noexcept
+        constexpr RefWeakPtr(std::nullptr_t = nullptr)noexcept
             : m_pObject(nullptr) {}
 
         explicit RefWeakPtr(T* t)
@@ -782,7 +782,7 @@ namespace moe
             return v->template Lock<U>();
         }
 
-        void Reset(nullptr_t = nullptr)noexcept
+        void Reset(std::nullptr_t = nullptr)noexcept
         {
             RefWeakPtr().Swap(*this);
         }
