@@ -4,7 +4,9 @@
  */
 #include <Moe.Core/Threading.hpp>
 
+#ifdef MOE_WINDOWS
 #include <Windows.h>
+#endif
 
 using namespace std;
 using namespace moe;
