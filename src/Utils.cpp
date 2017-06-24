@@ -4,12 +4,15 @@
  */
 #include <Moe.Core/Utils.hpp>
 
+#include <cstring>
+
 using namespace std;
 using namespace moe;
 
 ::tm Time::ToLocalDateTime(::time_t time)noexcept
 {
-    ::tm ret = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    ::tm ret;
+    ::memset(&ret, 0, sizeof(ret));
 
 #ifdef MOE_WINDOWS
     ::localtime_s(&ret, &time);

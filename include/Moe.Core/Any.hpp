@@ -257,7 +257,7 @@ namespace moe
             return *this;
         }
 
-        operator bool()noexcept
+        operator bool()const noexcept
         {
             return IsEmpty();
         }
