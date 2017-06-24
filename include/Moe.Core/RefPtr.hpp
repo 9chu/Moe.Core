@@ -442,7 +442,7 @@ namespace moe
         T* operator->()const
         {
             assert(GetPointer());
-            return *GetPointer();
+            return GetPointer();
         }
 
         template <typename U>

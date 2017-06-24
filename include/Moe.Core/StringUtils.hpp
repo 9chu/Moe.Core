@@ -717,7 +717,7 @@ namespace moe
                 static bool AppendToString(std::basic_string<TChar>& output, const void* object,
                     const ArrayView<TChar>& format)
                 {
-                    const T& value = *static_cast<const T*>(object);
+                    T value = *static_cast<const T*>(object);
 
                     output.reserve(output.length() + kPreAllocate);
 
@@ -748,7 +748,78 @@ namespace moe
                 static bool AppendToString(std::basic_string<TChar>& output, const void* object,
                     const ArrayView<TChar>& format)
                 {
-                    const T& value = *static_cast<const T*>(object);
+                    T value = *static_cast<const T*>(object);
+
+                    bool result = true;
+                    size_t count = 0;
+                    auto pos = output.length();
+                    output.resize(pos + kPreAllocate);
+
+                    if (format.GetSize() == 0)
+                        count = Convert::ToDecimalString(value, &output[pos], kPreAllocate);
+                    else if (format.GetSize() == 1)
+                    {
+                        if (format[0] == 'H')
+                            count = Convert::ToHexString(value, &output[pos], kPreAllocate);
+                        else if (format[0] == 'h')
+                            count = Convert::ToHexStringLower(value, &output[pos], kPreAllocate);
+                        else if (format[0] == 'D')
+                            count = Convert::ToDecimalString(value, &output[pos], kPreAllocate);
+                        else
+                            result = false;
+                    }
+                    else
+                        result = false;
+
+                    if (result)
+                        output.resize(pos + count);
+                    else
+                        output.resize(pos);
+
+                    return result;
+                }
+            };
+
+            template <typename TChar>
+            struct IntergeToStringFormatter<TChar, char>
+            {
+                static const size_t kPreAllocate = 5;
+
+                static bool AppendToString(std::basic_string<TChar>& output, const void* object,
+                    const ArrayView<TChar>& format)
+                {
+                    MOE_UNUSED(format);
+
+                    char value = *static_cast<const char*>(object);
+
+                    output.reserve(output.length() + kPreAllocate);
+
+                    if (value > 0 && ::isprint(value))
+                        output.push_back(value);
+                    else
+                    {
+                        output.push_back('\\');
+
+                        size_t count = 0;
+                        auto pos = output.length();
+                        count = Convert::ToDecimalString((uint8_t)value, &output[pos], kPreAllocate - 1);
+
+                        output.resize(pos + count);
+                    }
+
+                    return true;
+                }
+            };
+
+            template <typename TChar>
+            struct IntergeToStringFormatter<TChar, size_t>
+            {
+                static const size_t kPreAllocate = 32;
+
+                static bool AppendToString(std::basic_string<TChar>& output, const void* object,
+                    const ArrayView<TChar>& format)
+                {
+                    uint64_t value = static_cast<uint64_t>(*static_cast<const size_t*>(object));
 
                     bool result = true;
                     size_t count = 0;
@@ -788,7 +859,7 @@ namespace moe
                 static bool AppendToString(std::basic_string<TChar>& output, const void* object,
                     const ArrayView<TChar>& format)
                 {
-                    const T& value = *static_cast<const T*>(object);
+                    T value = *static_cast<const T*>(object);
 
                     bool result = true;
                     size_t count = 0;
