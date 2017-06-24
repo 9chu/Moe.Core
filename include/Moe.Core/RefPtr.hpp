@@ -433,13 +433,13 @@ namespace moe
 
         explicit constexpr operator bool()const noexcept { return GetPointer() != nullptr; }
 
-        constexpr T& operator*()const
+        T& operator*()const
         {
             assert(GetPointer());
             return *GetPointer();
         }
 
-        constexpr T* operator->()const
+        T* operator->()const
         {
             assert(GetPointer());
             return *GetPointer();

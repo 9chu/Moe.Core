@@ -219,7 +219,8 @@ namespace moe
          */
         void Free(void* p)
         {
-            FixedBuffer* buffer = reinterpret_cast<FixedBuffer*>(p - offsetof(FixedBuffer, Data));
+            FixedBuffer* buffer =
+                reinterpret_cast<FixedBuffer*>(static_cast<uint8_t*>(p) - offsetof(FixedBuffer, Data));
             assert(!buffer->Free);
 
             size_t sz = buffer->Size;
