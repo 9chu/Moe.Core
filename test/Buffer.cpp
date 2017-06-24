@@ -113,3 +113,26 @@ TEST(Buffer, XCopy)
     for (size_t i = 0; i < 8; ++i)
         EXPECT_EQ(i, test3[i]);
 }
+
+TEST(Buffer, ShiftLeft)
+{
+    char buffer[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+
+    Buffer<> test1(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+    test1.ShiftLeft(4, 4);
+    EXPECT_EQ(4, test1.GetSize());
+    for (size_t i = 0; i < 4; ++i)
+        EXPECT_EQ(i + 4, test1[i]);
+
+    Buffer<> test2(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+    test2.ShiftLeft(0, 8);
+    EXPECT_EQ(8, test2.GetSize());
+    for (size_t i = 0; i < 8; ++i)
+        EXPECT_EQ(i, test2[i]);
+
+    Buffer<> test3(reinterpret_cast<uint8_t*>(buffer), sizeof(buffer));
+    test3.ShiftLeft(4, 8);
+    EXPECT_EQ(4, test3.GetSize());
+    for (size_t i = 0; i < 4; ++i)
+        EXPECT_EQ(i + 4, test3[i]);
+}

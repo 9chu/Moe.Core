@@ -167,7 +167,7 @@ namespace moe
         {
             return GetSize() == 0;
         }
-        
+
         /**
          * @brief 获取使用的大小
          */
@@ -282,6 +282,30 @@ namespace moe
             ::memcpy(GetBuffer() + osz, data.GetBuffer(), data.GetSize());
         }
 
+        /**
+         * @brief 向左平移缓冲区
+         * @param index 开始平移的位置
+         * @param count 数量
+         *
+         * 将[index, size)范围内的数据移动到[index - count, size - count)的位置上。
+         * 同时会将大小减少count个字节。
+         */
+        void ShiftLeft(size_t index, size_t count)noexcept
+        {
+            if (index >= GetSize())
+                return;
+            if (count > index)
+                count = index;
+
+            ::memmove(GetBuffer() + index - count, GetBuffer() + index, GetSize() - index);
+            Resize(GetSize() - count);
+        }
+
+        /**
+         * @brief 交换缓冲区数据
+         * @tparam I 另一缓冲区的预分配大小
+         * @param buffer 被交换的缓冲区
+         */
         template <size_t I>
         void Swap(Buffer<I>& buffer)
         {
@@ -290,11 +314,17 @@ namespace moe
             *this = std::move(temp);
         }
 
+        /**
+         * @brief 转换到ArrayView
+         */
         ArrayView<uint8_t> ToArrayView()const noexcept
         {
             return ArrayView<uint8_t>(GetBuffer(), GetSize());
         }
 
+        /**
+         * @brief 转换到可变ArrayView
+         */
         MutableArrayView<uint8_t> ToMutableArrayView()noexcept
         {
             return MutableArrayView<uint8_t>(GetBuffer(), GetSize());
