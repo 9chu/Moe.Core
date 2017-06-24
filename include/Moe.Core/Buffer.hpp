@@ -161,6 +161,14 @@ namespace moe
 
     public:
         /**
+         * @brief 是否为空
+         */
+        bool IsEmpty()const noexcept
+        {
+            return GetSize() == 0;
+        }
+        
+        /**
          * @brief 获取使用的大小
          */
         size_t GetSize()const noexcept
