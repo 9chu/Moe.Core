@@ -1434,5 +1434,45 @@ namespace moe
         }
 
         //////////////////////////////////////// </editor-fold>
+
+        //////////////////////////////////////// <editor-fold desc="字符串直接转换">
+
+        /**
+         * @brief 转到字符串（原地）
+         * @tparam T 对象类型
+         * @tparam TChar 字符类型
+         * @param out 输出字符串
+         * @param obj 对象
+         * @param format 格式化参数
+         */
+        template <typename T, typename TChar = char>
+        void ToStringInPlace(std::basic_string<TChar>& out, const T& obj, const TChar* format="")
+        {
+            using Formatter = details::ToStringFormatterSelector<TChar, T>;
+
+            size_t sz = std::char_traits<TChar>::length(format);
+            out.clear();
+
+            Formatter::AppendToString(out, static_cast<void*>(&obj), ArrayView<TChar>(format, sz));
+        }
+
+        /**
+         * @brief 转换到字符串
+         * @tparam T 对象类型
+         * @tparam TChar 字符类型
+         * @param obj 对象
+         * @param format 格式化参数
+         * @return 结果
+         */
+        template <typename T, typename TChar = char>
+        std::basic_string<TChar> ToString(const T& obj, const TChar* format="")
+        {
+            std::basic_string<TChar> ret;
+            ToStringInPlace<T, TChar>(ret, obj, format);
+
+            return std::move(ret);
+        }
+
+        //////////////////////////////////////// </editor-fold>
     }  // StringUtils
 }
