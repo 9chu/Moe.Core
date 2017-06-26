@@ -82,9 +82,8 @@ namespace moe
          */
         ArrayView<T> Slice(size_t from, size_t to)const noexcept
         {
+            assert(from <= to);
             assert(to <= m_uSize);
-            assert(from < to);
-            assert(0 <= from);
             return ArrayView<T>(GetBuffer() + from, to - from);
         }
 

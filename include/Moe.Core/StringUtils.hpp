@@ -1155,7 +1155,8 @@ namespace moe
             template <typename TChar, typename T>
             using ToStringFormatterSelectCStringOrNot = typename std::conditional<
                 (std::is_pointer<T>::value || std::is_array<T>::value) &&
-                    std::is_same<typename std::remove_cv<typename std::decay<T>::type>::type, TChar*>::value,
+                    (std::is_same<typename std::remove_cv<typename std::decay<T>::type>::type, TChar*>::value ||
+                    std::is_same<typename std::remove_cv<typename std::decay<T>::type>::type, TChar const*>::value),
                 CStringToStringFormatter<TChar, T>,
                 ToStringFormatterSelectPointerOrNot<TChar, T>>::type;
 
