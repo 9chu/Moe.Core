@@ -132,6 +132,17 @@ TEST(StringUtils, Split)
     EXPECT_STREQ("var", out[1].c_str());
 }
 
+TEST(StringUtils, Replace)
+{
+    EXPECT_EQ("aec", ReplaceAll("abc", "b", "e"));
+    EXPECT_EQ("aeeceec", ReplaceAll("abbcbbc", "b", "e"));
+    EXPECT_EQ("abbcbbc", ReplaceAll("abbcbbc", "", "e"));
+    EXPECT_EQ("acc", ReplaceAll("abbcbbc", "b", ""));
+
+    EXPECT_EQ("hello world", ReplaceAll("hello", "hello", "hello world"));
+    EXPECT_EQ("hello worldabchello world", ReplaceAll("helloabchello", "hello", "hello world"));
+}
+
 TEST(StringUtils, Format)
 {
     // 无格式化文本测试

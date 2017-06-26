@@ -639,6 +639,56 @@ namespace moe
                 flags);
         }
 
+        /**
+         * @brief 全文本替换
+         * @tparam TChar 字符类型
+         * @param[inout] out 输出字符串
+         * @param pattern 模式
+         * @param replace 替换串
+         * @return 被替换的个数
+         */
+        template <typename TChar = char>
+        uint32_t ReplaceAllInPlace(std::basic_string<TChar>& out, const TChar* pattern, const TChar* replace)
+        {
+            if (pattern == nullptr || replace == nullptr)
+                return 0;
+
+            auto patternLength = std::char_traits<TChar>::length(pattern);
+            auto replaceLength = std::char_traits<TChar>::length(replace);
+
+            if (patternLength == 0)
+                return 0;
+
+            typename std::basic_string<TChar>::size_type pos = 0;
+            uint32_t count = 0;
+
+            while ((pos = out.find(pattern, pos)) != std::basic_string<TChar>::npos)
+            {
+                out.replace(pos, patternLength, replace);
+                pos += replaceLength;
+                ++count;
+            }
+
+            return count;
+        }
+
+        template <typename TChar = char>
+        inline std::basic_string<TChar> ReplaceAll(const std::basic_string<TChar>& str, const TChar* pattern,
+            const TChar* replace)
+        {
+            std::basic_string<TChar> tmp(str);
+            ReplaceAllInPlace(tmp, pattern, replace);
+            return tmp;
+        }
+
+        template <typename TChar = char>
+        inline std::basic_string<TChar> ReplaceAll(const TChar* str, const TChar* pattern, const TChar* replace)
+        {
+            std::basic_string<TChar> tmp(str);
+            ReplaceAllInPlace(tmp, pattern, replace);
+            return tmp;
+        }
+
         //////////////////////////////////////// </editor-fold>
 
         //////////////////////////////////////// <editor-fold desc="字符串格式化">
