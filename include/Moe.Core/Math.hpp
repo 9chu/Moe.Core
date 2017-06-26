@@ -21,7 +21,7 @@ namespace moe
          *   输入7 返回8
          *   输入16 返回16
          */
-        uint32_t NextPowerOf2(uint32_t v)
+        inline uint32_t NextPowerOf2(uint32_t v)
         {
             v--;
             v |= v >> 1;
