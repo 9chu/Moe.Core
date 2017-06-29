@@ -6,6 +6,7 @@
 #pragma once
 #include <limits>
 #include <string>
+#include <cstring>
 
 #include "Utils.hpp"
 #include "ArrayView.hpp"
