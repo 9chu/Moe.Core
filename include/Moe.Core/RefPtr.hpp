@@ -592,7 +592,7 @@ namespace moe
         RefPtr<U> CastTo()noexcept
         {
             RefPtr clone = *this;
-            const auto u = static_cast<U>(clone.GetPointer());
+            const auto u = static_cast<U*>(clone.GetPointer());
             clone.Release();
             return RefPtr<U>(u);
         }
@@ -601,7 +601,7 @@ namespace moe
         RefPtr<U> DynamicCastTo()noexcept
         {
             RefPtr clone = *this;
-            const auto u = dynamic_cast<U>(clone.GetPointer());
+            const auto u = dynamic_cast<U*>(clone.GetPointer());
             if (u)
                 clone.Release();
             return RefPtr<U>(u);
