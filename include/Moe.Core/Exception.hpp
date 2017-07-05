@@ -220,6 +220,16 @@ namespace moe
      * 区别于APIException，通常明确指示特定的IO异常。
      */
     MOE_DEFINE_EXCEPTION(IOException);
+
+    /**
+     * @brief 对象或者键值已存在错误
+     */
+    MOE_DEFINE_EXCEPTION(ObjectExistsException);
+
+    /**
+     * @brief 对象或者键值不存在错误
+     */
+    MOE_DEFINE_EXCEPTION(ObjectNotFoundException);
 }
 
 //////////////////////////////////////// </editor-fold>

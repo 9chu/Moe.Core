@@ -3,12 +3,17 @@
  * @date 2017/7/5
  */
 #pragma once
+#include <string>
+#include <unordered_map>
+
 #include "ArrayView.hpp"
 
 namespace moe
 {
     namespace Hasher
     {
+        //////////////////////////////////////// <editor-fold desc="MPQHash">
+
         /**
          * @brief 获取暴雪所用Hash算法的加密表
          * @return 返回大小为0x500的加密表
@@ -38,5 +43,36 @@ namespace moe
 
             return seed1;
         }
+
+        struct MPQHashKey
+        {
+            uint32_t Key;
+            uint32_t HashA;
+            uint32_t HashB;
+
+            MPQHashKey()noexcept
+                : Key(0), HashA(0), HashB(0) {}
+
+            MPQHashKey(const std::string& key)noexcept
+                : MPQHashKey(ArrayView<uint8_t>(reinterpret_cast<const uint8_t*>(key.data()), key.size())) {}
+
+            MPQHashKey(const ArrayView<uint8_t>& raw)noexcept
+                : Key(MPQHash(raw, 0)), HashA(MPQHash(raw, 1)), HashB(MPQHash(raw, 2)) {}
+
+            MPQHashKey(const MPQHashKey&) = default;
+        };
+
+        namespace details
+        {
+            struct MPQHasher
+            {
+                uint32_t operator()(const MPQHashKey& x)const noexcept { return x.Key; }
+            };
+        }
+
+        template <typename T>
+        using MPQHashMap = std::unordered_map<MPQHashKey, T, details::MPQHasher>;
+
+        //////////////////////////////////////// </editor-fold>
     }
 }

@@ -7,6 +7,8 @@
 using namespace std;
 using namespace moe;
 
+//////////////////////////////////////////////////////////////////////////////// MPQHash
+
 static const uint32_t s_arrMPQCryptTable[0x500] = {
     0x55C636E2u, 0x02BE0170u, 0x584B71D4u, 0x2984F00Eu, 0xB682C809u, 0x91CF876Bu, 0x775A9C24u, 0x597D5CA5u,
     0x5A1AFEB2u, 0xD3E9CE0Du, 0x32CDCDF8u, 0xB18201CDu, 0x3CCE05CEu, 0xA55D13BEu, 0xBB0AFE71u, 0x9376AB33u,
