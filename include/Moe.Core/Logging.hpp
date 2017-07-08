@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "StringUtils.hpp"
+#include "Time.hpp"
 
 #include <thread>
 #include <chrono>
@@ -18,7 +19,7 @@ namespace moe
      */
     namespace Logging
     {
-        using LoggingTimePoint = std::chrono::system_clock::time_point;
+        using LoggingTimePoint = Time::Timestamp;
 
         /**
          * @brief 日志等级
@@ -146,7 +147,7 @@ namespace moe
             {
                 auto message(StringUtils::Format(format, args...));
                 details::DispatchLogMessage(level, message, file, line, function, std::this_thread::get_id(),
-                    std::chrono::system_clock::now());
+                    Time::GetLocalTime());
             }
             catch (...)
             {

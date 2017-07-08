@@ -3,7 +3,6 @@
  * @date 2017/5/29
  */
 #include <Moe.Core/Logging.hpp>
-
 #include <Moe.Core/Exception.hpp>
 
 #include <mutex>
@@ -121,7 +120,7 @@ namespace
 void ConsoleLogger::Log(LogLevel level, const std::string& message, const char* file, unsigned line,
     const char* function, std::thread::id thread, LoggingTimePoint time)noexcept
 {
-    auto tm = Time::ToLocalDateTime(chrono::system_clock::to_time_t(time));
+    auto dt = Time::ToDateTime(time);
     auto& out = level < LogLevel::Warn ? cout : cerr;
 
 #ifndef MOE_WINDOWS
@@ -137,7 +136,7 @@ void ConsoleLogger::Log(LogLevel level, const std::string& message, const char* 
 #endif
 
     out << "[" << LogLevelToString(level) << "]";
-    out << "[" << put_time(&tm, "%Y-%m-%d %H:%M:%S") << "]";
+    out << "[" << Time::ToString(dt) << "]";
     out << "[thread-" << thread << "]";
     out << " " << function << ": " << message << " @ " << file << ":" << line;
 
@@ -168,10 +167,10 @@ FileLogger::FileLogger(const char* path)
 void FileLogger::Log(LogLevel level, const std::string& message, const char* file, unsigned line, const char* function,
     std::thread::id thread, LoggingTimePoint time)noexcept
 {
-    auto tm = Time::ToLocalDateTime(chrono::system_clock::to_time_t(time));
+    auto dt = Time::ToDateTime(time);
 
     m_stFile << "[" << LogLevelToString(level) << "]";
-    m_stFile << "[" << put_time(&tm, "%Y-%m-%d %H:%M:%S") << "]";
+    m_stFile << "[" << Time::ToString(dt) << "]";
     m_stFile << "[thread-" << thread << "]";
     m_stFile << " " << function << ": " << message << " @ " << file << ":" << line;
     m_stFile << endl;

@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cassert>
-#include <ctime>
 #include <type_traits>
 
 /**
@@ -124,36 +123,4 @@ namespace moe
 
         return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(&source));
     }
-
-    /**
-     * @brief 时间辅助类
-     */
-    class Time
-    {
-    public:
-        /**
-         * @brief 将时间转换到本地日期
-         * @param time 时间
-         * @return 本地日期
-         */
-        static ::tm ToLocalDateTime(::time_t time)noexcept;
-
-        /**
-         * @brief 获取当前的系统时间
-         * @return UNIX时间戳
-         */
-        static ::time_t CurrentTime()noexcept;
-
-        /**
-         * @brief 获取当前的系统日期
-         * @return UNIX日期格式
-         */
-        static inline ::tm CurrentDateTime()noexcept { return ToLocalDateTime(CurrentTime()); }
-
-        /**
-         * @brief 获取当前的CPU时间
-         * @return CPU时间（毫秒）
-         */
-        static unsigned GetSystemTick()noexcept;
-    };
 }
