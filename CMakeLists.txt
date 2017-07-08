@@ -1,15 +1,13 @@
 cmake_minimum_required(VERSION 3.1)
 project(MoeCore)
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_FLAGS "-g -Wall -Wextra")
-set(CMAKE_C_FLAGS "-g -Wall -Wextra")
-
 # 对外导出目录
 set(MoeCore_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING "Include-dir for MoeCore." FORCE)
 
 # 编译选项
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_FLAGS "-g -Wall -Wextra")
+set(CMAKE_C_FLAGS "-g -Wall -Wextra")
 
 if(WIN32)
     add_definitions(-D_WIN32_WINNT=0x0600 -D_GNU_SOURCE -D_CRT_SECURE_NO_WARNINGS)

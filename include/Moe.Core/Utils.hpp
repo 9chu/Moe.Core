@@ -62,6 +62,18 @@
 #define MOE_UNUSED(x) \
     static_cast<void>(x)
 
+/**
+ * @brief 单行断言
+ *
+ * 检查CHECK，若成立返回EXPR。
+ * 用于解决C++11在constexpr中不允许多行代码的问题。
+ */
+#ifdef NDEBUG
+#define MOE_ASSERT_EXPR(CHECK, EXPR) (EXPR)
+#else
+#define MOE_ASSERT_EXPR(CHECK, EXPR) ((CHECK) ? (EXPR) : ([]{assert(!#CHECK);}(), (EXPR)))
+#endif
+
 namespace moe
 {
     /**

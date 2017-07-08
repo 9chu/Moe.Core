@@ -10,6 +10,9 @@
 #include <type_traits>
 #include <initializer_list>
 
+#include "Utils.hpp"
+#include "Exception.hpp"
+
 namespace moe
 {
     namespace details
@@ -56,6 +59,9 @@ namespace moe
         {
             return std::addressof(ref);
         }
+
+        template <class U>
+        constexpr U Convert(U v) { return v; }
 
         struct OptionalTrivialInitTag {};
 
@@ -151,19 +157,19 @@ namespace moe
 
             ~ConstexprOptionalBase() = default;
         };
-
-        // 决定析构是否是平凡的
-        template <class T>
-        using OptionalBase = typename std::conditional<
-            std::is_trivially_destructible<T>::value,
-            ConstexprOptionalBase<typename std::remove_const<T>::type>,
-            OptionalBase<typename std::remove_const<T>::type>>::type;
     }
 
     /**
      * @brief 原地构造标记
      */
     constexpr details::OptionalInPlaceInitTag InPlaceInit {};
+
+    // 决定析构是否是平凡的
+    template <class T>
+    using OptionalBase = typename std::conditional<
+        std::is_trivially_destructible<T>::value,
+        details::ConstexprOptionalBase<typename std::remove_const<T>::type>,
+        details::OptionalBase<typename std::remove_const<T>::type>>::type;
 
     template <class T>
     class Optional;
@@ -173,7 +179,7 @@ namespace moe
 
     template <class T>
     class Optional :
-        private details::OptionalBase<T>
+        private OptionalBase<T>
     {
         static_assert(!std::is_same<typename std::decay<T>::type, details::OptionalInPlaceInitTag>::value, "bad T");
 
@@ -182,36 +188,35 @@ namespace moe
 
     public:
         constexpr Optional()noexcept
-            : details::OptionalBase<T>() {}
+            : OptionalBase<T>() {}
 
         Optional(const Optional& rhs)
-            : details::OptionalBase<T>()
+            : OptionalBase<T>()
         {
             if (rhs.Initialized())
             {
                 ::new (static_cast<void*>(GetPointer())) T(*rhs);
-                details::OptionalBase<T>::Inited = true;
+                OptionalBase<T>::Inited = true;
             }
         }
 
         Optional(Optional&& rhs)noexcept(std::is_nothrow_move_constructible<T>::value)
-            : details::OptionalBase<T>()
+            : OptionalBase<T>()
         {
             if (rhs.Initialized())
             {
                 ::new (static_cast<void*>(GetPointer())) T(std::move(*rhs));
-                details::OptionalBase<T>::Inited = true;
+                OptionalBase<T>::Inited = true;
             }
         }
 
         constexpr Optional(const T& v)
-            : details::OptionalBase<T>(v) {}
+            : OptionalBase<T>(v) {}
 
         constexpr Optional(T&& v)
-            : details::OptionalBase<T>(details::ConstexprMove(v)) {}
+            : OptionalBase<T>(details::ConstexprMove(v)) {}
 
-        template <class... Args,
-            typename std::enable_if<!std::is_constructible<T, Args&&...>::value, bool>::type = false>
+        template <class... Args>
         explicit constexpr Optional(details::OptionalInPlaceInitTag, Args&&... args)
             : OptionalBase<T>(details::OptionalInPlaceInitTag(), details::ConstexprForward<Args>(args)...) {}
 
@@ -258,32 +263,27 @@ namespace moe
 
         constexpr T const* operator ->()const
         {
-            assert(Initialized());
-            return GetPointer();
+            return MOE_ASSERT_EXPR(Initialized(), GetPointer());
         }
 
-        constexpr T* operator ->()
+        T* operator ->()
         {
-            assert(Initialized());
-            return GetPointer();
+            return MOE_ASSERT_EXPR(Initialized(), GetPointer());
         }
 
         constexpr T const& operator *()const&
         {
-            assert(Initialized());
-            return Value();
+            return MOE_ASSERT_EXPR(Initialized(), Value());
         }
 
-        constexpr T& operator *()&
+        T& operator *()&
         {
-            assert(Initialized());
-            return Value();
+            return MOE_ASSERT_EXPR(Initialized(), Value());
         }
 
-        constexpr T&& operator *()&&
+        T&& operator *()&&
         {
-            assert(Initialized());
-            return details::ConstexprMove(Value());
+            return MOE_ASSERT_EXPR(Initialized(), details::ConstexprMove(Value()));
         }
 
         explicit constexpr operator bool()const noexcept { return Initialized(); }
@@ -307,7 +307,7 @@ namespace moe
         {
             if (Initialized())
                 GetPointer()->T::~T();
-            details::OptionalBase<T>::Inited = false;
+            OptionalBase<T>::Inited = false;
         }
 
         void Swap(Optional<T>& rhs)noexcept(std::is_nothrow_move_constructible<T>::value &&
@@ -331,38 +331,72 @@ namespace moe
 
         constexpr bool HasValue()const noexcept { return Initialized(); }
 
+        T const& GetValue()const&
+        {
+            if (Initialized())
+                return Value();
+            MOE_THROW(InvalidCallException, "Optional not inited");
+        }
+
+        T& GetValue()&
+        {
+            if (Initialized())
+                return Value();
+            MOE_THROW(InvalidCallException, "Optional not inited");
+        }
+
+        T&& GetValue()&&
+        {
+            if (!Initialized())
+                MOE_THROW(InvalidCallException, "Optional not inited");
+            return std::move(Value());
+        }
+
+        template <class V>
+        constexpr T TryGetValue(V&& v)const&
+        {
+            return *this ? **this : details::Convert<T>(details::ConstexprForward<V>(v));
+        }
+
+        template <class V>
+        T TryGetValue(V&& v)&&
+        {
+            return *this ? details::ConstexprMove(const_cast<Optional<T>&>(*this).Value()) :
+                details::Convert<T>(details::ConstexprForward<V>(v));
+        }
+
     private:
-        constexpr bool Initialized()const noexcept { return details::OptionalBase<T>::Inited; }
+        constexpr bool Initialized()const noexcept { return OptionalBase<T>::Inited; }
 
         typename std::remove_const<T>::type* GetPointer()
         {
-            return std::addressof(details::OptionalBase<T>::Storage.Value);
+            return std::addressof(OptionalBase<T>::Storage.Value);
         }
 
         constexpr const T* GetPointer()const
         {
-            return details::StaticAddressof(details::OptionalBase<T>::Storage.Value);
+            return details::StaticAddressof(OptionalBase<T>::Storage.Value);
         }
 
-        constexpr const T& Value()const& { return details::OptionalBase<T>::Storage.Value; }
+        constexpr const T& Value()const& { return OptionalBase<T>::Storage.Value; }
 
-        T& Value()& { return details::OptionalBase<T>::Storage.Value; }
-        T&& Value()&& { return std::move(details::OptionalBase<T>::Storage.Value); }
+        T& Value()& { return OptionalBase<T>::Storage.Value; }
+        T&& Value()&& { return std::move(OptionalBase<T>::Storage.Value); }
 
         template <class... Args>
         void Initialize(Args&&... args)noexcept(noexcept(T(std::forward<Args>(args)...)))
         {
-            assert(!details::OptionalBase<T>::Inited);
+            assert(!OptionalBase<T>::Inited);
             ::new (static_cast<void*>(GetPointer())) T(std::forward<Args>(args)...);
-            details::OptionalBase<T>::Inited = true;
+            OptionalBase<T>::Inited = true;
         }
 
         template <class U, class... Args>
         void Initialize(std::initializer_list<U> l, Args&&... args)noexcept(noexcept(T(l, std::forward<Args>(args)...)))
         {
-            assert(!details::OptionalBase<T>::Inited);
+            assert(!OptionalBase<T>::Inited);
             ::new (static_cast<void*>(GetPointer())) T(l, std::forward<Args>(args)...);
-            details::OptionalBase<T>::Inited = true;
+            OptionalBase<T>::Inited = true;
         }
     };
 
@@ -406,14 +440,12 @@ namespace moe
 
         constexpr T* operator->()const
         {
-            assert(m_pRef);
-            return m_pRef;
+            return MOE_ASSERT_EXPR(m_pRef, m_pRef);
         }
 
         constexpr T& operator*()const
         {
-            assert(m_pRef);
-            return *m_pRef;
+            return MOE_ASSERT_EXPR(m_pRef, *m_pRef);
         }
 
         explicit constexpr operator bool()const noexcept
@@ -431,6 +463,19 @@ namespace moe
         void Swap(Optional<T&>& rhs)noexcept { std::swap(m_pRef, rhs.m_pRef); }
 
         constexpr bool HasValue()const noexcept { return m_pRef != nullptr; }
+
+        T& GetValue()const
+        {
+            if (m_pRef)
+                return *m_pRef;
+            MOE_THROW(InvalidCallException, "Optional not inited");
+        }
+
+        template <class V>
+        constexpr typename std::decay<T>::type TryGetValue(V&& v)const
+        {
+            return *this ? **this : details::Convert<typename std::decay<T>::type>(details::ConstexprForward<V>(v));
+        }
 
     private:
         T* m_pRef;
