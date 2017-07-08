@@ -168,6 +168,11 @@ namespace moe
      * @brief 引用计数基类
      *
      * 该类实现侵入式指针的基类，所有需要支持引用计数的对象都应当以该类为基类。
+     *
+     * 需要注意的是，该类没有使用虚析构，如果存在：
+     *   class A : public RefBase;
+     *   class B : public A;
+     * 则 A::~A() 必须为 virtual 函数，否则将产生内存泄漏。
      */
     template <typename T, typename D>
     class RefBase :

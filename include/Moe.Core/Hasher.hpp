@@ -26,7 +26,7 @@ namespace moe
          * @param offset 偏移，可取0,1,2,3,4
          * @return Hash值
          */
-        inline uint32_t MPQHash(const ArrayView<uint8_t>& str, unsigned offset=0)
+        inline uint32_t MPQHash(const BytesView& str, unsigned offset=0)
         {
             assert(offset < 5);
 
@@ -54,9 +54,9 @@ namespace moe
                 : Key(0), HashA(0), HashB(0) {}
 
             MPQHashKey(const std::string& key)noexcept
-                : MPQHashKey(ArrayView<uint8_t>(reinterpret_cast<const uint8_t*>(key.data()), key.size())) {}
+                : MPQHashKey(BytesView(reinterpret_cast<const uint8_t*>(key.data()), key.size())) {}
 
-            MPQHashKey(const ArrayView<uint8_t>& raw)noexcept
+            MPQHashKey(const BytesView& raw)noexcept
                 : Key(MPQHash(raw, 0)), HashA(MPQHash(raw, 1)), HashB(MPQHash(raw, 2)) {}
 
             MPQHashKey(const MPQHashKey&) = default;

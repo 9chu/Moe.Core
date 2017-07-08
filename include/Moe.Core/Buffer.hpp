@@ -33,7 +33,7 @@ namespace moe
             ::memcpy(GetBuffer(), data, sz);
         }
 
-        Buffer(ArrayView<uint8_t> view)
+        Buffer(BytesView view)
         {
             Resize(view.GetSize());
             ::memcpy(GetBuffer(), view.GetBuffer(), view.GetSize());
@@ -273,7 +273,7 @@ namespace moe
             ::memcpy(GetBuffer() + osz, data, sz);
         }
 
-        void Append(ArrayView<uint8_t> data)
+        void Append(BytesView data)
         {
             size_t osz = GetSize();
             Resize(osz + data.GetSize());
@@ -315,19 +315,19 @@ namespace moe
         }
 
         /**
-         * @brief 转换到ArrayView
+         * @brief 转换到BytesView
          */
-        ArrayView<uint8_t> ToArrayView()const noexcept
+        BytesView ToBytesView()const noexcept
         {
-            return ArrayView<uint8_t>(GetBuffer(), GetSize());
+            return BytesView(GetBuffer(), GetSize());
         }
 
         /**
-         * @brief 转换到可变ArrayView
+         * @brief 转换到可变BytesView
          */
-        MutableArrayView<uint8_t> ToMutableArrayView()noexcept
+        MutableBytesView ToMutableBytesView()noexcept
         {
-            return MutableArrayView<uint8_t>(GetBuffer(), GetSize());
+            return MutableBytesView(GetBuffer(), GetSize());
         }
 
     private:

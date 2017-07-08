@@ -158,4 +158,7 @@ namespace moe
             return MutableArrayView<T>(GetBuffer() + from, to - from);
         }
     };
+
+    using BytesView = ArrayView<uint8_t>;
+    using MutableBytesView = MutableArrayView<uint8_t>;
 }
