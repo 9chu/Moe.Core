@@ -476,7 +476,7 @@ TEST(Convert, DiyFpNextDouble)
     EXPECT_GT(d2.Sign(), 0);
     EXPECT_EQ(4e-324, d2.NextDouble());
     EXPECT_EQ(-1.7976931348623157e308, Double(-Double::Infinity()).NextDouble());
-    EXPECT_EQ(Double::Infinity(), Double(0x7FEFFFFFFFFFFFFFull).NextDouble());
+    EXPECT_EQ(Double::Infinity(), Double((uint64_t)0x7FEFFFFFFFFFFFFFull).NextDouble());
 }
 
 TEST(Convert, DiyFpPreviousDouble)
@@ -494,7 +494,7 @@ TEST(Convert, DiyFpPreviousDouble)
     EXPECT_LT(d2.Sign(), 0);
     EXPECT_EQ(-4e-324, d2.PreviousDouble());
     EXPECT_EQ(1.7976931348623157e308, Double(Double::Infinity()).PreviousDouble());
-    EXPECT_EQ(-Double::Infinity(), Double(0xFFEFFFFFFFFFFFFFull).PreviousDouble());
+    EXPECT_EQ(-Double::Infinity(), Double((uint64_t)0xFFEFFFFFFFFFFFFFull).PreviousDouble());
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
