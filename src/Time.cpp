@@ -40,7 +40,7 @@ namespace
         }
 
     public:
-        constexpr Time::TimestampOffset GetTimeZoneBias()const noexcept { return m_llTimeZoneBias; }
+        Time::TimestampOffset GetTimeZoneBias()const noexcept { return m_llTimeZoneBias; }
 
     private:
         Time::TimestampOffset m_llTimeZoneBias = 0;
@@ -63,7 +63,7 @@ namespace
         }
 
     public:
-        constexpr double GetFrequency()const noexcept { return m_dPerformanceFreq; }
+        double GetFrequency()const noexcept { return m_dPerformanceFreq; }
 
     private:
         double m_dPerformanceFreq = 0.;
@@ -154,7 +154,11 @@ Time::DateTime Time::ToDateTime(Timestamp ts)noexcept
 
     ::tm desc;
     ::memset(&desc, 0, sizeof(desc));
+#ifdef MOE_WINDOWS
+    ::gmtime_s(&desc, &seconds);
+#else
     ::gmtime_r(&seconds, &desc);
+#endif
 
     DateTime dt;
     dt.Year = static_cast<unsigned>(1900 + desc.tm_year);
@@ -178,7 +182,11 @@ Time::Timestamp Time::ToTimestamp(const DateTime& dt)noexcept
     desc.tm_hour = static_cast<int>(dt.Hour);
     desc.tm_min  = static_cast<int>(dt.Minutes);
     desc.tm_sec  = static_cast<int>(dt.Seconds);
+#ifdef MOE_WINDOWS
+    return static_cast<uint64_t>(::_mkgmtime(&desc)) * 1000 + dt.MilliSeconds;
+#else
     return static_cast<uint64_t>(::timegm(&desc)) * 1000 + dt.MilliSeconds;
+#endif
 }
 
 std::string Time::ToString(Timestamp ts)

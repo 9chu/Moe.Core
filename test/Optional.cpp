@@ -183,21 +183,21 @@ TEST(Optional, MovedFromState)
 
     // now, test Optional
     Optional<MoveAware<int>> oi{1}, oj{2};
-    EXPECT_TRUE(oi);
+    EXPECT_TRUE(bool(oi));
     EXPECT_TRUE(!oi->moved);
-    EXPECT_TRUE(oj);
+    EXPECT_TRUE(bool(oj));
     EXPECT_TRUE(!oj->moved);
 
     Optional<MoveAware<int>> ok = std::move(oi);
-    EXPECT_TRUE(ok);
+    EXPECT_TRUE(bool(ok));
     EXPECT_TRUE(!ok->moved);
-    EXPECT_TRUE(oi);
+    EXPECT_TRUE(bool(oi));
     EXPECT_TRUE(oi->moved);
 
     ok = std::move(oj);
-    EXPECT_TRUE(ok);
+    EXPECT_TRUE(bool(ok));
     EXPECT_TRUE(!ok->moved);
-    EXPECT_TRUE(oj);
+    EXPECT_TRUE(bool(oj));
     EXPECT_TRUE(oj->moved);
 };
 
@@ -501,7 +501,7 @@ TEST(Optional, OptionalRefAssign)
 
     Optional<int&> orj = j;
 
-    EXPECT_TRUE(ori);
+    EXPECT_TRUE(bool(ori));
     EXPECT_TRUE(*ori == 1);
     EXPECT_TRUE(ori == orj);
     EXPECT_TRUE(i == 9);
