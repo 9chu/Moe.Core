@@ -74,5 +74,80 @@ namespace moe
         using MPQHashMap = std::unordered_map<MPQHashKey, T, details::MPQHasher>;
 
         //////////////////////////////////////// </editor-fold>
+
+        //////////////////////////////////////// <editor-fold desc="MurmurHash">
+
+        /**
+         * @brief Murmur哈希函数(二代)
+         * @see https://github.com/aappleby/smhasher
+         * @param data 输入数据
+         * @param len 长度
+         * @param seed 种子
+         * @return 哈希结果
+         *
+         * 方法用于生成64位的哈希值。
+         * 该方法平台无关，在不同大小端机器上能得出相同结果。
+         */
+        inline uint64_t MurmurHash2(const uint8_t* data, size_t len, uint64_t seed)noexcept
+        {
+            const uint64_t m = 0xC6A4A7935BD1E995ull;
+            const int r = 47;
+
+            uint64_t h = seed ^ (len * m);
+
+            while (len >= 8)
+            {
+                uint64_t k;
+
+                k = uint64_t(data[0]);
+                k |= uint64_t(data[1]) << 8;
+                k |= uint64_t(data[2]) << 16;
+                k |= uint64_t(data[3]) << 24;
+                k |= uint64_t(data[4]) << 32;
+                k |= uint64_t(data[5]) << 40;
+                k |= uint64_t(data[6]) << 48;
+                k |= uint64_t(data[7]) << 56;
+
+                k *= m;
+                k ^= k >> r;
+                k *= m;
+
+                h ^= k;
+                h *= m;
+
+                data += 8;
+                len -= 8;
+            }
+
+            switch (len)
+            {
+                case 7:
+                    h ^= uint64_t(data[6]) << 48;
+                case 6:
+                    h ^= uint64_t(data[5]) << 40;
+                case 5:
+                    h ^= uint64_t(data[4]) << 32;
+                case 4:
+                    h ^= uint64_t(data[3]) << 24;
+                case 3:
+                    h ^= uint64_t(data[2]) << 16;
+                case 2:
+                    h ^= uint64_t(data[1]) << 8;
+                case 1:
+                    h ^= uint64_t(data[0]);
+                    h *= m;
+                    break;
+                default:
+                    break;
+            };
+
+            h ^= h >> r;
+            h *= m;
+            h ^= h >> r;
+
+            return h;
+        }
+
+        //////////////////////////////////////// </editor-fold>
     }
 }
