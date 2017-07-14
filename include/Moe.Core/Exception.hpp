@@ -230,6 +230,11 @@ namespace moe
      * @brief 对象或者键值不存在错误
      */
     MOE_DEFINE_EXCEPTION(ObjectNotFoundException);
+
+    /**
+     * @brief 不支持的操作
+     */
+    MOE_DEFINE_EXCEPTION(OperationNotSupport);
 }
 
 //////////////////////////////////////// </editor-fold>
