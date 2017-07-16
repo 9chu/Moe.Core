@@ -243,7 +243,7 @@ namespace moe
             uint64_t c = ReadUInt8();
             uint64_t d = ReadUInt8();
             uint64_t e = ReadUInt8();
-            uint64_t f = ReadUInt8();+
+            uint64_t f = ReadUInt8();
 
             uint64_t g = ReadUInt8();
             uint64_t h = ReadUInt8();
