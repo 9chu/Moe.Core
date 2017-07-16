@@ -319,7 +319,7 @@ namespace moe
             std::string ret;
             ret.resize(length, '\0');
 
-            MutableBytesView view(reinterpret_cast<uint8_t*>(ret.data()), ret.length());
+            MutableBytesView view(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(ret.data())), ret.length());
             auto count = m_pStream->ReadBytes(view, ret.length());
             if (count < length)
                 MOE_THROW(OutOfRangeException, "Expect {0}, but read {1}", length, count);
@@ -382,22 +382,22 @@ namespace moe
 
         void WriteInt8(char value)
         {
-            WriteUInt8(reinterpret_cast<uint8_t>(value));
+            WriteUInt8(static_cast<uint8_t>(value));
         }
 
         void WriteInt16LE(int16_t value)
         {
-            WriteUInt16LE(reinterpret_cast<uint16_t>(value));
+            WriteUInt16LE(static_cast<uint16_t>(value));
         }
 
         void WriteInt32LE(int32_t value)
         {
-            WriteUInt32LE(reinterpret_cast<uint32_t>(value));
+            WriteUInt32LE(static_cast<uint32_t>(value));
         }
 
         void WriteInt64LE(int64_t value)
         {
-            WriteUInt64LE(reinterpret_cast<uint64_t>(value));
+            WriteUInt64LE(static_cast<uint64_t>(value));
         }
 
         void WriteUInt16BE(uint16_t value)
@@ -428,17 +428,17 @@ namespace moe
 
         void WriteInt16BE(int16_t value)
         {
-            WriteUInt16BE(reinterpret_cast<uint16_t>(value));
+            WriteUInt16BE(static_cast<uint16_t>(value));
         }
 
         void WriteInt32BE(int32_t value)
         {
-            WriteUInt32BE(reinterpret_cast<uint32_t>(value));
+            WriteUInt32BE(static_cast<uint32_t>(value));
         }
 
         void WriteInt64BE(int64_t value)
         {
-            WriteUInt64BE(reinterpret_cast<uint64_t>(value));
+            WriteUInt64BE(static_cast<uint64_t>(value));
         }
 
     private:

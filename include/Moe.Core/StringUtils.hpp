@@ -1099,6 +1099,30 @@ namespace moe
             };
 
             template <typename TChar, typename T>
+            struct EnumToStringFormatter
+            {
+                static const size_t kPreAllocate = 16;
+
+                static bool AppendToString(std::basic_string<TChar>& output, const void* object,
+                    const ArrayView<TChar>& format)
+                {
+                    const T& value = *static_cast<const T*>(object);
+
+                    if (format.GetSize() != 0)
+                        return false;
+
+                    size_t count = 0;
+                    auto pos = output.length();
+                    output.resize(pos + kPreAllocate);
+
+                    count = Convert::ToDecimalString(static_cast<uint32_t>(value), &output[pos], kPreAllocate);
+
+                    output.resize(pos + count);
+                    return true;
+                }
+            };
+
+            template <typename TChar, typename T>
             struct CustomExToStringFormatter
             {
                 static bool AppendToString(std::basic_string<TChar>& output, const void* object,
@@ -1141,10 +1165,16 @@ namespace moe
                 ToStringFormatterSelectCustomOrNot<TChar, T>>::type;
 
             template <typename TChar, typename T>
+            using ToStringFormatterSelectEnumOrNot = typename std::conditional<
+                std::is_enum<T>::value,
+                EnumToStringFormatter<TChar, T>,
+                ToStringFormatterSelectCustomExOrNot<TChar, T>>::type;
+
+            template <typename TChar, typename T>
             using ToStringFormatterSelectNullptrOrNot = typename std::conditional<
                 std::is_same<typename std::remove_cv<typename std::decay<T>::type>::type, std::nullptr_t>::value,
                 NullptrToStringFormatter<TChar, T>,
-                ToStringFormatterSelectCustomExOrNot<TChar, T>>::type;
+                ToStringFormatterSelectEnumOrNot<TChar, T>>::type;
 
             template <typename TChar, typename T>
             using ToStringFormatterSelectPointerOrNot = typename std::conditional<
