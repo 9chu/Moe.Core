@@ -594,7 +594,7 @@ namespace moe
         friend void Swap(RefPtr<T>& l, RefPtr<T>& r)noexcept { l.Swap(r); }
 
         template <typename U>
-        RefPtr<U> CastTo()noexcept
+        RefPtr<U> CastTo()const noexcept
         {
             RefPtr clone = *this;
             const auto u = static_cast<U*>(clone.GetPointer());
@@ -603,7 +603,7 @@ namespace moe
         }
 
         template <typename U>
-        RefPtr<U> DynamicCastTo()noexcept
+        RefPtr<U> DynamicCastTo()const noexcept
         {
             RefPtr clone = *this;
             const auto u = dynamic_cast<U*>(clone.GetPointer());
