@@ -235,6 +235,11 @@ namespace moe
      * @brief 不支持的操作
      */
     MOE_DEFINE_EXCEPTION(OperationNotSupport);
+
+    /**
+     * @brief 错误的状态
+     */
+    MOE_DEFINE_EXCEPTION(BadStateException);
 }
 
 //////////////////////////////////////// </editor-fold>
