@@ -5,6 +5,7 @@
 #pragma once
 #include <cassert>
 #include <cstdint>
+#include <string>
 
 namespace moe
 {
@@ -161,4 +162,14 @@ namespace moe
 
     using BytesView = ArrayView<uint8_t>;
     using MutableBytesView = MutableArrayView<uint8_t>;
+
+    inline BytesView StringToBytesView(const std::string& data)noexcept
+    {
+        return BytesView(reinterpret_cast<const uint8_t*>(data.data()), data.size());
+    }
+
+    inline MutableBytesView StringToBytesView(std::string& data)noexcept
+    {
+        return MutableBytesView(reinterpret_cast<const uint8_t*>(data.data()), data.size());
+    }
 }

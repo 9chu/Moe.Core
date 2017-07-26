@@ -266,6 +266,9 @@ namespace moe
          */
         void Append(void* data, size_t sz)
         {
+            if (sz == 0)
+                return;
+
             size_t osz = GetSize();
             Resize(osz + sz);
 
@@ -275,6 +278,9 @@ namespace moe
 
         void Append(BytesView data)
         {
+            if (data.GetSize() == 0)
+                return;
+
             size_t osz = GetSize();
             Resize(osz + data.GetSize());
 
@@ -292,7 +298,7 @@ namespace moe
          */
         void ShiftLeft(size_t index, size_t count)noexcept
         {
-            if (index >= GetSize())
+            if (index >= GetSize() || count == 0)
                 return;
             if (count > index)
                 count = index;

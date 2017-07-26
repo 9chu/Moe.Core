@@ -13,7 +13,7 @@ using namespace Encoding;
 EncodingResult UTF8::Decoder::operator()(char ch, char32_t& out)noexcept
 {
     // http://bjoern.hoehrmann.de/utf-8/decoder/dfa/
-    static const uint8_t utf8dfa[] = {
+    static const uint8_t kUTF8DFA[] = {
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 00..1f
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 20..3f
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 40..5f
@@ -31,9 +31,9 @@ EncodingResult UTF8::Decoder::operator()(char ch, char32_t& out)noexcept
     };
 
     uint8_t b = static_cast<uint8_t>(ch);
-    uint32_t type = utf8dfa[b];
+    uint32_t type = kUTF8DFA[b];
     out = (m_iState != 0) ? (b & 0x3Fu) | (out << 6) : (0xFFu >> type) & b;
-    m_iState = utf8dfa[256 + m_iState * 16 + type];
+    m_iState = kUTF8DFA[256 + m_iState * 16 + type];
 
     switch (m_iState)
     {
