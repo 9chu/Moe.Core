@@ -123,4 +123,20 @@ namespace moe
 
         return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(&source));
     }
+
+    /**
+     * @brief 单件
+     * @tparam T 类型
+     */
+    template <typename T>
+    class Singleton :
+        public NonCopyable
+    {
+    public:
+        static T& Instance()
+        {
+            static T s_stInstance;  // C++11保证对该static的初始化操作是原子的
+            return s_stInstance;
+        }
+    };
 }
