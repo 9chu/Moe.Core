@@ -68,6 +68,7 @@ namespace moe
             Clone,
             Destroy,
             Move,
+            IsHeapStorage,
         };
 
         union ManagerArg
@@ -75,6 +76,7 @@ namespace moe
             void* Object;
             const std::type_info* TypeInfo;
             Any* Other;
+            uint32_t Result;
         };
 
         template <typename T>
@@ -104,6 +106,9 @@ namespace moe
                         ptr->~T();
                         arg->Other->m_pManager = any->m_pManager;
                         const_cast<Any*>(any)->m_pManager = nullptr;
+                        break;
+                    case ManagerOperator::IsHeapStorage:
+                        arg->Result = 0;
                         break;
                 }
             }
@@ -142,6 +147,9 @@ namespace moe
                         arg->Other->m_stStorage.Pointer = any->m_stStorage.Pointer;
                         arg->Other->m_pManager = any->m_pManager;
                         const_cast<Any*>(any)->m_pManager = nullptr;
+                        break;
+                    case ManagerOperator::IsHeapStorage:
+                        arg->Result = 1;
                         break;
                 }
             }
@@ -313,6 +321,18 @@ namespace moe
             ManagerArg arg;
             m_pManager(ManagerOperator::GetTypeInfo, this, &arg);
             return *arg.TypeInfo;
+        }
+
+        /**
+         * @brief 检查对象是否在堆上分配
+         */
+        bool IsHeapStorage()const noexcept
+        {
+            if (IsEmpty())
+                return false;
+            ManagerArg arg;
+            m_pManager(ManagerOperator::IsHeapStorage, this, &arg);
+            return (arg.Result != 0);
         }
 
         /**
