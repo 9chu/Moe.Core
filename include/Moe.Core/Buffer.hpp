@@ -298,12 +298,13 @@ namespace moe
          */
         void ShiftLeft(size_t index, size_t count)noexcept
         {
-            if (index >= GetSize() || count == 0)
+            if (index > GetSize() || count == 0)
                 return;
             if (count > index)
                 count = index;
 
-            ::memmove(GetBuffer() + index - count, GetBuffer() + index, GetSize() - index);
+            if (GetSize() - index > 0)
+                ::memmove(GetBuffer() + index - count, GetBuffer() + index, GetSize() - index);
             Resize(GetSize() - count);
         }
 
