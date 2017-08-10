@@ -329,7 +329,7 @@ namespace moe
         }
 
 #if _MSC_VER <= 1900
-		virtual void GenerateVtableForMSVC_() {}
+        virtual void GenerateVtableForMSVC_() {}
 #endif
 
     private:
