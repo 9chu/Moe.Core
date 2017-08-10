@@ -252,7 +252,7 @@ namespace moe
             template <typename T>
             struct Lerp
             {
-                constexpr T operator()(T t)
+                constexpr T operator()(T t)const
                 {
                     return t;
                 }
@@ -264,7 +264,7 @@ namespace moe
             template <typename T>
             struct Square
             {
-                constexpr T operator()(T t)
+                constexpr T operator()(T t)const
                 {
                     return t * t;
                 }
@@ -276,7 +276,7 @@ namespace moe
             template <typename T>
             struct InverseSquare
             {
-                constexpr T operator()(T t)
+                constexpr T operator()(T t)const
                 {
                     return T(1) - (T(1) - t) * (T(1) - t);
                 }
@@ -288,7 +288,7 @@ namespace moe
             template <typename T>
             struct SmoothStep
             {
-                constexpr T operator()(T t)
+                constexpr T operator()(T t)const
                 {
                     return t * t * (T(3) - T(2) * t);
                 }

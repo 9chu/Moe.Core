@@ -328,6 +328,10 @@ namespace moe
             return v;
         }
 
+#if _MSC_VER <= 1900
+		virtual void GenerateVtableForMSVC_() {}
+#endif
+
     private:
         mutable std::atomic<WeakView*> m_stView;
     };

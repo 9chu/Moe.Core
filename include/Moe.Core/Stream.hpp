@@ -3,6 +3,8 @@
  * @date 2017/7/14
  */
 #pragma once
+#include <algorithm>
+
 #include "RefPtr.hpp"
 #include "Optional.hpp"
 #include "ArrayView.hpp"

@@ -27,7 +27,7 @@
  *     MOE_IOS
  *     MOE_PLATFORM = "ios"
  */
-#if defined(WIN32) || defined(__MINGW32__)
+#if defined(WIN32) || defined(__MINGW32__) || defined(_MSC_VER)
     #define MOE_WINDOWS
     #define MOE_PLATFORM "win"
 #elif defined(__linux__)

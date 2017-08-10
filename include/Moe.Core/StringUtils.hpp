@@ -744,16 +744,14 @@ namespace moe
                 static std::false_type Test(...);
             };
 
-            template <typename TChar, typename T, typename U =
-                decltype(HasMethodToStringValidator<TChar>::template Test<T>(0))>
+            template <typename TChar, typename T>
             struct HasMethodToString :
-                public U
+                public decltype(HasMethodToStringValidator<TChar>::template Test<T>(0))
             {};
 
-            template <typename TChar, typename T, typename U =
-                decltype(HasMethodToStringExValidator<TChar>::template Test<T>(0))>
+            template <typename TChar, typename T>
             struct HasMethodToStringEx :
-                public U
+                public decltype(HasMethodToStringExValidator<TChar>::template Test<T>(0))
             {};
 
             template <typename TChar>
@@ -1276,9 +1274,9 @@ namespace moe
             TChar ch = '\0';
             size_t pos = 0;
             size_t len = format.GetSize();
-            const void* objects[] = { static_cast<const void*>(&args)... };
+            const void* objects[] = { static_cast<const void*>(&args)..., nullptr };  // FIX: MSVC不能分配大小为0的数组
             details::ToStringFormatter<TChar> formatters[] = {
-                details::ToStringFormatterSelector<TChar, Args>::AppendToString...
+                details::ToStringFormatterSelector<TChar, Args>::AppendToString..., nullptr
             };
             static_assert(std::extent<decltype(objects)>::value == std::extent<decltype(formatters)>::value,
                 "Unexpected condition");
@@ -1343,7 +1341,7 @@ namespace moe
                     ch = format[pos];
                 } while (ch >= '0' && ch <= '9' && index < kIndexLimit);
 
-                if (index >= std::extent<decltype(formatters)>::value)  // 索引越界
+                if (index >= std::extent<decltype(formatters)>::value - 1)  // 索引越界
                     goto badFormat;
 
                 while (pos < len && (ch = format[pos]) == ' ')  // 读取可选的空白
