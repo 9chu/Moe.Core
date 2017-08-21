@@ -51,7 +51,7 @@ namespace moe
         void Push(const T &obj)
         {
             if (IsFull())
-                MOE_THROW(OutOfRangeException);
+                MOE_THROW(OutOfRangeException, "Queue is full");
             m_stStorage[m_iHead] = obj;
             m_iHead = (m_iHead + 1) % m_stStorage.size();
         }
@@ -59,7 +59,7 @@ namespace moe
         void Push(T &&obj)
         {
             if (IsFull())
-                MOE_THROW(OutOfRangeException);
+                MOE_THROW(OutOfRangeException, "Queue is full");
             m_stStorage[m_iHead] = std::move(obj);
             m_iHead = (m_iHead + 1) % m_stStorage.size();
         }
@@ -71,7 +71,7 @@ namespace moe
         T Pop()
         {
             if (IsEmpty())
-                MOE_THROW(OutOfRangeException);
+                MOE_THROW(OutOfRangeException, "Queue is empty");
             T ret = std::move(m_stStorage[m_iTail]);
             m_iTail = (m_iTail + 1) % m_stStorage.size();
             return ret;
