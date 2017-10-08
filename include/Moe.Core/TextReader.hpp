@@ -24,35 +24,55 @@ namespace moe
 
     public:
         /**
+         * @brief 获取源名称
+         */
+        virtual const char* GetSourceName()const noexcept = 0;
+
+        /**
          * @brief 获取总长度
          * @return 总长度
          */
-        virtual size_t GetLength()noexcept = 0;
+        virtual size_t GetLength()const noexcept = 0;
 
         /**
-         * @brief 获取当前的位置
-         * @return 当前读取位置
+         * @brief 获取当前的读取位置
+         *
+         * 指示下一个将要读取的字符的位置。
          */
-        virtual size_t GetPosition()noexcept = 0;
+        virtual size_t GetPosition()const noexcept = 0;
+
+        /**
+         * @brief 获取当前行号
+         *
+         * 行号从1开始。
+         */
+        virtual uint32_t GetLine()const noexcept = 0;
+
+        /**
+         * @brief 获取当前列号
+         *
+         * 指示下一个读取位置的列号。
+         */
+        virtual uint32_t GetColumn()const noexcept = 0;
 
         /**
          * @brief 判断是否达到了结尾
          */
-        virtual bool IsEof()noexcept = 0;
+        virtual bool IsEof()const noexcept = 0;
 
         /**
          * @brief 读取一个字符，并提升读取的位置
          * @exception IOException 遇到IO错误时抛出异常
-         * @return 若遇到EOF则返回-1，否则返回读取的字符
+         * @return 若遇到EOF则返回'\0'，否则返回读取的字符
          */
-        virtual int Read() = 0;
+        virtual char Read() = 0;
 
         /**
          * @brief 读取一个字符
          * @exception IOException 遇到IO错误时抛出异常
-         * @return 若遇到EOF则返回-1，否则返回读取的字符
+         * @return 若遇到EOF则返回'\0'，否则返回读取的字符
          */
-        virtual int Peek() = 0;
+        virtual char Peek() = 0;
     };
 
     /**
@@ -62,17 +82,23 @@ namespace moe
         public TextReader
     {
     public:
-        TextReaderFromView(const ArrayView<char>& view);
+        TextReaderFromView(const ArrayView<char>& view, const char* sourceName="Unknown");
 
     public:
-        size_t GetLength()noexcept override;
-        size_t GetPosition()noexcept override;
-        bool IsEof()noexcept override;
-        int Read()override;
-        int Peek()override;
+        const char* GetSourceName()const noexcept override;
+        size_t GetLength()const noexcept override;
+        size_t GetPosition()const noexcept override;
+        uint32_t GetLine()const noexcept override;
+        uint32_t GetColumn()const noexcept override;
+        bool IsEof()const noexcept override;
+        char Read()override;
+        char Peek()override;
 
     private:
         size_t m_uPosition = 0;
+        uint32_t m_uLine = 1;
+        uint32_t m_uColumn = 1;
         ArrayView<char> m_stView;
+        std::string m_stSourceName;
     };
 }

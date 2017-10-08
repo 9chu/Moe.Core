@@ -81,7 +81,7 @@ namespace moe
             using CharType = char16_t;
 
             // 最大码点大小
-            static const uint32_t MaxCodePointSize = 2;
+            static const uint32_t kMaxCodePointSize = 2;
 
             class Decoder
             {
@@ -122,7 +122,7 @@ namespace moe
             using CharType = char32_t;
 
             // 最大码点大小
-            static const uint32_t MaxCodePointSize = 1;
+            static const uint32_t kMaxCodePointSize = 1;
 
             class Decoder
             {
@@ -172,7 +172,7 @@ namespace moe
             typename DestContainer = std::basic_string<TDestChar>>
         DestContainer Convert(const SrcContainer& src, char32_t replacer=0xFFFD)
         {
-            static_assert(DestEncoding::MaxCodePointSize > 0, "Invalid MaxCodePointSize, which must bigger than zero.");
+            static_assert(DestEncoding::kMaxCodePointSize > 0, "Invalid kMaxCodePointSize, which must bigger than zero.");
             static_assert(sizeof(typename SrcContainer::value_type) ==
                 sizeof(typename SrcEncoding::CharType), "Type size mismatched.");
             static_assert(sizeof(typename DestContainer::value_type) ==
@@ -190,7 +190,7 @@ namespace moe
             char32_t decoderOutput = 0;
 
             // 保存编码器的输出
-            TDestChar destOutput[DestEncoding::MaxCodePointSize] = { 0 };
+            TDestChar destOutput[DestEncoding::kMaxCodePointSize] = { 0 };
             uint32_t destOutputCount = 0;
 
             for (auto it = src.begin(); it != src.end(); ++it)

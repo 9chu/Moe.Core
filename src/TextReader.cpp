@@ -7,38 +7,64 @@
 using namespace std;
 using namespace moe;
 
-//////////////////////////////////////////////////////////////////////////////// TextReaderFromStream
+//////////////////////////////////////////////////////////////////////////////// TextReaderFromView
 
-TextReaderFromView::TextReaderFromView(const ArrayView<char>& view)
-    : m_stView(view)
+TextReaderFromView::TextReaderFromView(const ArrayView<char>& view, const char* sourceName)
+    : m_stView(view), m_stSourceName(sourceName)
 {
 }
 
-size_t TextReaderFromView::GetLength()noexcept override
+const char* TextReaderFromView::GetSourceName()const noexcept
+{
+    return m_stSourceName.c_str();
+}
+
+size_t TextReaderFromView::GetLength()const noexcept
 {
     return m_stView.GetSize();
 }
 
-size_t TextReaderFromView::GetPosition()noexcept override
+size_t TextReaderFromView::GetPosition()const noexcept
 {
     return m_uPosition;
 }
 
-bool TextReaderFromView::IsEof()noexcept override
+uint32_t TextReaderFromView::GetLine()const noexcept
+{
+    return m_uLine;
+}
+
+uint32_t TextReaderFromView::GetColumn()const noexcept
+{
+    return m_uColumn;
+}
+
+bool TextReaderFromView::IsEof()const noexcept
 {
     return m_uPosition >= m_stView.GetSize();
 }
 
-int TextReaderFromView::Read()override
+char TextReaderFromView::Read()
 {
     if (IsEof())
-        return -1;
-    return m_stView[m_uPosition++];
+        return '\0';
+
+    char ch = m_stView[m_uPosition];
+    ++m_uPosition;
+    ++m_uColumn;
+
+    if ((ch == '\r' && Peek() != '\n') || ch == '\n')
+    {
+        ++m_uLine;
+        m_uColumn = 1;
+    }
+
+    return ch;
 }
 
-int TextReaderFromView::Peek()override
+char TextReaderFromView::Peek()
 {
     if (IsEof())
-        return -1;
+        return '\0';
     return m_stView[m_uPosition];
 }

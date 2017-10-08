@@ -180,7 +180,7 @@ namespace moe
         };
 
     public:
-        static const size_t MaxAllocSize = 16777216u;
+        static const size_t kMaxAllocSize = 16777216u;
 
     public:
         FixedBufferPool() = default;
