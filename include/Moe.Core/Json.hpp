@@ -6,8 +6,8 @@
 #include "Exception.hpp"
 #include "ArrayView.hpp"
 
+#include <map>
 #include <vector>
-#include <unordered_map>
 
 namespace moe
 {
@@ -34,7 +34,7 @@ namespace moe
         using NumberType = double;
         using StringType = std::string;
         using ArrayType = std::vector<JsonValue>;
-        using ObjectType = std::unordered_map<std::string, JsonValue>;
+        using ObjectType = std::map<std::string, JsonValue>;
 
         static const JsonValue kNull;
 
@@ -405,14 +405,61 @@ namespace moe
          * @brief 解析Json5
          * @param handler 解析句柄
          * @param data 数据
+         * @param source 数据源的名称
          */
         static void Parse(JsonSaxHandler* handler, ArrayView<char> data, const char* source="Unknown");
+
+        inline static void Parse(JsonSaxHandler* handler, const char* data, const char* source="Unknown")
+        {
+            ArrayView<char> arr(data, ::strlen(data));
+            Parse(handler, arr, source);
+        }
+
+        inline static void Parse(JsonSaxHandler* handler, const std::string& data, const char* source="Unknown")
+        {
+            ArrayView<char> arr(data.c_str(), data.size());
+            Parse(handler, arr, source);
+        }
 
         /**
          * @brief 解析Json5
          * @param out 目标Json对象
          * @param data 数据
+         * @param source 数据源的名称
          */
-        static void Parse(JsonValue& out, ArrayView<char> data);
+        static void Parse(JsonValue& out, ArrayView<char> data, const char* source="Unknown");
+
+        inline static void Parse(JsonValue& out, const char* data, const char* source="Unknown")
+        {
+            ArrayView<char> arr(data, ::strlen(data));
+            Parse(out, arr, source);
+        }
+
+        inline static void Parse(JsonValue& out, const std::string& data, const char* source="Unknown")
+        {
+            ArrayView<char> arr(data.c_str(), data.size());
+            Parse(out, arr, source);
+        }
+
+        inline static JsonValue Parse(const char* data, const char* source="Unknown")
+        {
+            JsonValue ret;
+            Json5::Parse(ret, data, source);
+            return ret;
+        }
+
+        inline static JsonValue Parse(const std::string& data, const char* source="Unknown")
+        {
+            JsonValue ret;
+            Json5::Parse(ret, data, source);
+            return ret;
+        }
+
+        inline static std::string Stringify(const JsonValue& data)
+        {
+            std::string ret;
+            data.Stringify(ret);
+            return ret;
+        }
     };
 }

@@ -6,8 +6,12 @@
 #include <Moe.Core/Parser.hpp>
 #include <Moe.Core/Encoding.hpp>
 
+#include <stack>
+
 using namespace std;
 using namespace moe;
+
+//////////////////////////////////////////////////////////////////////////////// JsonValue
 
 namespace
 {
@@ -46,7 +50,7 @@ namespace
                     str.append("\\t");
                     break;
                 default:
-                    if (c >= 0 && !::isprint(c))
+                    if (c >= 0 && (!::isprint(c) || ::iscntrl(c)))
                     {
                         static const uint32_t kPreAllocate = 4u;
 
@@ -69,8 +73,6 @@ namespace
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////// JsonValue
-
 const JsonValue JsonValue::kNull;
 
 JsonValue JsonValue::MakeObject(std::initializer_list<std::pair<std::string, JsonValue>> val)
@@ -82,7 +84,6 @@ JsonValue JsonValue::MakeObject(std::initializer_list<std::pair<std::string, Jso
     new(&ret.m_stValue.m_stObject) ObjectType();
     ret.m_iType = JsonValueTypes::Object;
 
-    ret.m_stValue.m_stObject.reserve(val.size());
     for (auto it = val.begin(); it != val.end(); ++it)
         ret.Append(it->first, it->second);
     return ret;
@@ -161,6 +162,8 @@ JsonValue::JsonValue(const JsonValue& rhs)
 {
     switch (m_iType)
     {
+        case JsonValueTypes::Null:
+            break;
         case JsonValueTypes::Bool:
             m_stValue.m_bBool = rhs.m_stValue.m_bBool;
             break;
@@ -187,6 +190,8 @@ JsonValue::JsonValue(JsonValue&& rhs)noexcept
 {
     switch (m_iType)
     {
+        case JsonValueTypes::Null:
+            break;
         case JsonValueTypes::Bool:
             m_stValue.m_bBool = rhs.m_stValue.m_bBool;
             break;
@@ -221,6 +226,8 @@ JsonValue& JsonValue::operator=(const JsonValue& rhs)
 
     switch (m_iType)
     {
+        case JsonValueTypes::Null:
+            break;
         case JsonValueTypes::Bool:
             m_stValue.m_bBool = rhs.m_stValue.m_bBool;
             break;
@@ -251,6 +258,8 @@ JsonValue& JsonValue::operator=(JsonValue&& rhs)noexcept
 
     switch (m_iType)
     {
+        case JsonValueTypes::Null:
+            break;
         case JsonValueTypes::Bool:
             m_stValue.m_bBool = rhs.m_stValue.m_bBool;
             break;
@@ -380,7 +389,7 @@ void JsonValue::Reset()noexcept
             m_stValue.m_stArray.~vector();
             break;
         case JsonValueTypes::Object:
-            m_stValue.m_stObject.~unordered_map();
+            m_stValue.m_stObject.~map();
             break;
         default:
             break;
@@ -527,7 +536,7 @@ JsonValue& JsonValue::GetElementByIndex(size_t index)
 {
     if (m_iType != JsonValueTypes::Array)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
-    if (index < m_stValue.m_stArray.size())
+    if (index >= m_stValue.m_stArray.size())
         MOE_THROW(OutOfRangeException, "Index {0} out of range", index);
 
     return m_stValue.m_stArray[index];
@@ -537,7 +546,7 @@ const JsonValue& JsonValue::GetElementByIndex(size_t index)const
 {
     if (m_iType != JsonValueTypes::Array)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
-    if (index < m_stValue.m_stArray.size())
+    if (index >= m_stValue.m_stArray.size())
         MOE_THROW(OutOfRangeException, "Index {0} out of range", index);
 
     return m_stValue.m_stArray[index];
@@ -608,7 +617,11 @@ void JsonValue::Append(const std::string& key, const JsonValue& val)
     if (m_iType != JsonValueTypes::Object)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    m_stValue.m_stObject.emplace(key, val);
+    auto it = m_stValue.m_stObject.find(key);
+    if (it == m_stValue.m_stObject.end())
+        m_stValue.m_stObject.emplace(key, val);
+    else
+        MOE_THROW(ObjectExistsException, "Key \"{0}\" exists", key);
 }
 
 void JsonValue::Append(std::string&& key, JsonValue&& val)
@@ -616,7 +629,11 @@ void JsonValue::Append(std::string&& key, JsonValue&& val)
     if (m_iType != JsonValueTypes::Object)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    m_stValue.m_stObject.emplace(std::move(key), std::move(val));
+    auto it = m_stValue.m_stObject.find(key);
+    if (it == m_stValue.m_stObject.end())
+        m_stValue.m_stObject.emplace(std::move(key), std::move(val));
+    else
+        MOE_THROW(ObjectExistsException, "Key \"{0}\" exists", key);
 }
 
 void JsonValue::Insert(size_t index, const JsonValue& val)
@@ -851,17 +868,23 @@ namespace
         public Parser
     {
     public:
-        Json5Parser(ArrayView<char> data, JsonSaxHandler* handler, const char* source)
-            : Parser(m_stReader), m_stReader(data, source), m_pHandler(handler) {}
+        Json5Parser(JsonSaxHandler* handler)
+            : m_pHandler(handler) {}
 
     public:
-        void DoParse()
+        void Run(TextReader* reader)override
         {
+            Parser::Run(reader);
+
+            // 初始化内部状态
+            m_stStringBuffer.clear();
+
+            // 开始解析
             ParseValue();
             SkipIgnorable();
 
-            if (!m_stReader.IsEof())
-                ThrowError("Bad tailing character {0}", PrintChar(m_stReader.Peek()));
+            if (c != '\0')
+                ThrowError("Bad tailing character {0}", PrintChar(c));
         }
 
     private:
@@ -882,91 +905,84 @@ namespace
         {
             m_stStringBuffer.clear();
 
-            char ch = m_stReader.Read();
-            if (ch != '"' && ch != '\'')
-                ThrowError("Unexpected character {0}", PrintChar(ch));
-
-            char delim = ch;
-            ch = m_stReader.Read();
-            while (ch != '\0')
+            char delim = Accept('\'', '"');
+            while (c != '\0')
             {
-                if (ch == delim)
-                    return;
-                else if (ch == '\\')
+                if (c == delim)
                 {
-                    ch = m_stReader.Read();
+                    Next();
+                    return;
+                }
+                else if (c == '\\')
+                {
+                    Next();
 
-                    if (ch == 'u')
+                    char ch;
+                    switch (ch = Next())
                     {
-                        char32_t u32 = 0;
-                        for (int i = 0; i < 4; ++i)
-                        {
-                            int hex = 0;
+                        case '\'':
+                            m_stStringBuffer.push_back('\'');
+                            break;
+                        case '"':
+                            m_stStringBuffer.push_back('"');
+                            break;
+                        case '\\':
+                            m_stStringBuffer.push_back('\\');
+                            break;
+                        case '/':
+                            m_stStringBuffer.push_back('/');
+                            break;
+                        case 'b':
+                            m_stStringBuffer.push_back('\b');
+                            break;
+                        case 'f':
+                            m_stStringBuffer.push_back('\f');
+                            break;
+                        case 'n':
+                            m_stStringBuffer.push_back('\n');
+                            break;
+                        case 'r':
+                            m_stStringBuffer.push_back('\r');
+                            break;
+                        case 't':
+                            m_stStringBuffer.push_back('\t');
+                            break;
+                        case 'u':
+                            {
+                                char32_t u32 = 0;
+                                for (int i = 0; i < 4; ++i)
+                                {
+                                    int hex = 0;
 
-                            ch = m_stReader.Read();
-                            if (ch >= '0' && ch <= '9')
-                                hex = ch - '0' + 0;
-                            else if (ch >= 'a' && ch <= 'f')
-                                hex = ch - 'a' + 10;
-                            else if (ch >= 'A' && ch <= 'F')
-                                hex = ch - 'A' + 10;
-                            else
-                                ThrowError("Unexpected hex character {0}", PrintChar(ch));
+                                    if ('0' <= c && c <= '9')
+                                        hex = c - '0' + 0;
+                                    else if ('a' <= c && c <= 'f')
+                                        hex = c - 'a' + 10;
+                                    else if ('A' <= c && c <= 'F')
+                                        hex = c - 'A' + 10;
+                                    else
+                                        ThrowError("Unexpected hex character {0}", PrintChar(c));
 
-                            u32 = (u32 << 4) + hex;
-                        }
-
-                        BufferUnicodeCharacter(u32);
-                    }
-                    else
-                    {
-                        switch (ch)
-                        {
-                            case '\'':
-                                m_stStringBuffer.push_back('\'');
-                                break;
-                            case '"':
-                                m_stStringBuffer.push_back('"');
-                                break;
-                            case '\\':
-                                m_stStringBuffer.push_back('\\');
-                                break;
-                            case '/':
-                                m_stStringBuffer.push_back('/');
-                                break;
-                            case 'b':
-                                m_stStringBuffer.push_back('\b');
-                                break;
-                            case 'f':
-                                m_stStringBuffer.push_back('\f');
-                                break;
-                            case 'n':
-                                m_stStringBuffer.push_back('\n');
-                                break;
-                            case 'r':
-                                m_stStringBuffer.push_back('\r');
-                                break;
-                            case 't':
-                                m_stStringBuffer.push_back('\t');
-                                break;
-                            case '\n':
-                                break;
-                            case '\r':
-                                ch = m_stReader.Peek();
-                                if (ch == '\n')
-                                    m_stReader.Read();
-                                break;
-                            default:
-                                ThrowError("Unexpected escape character {0}", PrintChar(ch));
-                        }
+                                    u32 = (u32 << 4) + hex;
+                                    Next();
+                                }
+                                BufferUnicodeCharacter(u32);
+                            }
+                            break;
+                        case '\n':
+                            break;
+                        case '\r':
+                            if (c == '\n')
+                                Next();
+                            break;
+                        default:
+                            ThrowError("Unexpected escape character {0}", PrintChar(ch));
                     }
                 }
-                else if (ch == '\r' || ch == '\n')
-                    ThrowError("Unexpected character {0}", PrintChar(ch));
+                else if (c > 0 && c <= 0x1F && c != '\t')  // 控制字符必须被escape，例外的，我们允许\t
+                    ThrowError("Unexpected character {0}", PrintChar(c));
                 else
-                    m_stStringBuffer.push_back(ch);
-
-                ch = m_stReader.Read();
+                    m_stStringBuffer.push_back(Next());
             }
 
             ThrowError("Unterminated string");
@@ -976,28 +992,21 @@ namespace
         {
             m_stStringBuffer.clear();
 
-            char ch = m_stReader.Read();
-            if ((ch != '_' && ch != '$') && (ch < 'a' || ch > 'z') && (ch < 'A' || ch > 'Z'))
-                ThrowError("Bad identifier character {0}", PrintChar(ch));
+            if ((c != '_' && c != '$') && (c < 'a' || c > 'z') && (c < 'A' || c > 'Z'))
+                ThrowError("Bad identifier character {0}", PrintChar(c));
+            m_stStringBuffer.push_back(Next());
 
-            m_stStringBuffer.push_back(ch);
-
-            ch = m_stReader.Peek();
-            while (ch == '_' || ch == '$' || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
-                (ch >= '0' && ch <= '9'))
+            while (c == '_' || c == '$' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                (c >= '0' && c <= '9'))
             {
-                m_stStringBuffer.push_back(ch);
-
-                m_stReader.Read();
-                ch = m_stReader.Peek();
+                m_stStringBuffer.push_back(Next());
             }
         }
 
         void ParseWord()
         {
             // true, false, null, Infinity, NaN
-            char ch = m_stReader.Peek();
-            switch (ch)
+            switch (c)
             {
                 case 't':  // true
                     Accept('t');
@@ -1039,110 +1048,120 @@ namespace
                     m_pHandler->OnJsonNumber(numeric_limits<double>::quiet_NaN());
                     break;
                 default:
-                    ThrowError("Unexpected character {0}", PrintChar(ch));
+                    ThrowError("Unexpected character {0}", PrintChar(c));
             }
         }
 
         void ParseNumber()
         {
-            /*
             char sign = '+';
 
-            char ch = m_stReader.Peek();
-            if (ch == '-' || ch == '+')
+            if (c == '-' || c == '+')
             {
-                sign = ch;
-                m_stReader.Read();
-                ch = m_stReader.Peek();
+                sign = c;
+                Next();
             }
 
             // 检查是否是Infinity或者NaN
-            switch (ch)
+            if (c == 'I')  // Infinity
             {
-                case 'I':  // Infinity
-                    Accept('I');
-                    Accept('n');
-                    Accept('f');
-                    Accept('i');
-                    Accept('n');
-                    Accept('i');
-                    Accept('t');
-                    Accept('y');
-                    m_pHandler->OnJsonNumber(sign == '+' ?
-                        numeric_limits<double>::infinity() : -numeric_limits<double>::infinity());
-                    return;
-                case 'N':  // NaN，不考虑-NaN
-                    Accept('N');
-                    Accept('a');
-                    Accept('N');
-                    m_pHandler->OnJsonNumber(numeric_limits<double>::quiet_NaN());
-                    return;
-                case '0':
-
+                Accept('I');
+                Accept('n');
+                Accept('f');
+                Accept('i');
+                Accept('n');
+                Accept('i');
+                Accept('t');
+                Accept('y');
+                m_pHandler->OnJsonNumber(sign == '+' ?
+                    numeric_limits<double>::infinity() : -numeric_limits<double>::infinity());
+                return;
+            }
+            else if (c == 'N')  // NaN
+            {
+                Accept('N');
+                Accept('a');
+                Accept('N');
+                m_pHandler->OnJsonNumber(numeric_limits<double>::quiet_NaN());  // 不用考虑符号
+                return;
             }
 
+            int base = 10;
 
-            var number,
-                string = '',
-                base = 10;
+            m_stStringBuffer.clear();
+            if (c == '0')
+            {
+                m_stStringBuffer.push_back(Next());
 
-            if (ch === '0') {
-                string += ch;
-                next();
-                if (ch === 'x' || ch === 'X') {
-                    string += ch;
-                    next();
+                if (c == 'x' || c == 'X')
+                {
+                    m_stStringBuffer.push_back('x');
+                    Next();
+
+                    if (!('0' <= c && c <= '9'))
+                        ThrowError("Unexpected character {0}", PrintChar(c));
+
                     base = 16;
-                } else if (ch >= '0' && ch <= '9') {
-                    error('Octal literal');
                 }
+                else if ('0' <= c && c <= '9')
+                    ThrowError("Unexpected character {0}", PrintChar(c));
             }
 
-            switch (base) {
+            switch (base)
+            {
                 case 10:
-                    while (ch >= '0' && ch <= '9' ) {
-                        string += ch;
-                        next();
+                    while ('0' <= c && c <= '9')
+                        m_stStringBuffer.push_back(Next());
+
+                    if (c == '.')
+                    {
+                        m_stStringBuffer.push_back(Next());
+
+                        while ('0' <= c && c <= '9')
+                            m_stStringBuffer.push_back(Next());
                     }
-                    if (ch === '.') {
-                        string += '.';
-                        while (next() && ch >= '0' && ch <= '9') {
-                            string += ch;
-                        }
-                    }
-                    if (ch === 'e' || ch === 'E') {
-                        string += ch;
-                        next();
-                        if (ch === '-' || ch === '+') {
-                            string += ch;
-                            next();
-                        }
-                        while (ch >= '0' && ch <= '9') {
-                            string += ch;
-                            next();
-                        }
+                    if (c == 'e' || c == 'E')
+                    {
+                        m_stStringBuffer.push_back(Next());
+
+                        if (c == '-' || c == '+')
+                            m_stStringBuffer.push_back(Next());
+
+                        while ('0' <= c && c <= '9')
+                            m_stStringBuffer.push_back(Next());
                     }
                     break;
                 case 16:
-                    while (ch >= '0' && ch <= '9' || ch >= 'A' && ch <= 'F' || ch >= 'a' && ch <= 'f') {
-                        string += ch;
-                        next();
-                    }
+                    while (('0' <= c && c <= '9') || ('A' <= c && c <= 'F') || ('a' <= c && c <= 'f'))
+                        m_stStringBuffer.push_back(Next());
+                    break;
+                default:
+                    assert(false);
                     break;
             }
 
-            if(sign === '-') {
-                number = -string;
-            } else {
-                number = +string;
-            }
+            if (base == 16)
+            {
+                size_t processed = 0;
+                auto result = Convert::ParseInt(m_stStringBuffer.c_str(), m_stStringBuffer.length(), processed);
+                if (processed != m_stStringBuffer.length())
+                    ThrowError("Parse int \"{0}\" failed", m_stStringBuffer);
 
-            if (!isFinite(number)) {
-                error("Bad number");
-            } else {
-                return number;
+                result = (sign == '-' ? -result : result);
+
+                m_pHandler->OnJsonNumber(result);
             }
-            */
+            else
+            {
+                size_t processed = 0;
+                auto result = Convert::ParseDouble(m_stStringBuffer.c_str(), m_stStringBuffer.length(), processed);
+                if (processed != m_stStringBuffer.length())
+                    ThrowError("Parse double \"{0}\" failed", m_stStringBuffer);
+
+                result = (sign == '-' ? -result : result);
+
+                m_pHandler->OnJsonNumber(result);
+            }
         }
 
         void ParseString()
@@ -1158,25 +1177,23 @@ namespace
 
             m_pHandler->OnJsonArrayBegin();
 
-            char ch = m_stReader.Peek();
-            while (ch != '\0')
+            while (c != '\0')
             {
-                if (ch == ']')
+                if (c == ']')
                 {
-                    m_stReader.Read();
+                    Next();
                     m_pHandler->OnJsonArrayEnd();
                     return;
                 }
 
-                if (ch == ',')
+                if (c == ',')
                     ThrowError("Missing array element");
                 else
                     ParseValue();
 
                 SkipIgnorable();
 
-                ch = m_stReader.Peek();
-                if (ch != ',')
+                if (c != ',')
                 {
                     Accept(']');
                     m_pHandler->OnJsonArrayEnd();
@@ -1185,8 +1202,6 @@ namespace
 
                 Accept(',');
                 SkipIgnorable();
-
-                ch = m_stReader.Peek();
             }
 
             ThrowError("Unterminated array");
@@ -1199,17 +1214,16 @@ namespace
 
             m_pHandler->OnJsonObjectBegin();
 
-            char ch = m_stReader.Peek();
-            while (ch != '\0')
+            while (c != '\0')
             {
-                if (ch == '}')
+                if (c == '}')
                 {
-                    m_stReader.Read();
+                    Next();
                     m_pHandler->OnJsonObjectEnd();
                     return;
                 }
 
-                if (ch == '"' || ch == '\'')
+                if (c == '"' || c == '\'')
                     ReadString();
                 else
                     ReadIdentifier();
@@ -1221,8 +1235,7 @@ namespace
                 ParseValue();
                 SkipIgnorable();
 
-                ch = m_stReader.Peek();
-                if (ch != ',')
+                if (c != ',')
                 {
                     Accept('}');
                     m_pHandler->OnJsonObjectEnd();
@@ -1231,8 +1244,6 @@ namespace
 
                 Accept(',');
                 SkipIgnorable();
-
-                ch = m_stReader.Peek();
             }
 
             ThrowError("Unterminated object");
@@ -1242,59 +1253,53 @@ namespace
         {
             Accept('/');
 
-            char ch = m_stReader.Peek();
-            if (ch == '/')  // 单行注释
+            if (c == '/')  // 单行注释
             {
                 do
                 {
-                    m_stReader.Read();
-                    ch = m_stReader.Peek();
+                    Next();
 
-                    if (ch == '\n' || ch == '\r')
+                    if (c == '\n' || c == '\r')
                     {
-                        m_stReader.Read();
+                        Next();
                         return;
                     }
-                } while (ch != '\0');
+                } while (c != '\0');
             }
-            else if (ch == '*')  // 块注释
+            else if (c == '*')  // 块注释
             {
                 do
                 {
-                    m_stReader.Read();
-                    ch = m_stReader.Peek();
+                    Next();
 
-                    while (ch == '*')
+                    while (c == '*')
                     {
-                        m_stReader.Read();
-                        ch = m_stReader.Peek();
+                        Next();
 
-                        if (ch == '/')
+                        if (c == '/')
                         {
-                            Accept('/');
+                            Next();
                             return;
                         }
                     }
-                } while (ch != '\0');
+                } while (c != '\0');
 
                 ThrowError("Unterminated block comment");
             }
 
-            ThrowError("Unexpected character {0}", PrintChar(ch));
+            ThrowError("Unexpected character {0}", PrintChar(c));
         }
 
         void SkipIgnorable()
         {
-            char ch = m_stReader.Peek();
-
             // 跳过空白符和注释
-            while (ch != '\0')
+            while (c != '\0')
             {
-                if (ch == '/')
+                if (c == '/')
                     ParseComment();
                 else
                 {
-                    switch (static_cast<uint8_t>(ch))
+                    switch (static_cast<uint8_t>(c))
                     {
                         case ' ':
                         case '\t':
@@ -1303,14 +1308,12 @@ namespace
                         case '\v':
                         case '\f':
                         case 160:  // 0xA0
-                            m_stReader.Read();
+                            Next();
                             break;
                         default:
                             return;
                     }
                 }
-
-                ch = m_stReader.Peek();
             }
         }
 
@@ -1318,8 +1321,7 @@ namespace
         {
             SkipIgnorable();
 
-            char ch = m_stReader.Peek();
-            switch (ch)
+            switch (c)
             {
                 case '{':
                     ParseObject();
@@ -1337,7 +1339,7 @@ namespace
                     ParseNumber();
                     break;
                 default:
-                    if (ch >= '0' && ch <= '9')
+                    if (c >= '0' && c <= '9')
                         ParseNumber();
                     else
                         ParseWord();
@@ -1346,7 +1348,6 @@ namespace
         }
 
     public:
-        TextReaderFromView m_stReader;
         JsonSaxHandler* m_pHandler = nullptr;
         std::string m_stStringBuffer;
     };
@@ -1354,64 +1355,157 @@ namespace
     class SaxHandler :
         public JsonSaxHandler
     {
-        enum class State
-        {
-
-        };
-
     public:
         SaxHandler(JsonValue& out)
-            : m_stValue(out) {}
+        {
+            m_stStack.push(&out);
+        }
 
     protected:  // implement for JsonSaxHandler
         void OnJsonNull()override
         {
+            JsonValue& top = *m_stStack.top();
+
+            if (m_stStack.size() == 1)
+                top.Reset();
+            else if (top.Is<JsonValue::ArrayType>())
+                top.Append(JsonValue());
+            else if (top.Is<JsonValue::ObjectType>())
+                top.Append(m_stKey, JsonValue());
+            else
+                assert(false);
         }
 
         void OnJsonBool(JsonValue::BoolType val)override
         {
+            JsonValue& top = *m_stStack.top();
+
+            if (m_stStack.size() == 1)
+                top.Set(val);
+            else if (top.Is<JsonValue::ArrayType>())
+                top.Append(JsonValue(val));
+            else if (top.Is<JsonValue::ObjectType>())
+                top.Append(m_stKey, JsonValue(val));
+            else
+                assert(false);
         }
 
         void OnJsonNumber(JsonValue::NumberType val)override
         {
+            JsonValue& top = *m_stStack.top();
+
+            if (m_stStack.size() == 1)
+                top.Set(val);
+            else if (top.Is<JsonValue::ArrayType>())
+                top.Append(JsonValue(val));
+            else if (top.Is<JsonValue::ObjectType>())
+                top.Append(m_stKey, JsonValue(val));
+            else
+                assert(false);
         }
 
         void OnJsonString(const JsonValue::StringType& val)override
         {
+            JsonValue& top = *m_stStack.top();
+
+            if (m_stStack.size() == 1)
+                top.Set(val);
+            else if (top.Is<JsonValue::ArrayType>())
+                top.Append(JsonValue(val));
+            else if (top.Is<JsonValue::ObjectType>())
+                top.Append(m_stKey, JsonValue(val));
+            else
+                assert(false);
         }
 
         void OnJsonArrayBegin()override
         {
+            JsonValue& top = *m_stStack.top();
+
+            if (m_stStack.size() == 1)
+            {
+                top.Set(JsonValue::ArrayType());
+                m_stStack.push(&top);
+            }
+            else if (top.Is<JsonValue::ArrayType>())
+            {
+                top.Append(JsonValue::ArrayType());
+                m_stStack.push(&top.GetElementByIndex(top.GetElementCount() - 1));
+            }
+            else if (top.Is<JsonValue::ObjectType>())
+            {
+                top.Append(m_stKey, JsonValue::ArrayType());
+                m_stStack.push(&top.GetElementByKey(m_stKey));
+            }
+            else
+                assert(false);
         }
 
         void OnJsonArrayEnd()override
         {
+            assert(m_stStack.size() > 1);
+
+            JsonValue& top = *m_stStack.top();
+            assert(top.Is<JsonValue::ArrayType>());
+            m_stStack.pop();
         }
 
         void OnJsonObjectBegin()override
         {
+            JsonValue& top = *m_stStack.top();
+
+            if (m_stStack.size() == 1)
+            {
+                top.Set(JsonValue::ObjectType());
+                m_stStack.push(&top);
+            }
+            else if (top.Is<JsonValue::ArrayType>())
+            {
+                top.Append(JsonValue::ObjectType());
+                m_stStack.push(&top.GetElementByIndex(top.GetElementCount() - 1));
+            }
+            else if (top.Is<JsonValue::ObjectType>())
+            {
+                top.Append(m_stKey, JsonValue::ObjectType());
+                m_stStack.push(&top.GetElementByKey(m_stKey));
+            }
+            else
+                assert(false);
         }
 
         void OnJsonObjectKey(const std::string& key)override
         {
+            m_stKey = key;
         }
 
         void OnJsonObjectEnd()override
         {
+            assert(m_stStack.size() > 1);
+
+            JsonValue& top = *m_stStack.top();
+            assert(top.Is<JsonValue::ObjectType>());
+            m_stStack.pop();
         }
 
     private:
-        JsonValue& m_stValue;
+        stack<JsonValue*> m_stStack;
+        string m_stKey;
     };
 }
 
 void Json5::Parse(JsonSaxHandler* handler, ArrayView<char> data, const char* source)
 {
-    Json5Parser parser(data, handler, source);
-    parser.DoParse();
+    Json5Parser parser(handler);
+    TextReaderFromView reader(data, source);
+
+    parser.Run(&reader);
 }
 
-void Json5::Parse(JsonValue& out, ArrayView<char> data)
+void Json5::Parse(JsonValue& out, ArrayView<char> data, const char* source)
 {
+    SaxHandler handler(out);
+    Json5Parser parser(&handler);
+    TextReaderFromView reader(data, source);
 
+    parser.Run(&reader);
 }
