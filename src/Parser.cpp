@@ -18,10 +18,8 @@ std::string Parser::PrintChar(char ch)
     return StringUtils::Format("<{0}>", static_cast<uint8_t>(ch));
 }
 
-void Parser::Run(TextReader* reader)
+void Parser::Run(TextReader& reader)
 {
-    assert(reader);
-    m_pReader = reader;
-
+    m_pReader = Optional<TextReader&>(reader);
     c = m_pReader->Peek();
 }

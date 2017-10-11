@@ -20,23 +20,22 @@ namespace
             : m_pHandler(handler) {}
 
     public:
-        void Run(TextReader* reader)override
+        void Run(TextReader& reader)override
         {
             Parser::Run(reader);
 
             // 初始化内部状态
             m_stStringBuffer.clear();
-            m_stKeyStringBuffer.clear();
-            m_stValueStringBuffer.clear();
 
             // 开始解析
 
         }
 
     private:
+
+
+    private:
         XmlSaxHandler* m_pHandler = nullptr;
         std::string m_stStringBuffer;
-        std::string m_stKeyStringBuffer;
-        std::string m_stValueStringBuffer;
     };
 }

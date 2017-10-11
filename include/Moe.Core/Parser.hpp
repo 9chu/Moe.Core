@@ -5,6 +5,7 @@
 #pragma once
 #include <cassert>
 
+#include "Optional.hpp"
 #include "TextReader.hpp"
 #include "StringUtils.hpp"
 
@@ -37,7 +38,7 @@ namespace moe
         /**
          * @brief 获取当前的读取器
          */
-        TextReader* GetReader()noexcept { return m_pReader; }
+        Optional<TextReader&> GetReader()noexcept { return m_pReader; }
 
         /**
          * @brief 执行解析过程
@@ -45,7 +46,7 @@ namespace moe
          *
          * 需要子类覆盖实现，注意到实现时必须先调用Parser::Run来初始化内部状态。
          */
-        virtual void Run(TextReader* reader);
+        virtual void Run(TextReader& reader);
 
     protected:
         template <typename... Args>
@@ -167,6 +168,6 @@ namespace moe
         char c = '\0';  // 当前向前看且尚未读取的字符，等同于m_stReader.Peek();
 
     private:
-        TextReader* m_pReader;
+        Optional<TextReader&> m_pReader;
     };
 }

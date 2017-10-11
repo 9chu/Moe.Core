@@ -872,7 +872,7 @@ namespace
             : m_pHandler(handler) {}
 
     public:
-        void Run(TextReader* reader)override
+        void Run(TextReader& reader)override
         {
             Parser::Run(reader);
 
@@ -1496,16 +1496,16 @@ namespace
 void Json5::Parse(JsonSaxHandler* handler, ArrayView<char> data, const char* source)
 {
     Json5Parser parser(handler);
-    TextReaderFromView reader(data, source);
+    TextReader reader(data, source);
 
-    parser.Run(&reader);
+    parser.Run(reader);
 }
 
 void Json5::Parse(JsonValue& out, ArrayView<char> data, const char* source)
 {
     SaxHandler handler(out);
     Json5Parser parser(&handler);
-    TextReaderFromView reader(data, source);
+    TextReader reader(data, source);
 
-    parser.Run(&reader);
+    parser.Run(reader);
 }

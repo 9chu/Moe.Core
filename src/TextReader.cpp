@@ -7,64 +7,51 @@
 using namespace std;
 using namespace moe;
 
-//////////////////////////////////////////////////////////////////////////////// TextReaderFromView
-
-TextReaderFromView::TextReaderFromView(const ArrayView<char>& view, const char* sourceName)
-    : m_stView(view), m_stSourceName(sourceName)
+TextReader::TextReader()
 {
 }
 
-const char* TextReaderFromView::GetSourceName()const noexcept
+TextReader::TextReader(ArrayView<char> input, const char* sourceName)
+    : m_stBuffer(input), m_stSourceName(sourceName)
 {
-    return m_stSourceName.c_str();
 }
 
-size_t TextReaderFromView::GetLength()const noexcept
+TextReader::TextReader(const std::string& input, const char* sourceName)
+    : m_stBuffer(input.c_str(), input.size()), m_stSourceName(sourceName)
 {
-    return m_stView.GetSize();
 }
 
-size_t TextReaderFromView::GetPosition()const noexcept
+TextReader::TextReader(const TextReader& rhs)
+    : m_stBuffer(rhs.m_stBuffer), m_stSourceName(rhs.m_stSourceName), m_uPosition(rhs.m_uPosition),
+    m_uLine(rhs.m_uLine), m_uColumn(rhs.m_uColumn)
 {
-    return m_uPosition;
 }
 
-uint32_t TextReaderFromView::GetLine()const noexcept
+void TextReader::Back()
 {
-    return m_uLine;
-}
+    if (m_uPosition == 0)
+        MOE_THROW(OutOfRangeException, "Already at the first character");
 
-uint32_t TextReaderFromView::GetColumn()const noexcept
-{
-    return m_uColumn;
-}
+    char ch = m_stBuffer[--m_uPosition];
 
-bool TextReaderFromView::IsEof()const noexcept
-{
-    return m_uPosition >= m_stView.GetSize();
-}
-
-char TextReaderFromView::Read()
-{
-    if (IsEof())
-        return '\0';
-
-    char ch = m_stView[m_uPosition];
-    ++m_uPosition;
-    ++m_uColumn;
-
-    if ((ch == '\r' && Peek() != '\n') || ch == '\n')
+    if ((ch == '\r' && (m_uPosition + 1 >= m_stBuffer.GetSize() || m_stBuffer[m_uPosition + 1] != '\n')) || ch == '\n')
     {
-        ++m_uLine;
+        --m_uLine;
         m_uColumn = 1;
+
+        // 回溯寻找字符个数
+        if (m_uPosition != 0)
+        {
+            const char* c = &m_stBuffer[m_uPosition - 1];
+            do
+            {
+                if ((*c == '\r' && *(c + 1) != '\n') || *c == '\n')
+                    break;
+                --c;
+                ++m_uColumn;
+            } while (c >= m_stBuffer.GetBuffer());
+        }
     }
-
-    return ch;
-}
-
-char TextReaderFromView::Peek()
-{
-    if (IsEof())
-        return '\0';
-    return m_stView[m_uPosition];
+    else
+        --m_uColumn;
 }
