@@ -91,6 +91,17 @@ namespace moe
         }
 
         /**
+         * @brief 回退一个字符
+         */
+        void Back()
+        {
+            assert(m_pReader);
+
+            m_pReader->Back();
+            c = m_pReader->Peek();
+        }
+
+        /**
          * @brief 尝试匹配一个字符
          * @param ch 被匹配字符
          * @return 是否匹配，若能匹配则提升一个位置
