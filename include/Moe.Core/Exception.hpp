@@ -240,6 +240,11 @@ namespace moe
      * @brief 错误的状态
      */
     MOE_DEFINE_EXCEPTION(BadStateException);
+
+    /**
+     * @brief 尚未实现
+     */
+    MOE_DEFINE_EXCEPTION(NotImplementException);
 }
 
 //////////////////////////////////////// </editor-fold>

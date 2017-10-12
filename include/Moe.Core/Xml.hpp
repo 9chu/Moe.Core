@@ -3,6 +3,7 @@
  * @date 2017/10/9
  */
 #pragma once
+#include <cstring>
 #include <vector>
 #include <unordered_map>
 #include "ArrayView.hpp"
@@ -10,12 +11,31 @@
 
 namespace moe
 {
+    class XmlNode;
+    class XmlElement;
+    class XmlText;
+
+    using XmlNodePtr = RefPtr<XmlNode>;
+    using XmlElementPtr = RefPtr<XmlElement>;
+    using XmlTextPtr = RefPtr<XmlText>;
+    using XmlElementList = std::vector<XmlElementPtr>;
+
     class XmlNode :
         public RefBase<XmlNode>
     {
+        friend class XmlElement;
+
     public:
         XmlNode() = default;
-        virtual ~XmlNode() = default;
+        virtual ~XmlNode();
+
+    public:
+        /**
+         * @brief 写到字符串
+         * @param str 字符串
+         * @return 即str的引用
+         */
+        std::string& Stringify(std::string& str)const { return Stringify(str, 0); }
 
     public:
         /**
@@ -28,18 +48,9 @@ namespace moe
          */
         virtual bool IsText()const noexcept = 0;
 
-        /**
-         * @brief 写到字符串
-         * @param str 字符串
-         * @return 即str的引用
-         */
-        virtual std::string& Stringify(std::string& str)const = 0;
+    protected:
+        virtual std::string& Stringify(std::string& str, int indent)const = 0;
     };
-
-    using XmlNodePtr = RefPtr<XmlNode>;
-
-    class XmlElement;
-    using XmlElementList = std::vector<RefPtr<XmlElement>>;
 
     class XmlElement :
         public XmlNode
@@ -95,21 +106,46 @@ namespace moe
          * @return 元素列表
          */
         const XmlElementList& FindElementByName(const char* name)const;
-        const XmlElementList& FindElementByName(const std::string& name)const
-        {
-            return FindElementByName(name.c_str());
-        }
+        const XmlElementList& FindElementByName(const std::string& name)const;
+
+        /**
+         * @brief 添加属性
+         * @exception ObjectExistsException 键已存在时抛出异常
+         * @param key 键
+         * @param val 值
+         */
+        void AddAttribute(const std::string& key, const std::string& val);
+        void AddAttribute(std::string&& key, std::string&& val);
+
+        /**
+         * @brief 移除属性
+         * @param key 键
+         * @return 是否成功移除
+         */
+        bool RemoveAttribute(const std::string& key);
+        bool RemoveAttribute(const char* key);
+
+        /**
+         * @brief 检查键是否存在
+         * @param key 键
+         * @return 是否存在
+         */
+        bool ContainsAttribute(const std::string& key);
+        bool ContainsAttribute(const char* key);
 
     public:  // implement for XmlNode
         bool IsElement()const noexcept override;
         bool IsText()const noexcept override;
-        std::string& Stringify(std::string& str)const override;
+
+    protected:
+        std::string& Stringify(std::string& str, int indent)const override;
 
     private:
         std::string m_stName;  // 节点名字是不可变的
         std::vector<XmlNodePtr> m_stNodes;
+        std::unordered_map<std::string, std::string> m_stAttributes;
 
-        std::unordered_map<std::string, XmlElementList> m_stCache;  // 查找缓存
+        mutable std::unordered_map<std::string, XmlElementList> m_stCache;  // 查找缓存
     };
 
     class XmlText :
@@ -129,7 +165,9 @@ namespace moe
     public:  // implement for XmlNode
         bool IsElement()const noexcept override;
         bool IsText()const noexcept override;
-        std::string& Stringify(std::string& str)const override;
+
+    protected:
+        std::string& Stringify(std::string& str, int indent)const override;
 
     private:
         std::string m_stContent;
@@ -164,5 +202,51 @@ namespace moe
     class Xml
     {
     public:
+        /**
+         * @brief 解析Xml
+         * @param handler 解析句柄
+         * @param data 数据
+         * @param source 数据源的名称
+         */
+        static void Parse(XmlSaxHandler* handler, ArrayView<char> data, const char* source="Unknown");
+
+        inline static void Parse(XmlSaxHandler* handler, const char* data, const char* source="Unknown")
+        {
+            ArrayView<char> arr(data, ::strlen(data));
+            Parse(handler, arr, source);
+        }
+
+        inline static void Parse(XmlSaxHandler* handler, const std::string& data, const char* source="Unknown")
+        {
+            ArrayView<char> arr(data.c_str(), data.size());
+            Parse(handler, arr, source);
+        }
+
+        /**
+         * @brief 解析Xml
+         * @param data 数据
+         * @param source 数据源的名称
+         * @return 解析结果
+         */
+        static XmlNodePtr Parse(ArrayView<char> data, const char* source="Unknown");
+
+        inline static XmlNodePtr Parse(const char* data, const char* source="Unknown")
+        {
+            ArrayView<char> arr(data, ::strlen(data));
+            return Parse(arr, source);
+        }
+
+        inline static XmlNodePtr Parse(const std::string& data, const char* source="Unknown")
+        {
+            ArrayView<char> arr(data.c_str(), data.size());
+            return Parse(arr, source);
+        }
+
+        inline static std::string Stringify(XmlNodePtr data)
+        {
+            std::string ret;
+            data->Stringify(ret);
+            return ret;
+        }
     };
 }

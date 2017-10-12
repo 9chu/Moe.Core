@@ -797,11 +797,11 @@ std::string& JsonValue::Stringify(std::string& str, uint32_t indent)const
                 str.push_back('\n');
 
                 ++indent;
-                string indentStr(indent << 1, ' ');
-
                 for (; i < m_stValue.m_stArray.size(); ++i)
                 {
-                    str.append(indentStr);
+                    str.reserve(str.length() + (indent << 1));
+                    for (unsigned j = 0; j < (indent << 1); ++j)
+                        str.push_back(' ');
 
                     const auto& obj = m_stValue.m_stArray[i];
                     obj.Stringify(str, indent);
@@ -812,7 +812,9 @@ std::string& JsonValue::Stringify(std::string& str, uint32_t indent)const
                     str.push_back('\n');
                 }
 
-                str.append(string((indent - 1) << 1, ' '));
+                str.reserve(str.length() + ((indent - 1) << 1));
+                for (unsigned j = 0; j < ((indent - 1) << 1); ++j)
+                    str.push_back(' ');
             }
 
             str.push_back(']');

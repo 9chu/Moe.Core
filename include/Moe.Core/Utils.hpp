@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cassert>
 #include <type_traits>
+#include <string>
 
 /**
  * @brief 平台宏
@@ -139,4 +140,27 @@ namespace moe
             return s_stInstance;
         }
     };
+
+    /**
+     * @brief 读取整个文件（二进制的）
+     * @exception IOException 打开文件失败抛出
+     * @param[out] out 目标缓冲区
+     * @param path 路径
+     * @return 数据，即out
+     */
+    std::string& ReadWholeFileInPlace(std::string& out, const char* path);
+
+    inline std::string ReadWholeFile(const char* path)
+    {
+        std::string ret;
+        ReadWholeFileInPlace(ret, path);
+        return std::move(ret);
+    }
+
+    inline std::string ReadWholeFile(const std::string& path)
+    {
+        std::string ret;
+        ReadWholeFileInPlace(ret, path.c_str());
+        return std::move(ret);
+    }
 }
