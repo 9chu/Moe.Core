@@ -32,7 +32,7 @@ Moe游戏框架底层模块。
     - [x] ParseUInt
     - [x] ParseFloat
     - [x] ParseDouble
-    - [x] (Byte/Short/Int/Int64/Double)ToString
+    - [x] \(Byte/Short/Int/Int64/Double\)ToString
 - [x] Encoding: 编码转换库
     - [x] UTF8
     - [x] UTF16
