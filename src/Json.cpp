@@ -829,11 +829,12 @@ std::string& JsonValue::Stringify(std::string& str, uint32_t indent)const
                 str.push_back('\n');
 
                 ++indent;
-                string indentStr(indent << 1, ' ');
 
                 for (auto it = m_stValue.m_stObject.begin(); it != m_stValue.m_stObject.end(); ++it)
                 {
-                    str.append(indentStr);
+                    str.reserve(str.length() + (indent << 1));
+                    for (unsigned j = 0; j < (indent << 1); ++j)
+                        str.push_back(' ');
 
                     SerializeString(str, it->first);
                     str.push_back(':');
@@ -849,7 +850,9 @@ std::string& JsonValue::Stringify(std::string& str, uint32_t indent)const
                     ++i;
                 }
 
-                str.append(string((indent - 1) << 1, ' '));
+                str.reserve(str.length() + ((indent - 1) << 1));
+                for (unsigned j = 0; j < ((indent - 1) << 1); ++j)
+                    str.push_back(' ');
             }
 
             str.push_back('}');
