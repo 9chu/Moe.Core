@@ -21,6 +21,9 @@ namespace moe
         End
     };
 
+    class Stream;
+    using StreamPtr = RefPtr<Stream>;
+
     /**
      * @brief 流式IO抽象接口
      */
@@ -84,7 +87,7 @@ namespace moe
          *
          * 从流中读取count个字节，返回真实读取的个数并提升读写位置到对应数量的字节。
          */
-        virtual size_t Read(MutableBytesView& out, size_t count) = 0;
+        virtual size_t Read(MutableBytesView out, size_t count) = 0;
 
         /**
          * @brief 寻找读写位置
@@ -112,7 +115,7 @@ namespace moe
          * @param view 缓冲区
          * @param count 要写入的数量
          */
-        virtual void Write(const BytesView& view, size_t count) = 0;
+        virtual void Write(BytesView view, size_t count) = 0;
 
         /**
          * @brief 将流从当前位置全部复制到另一个流中
@@ -174,8 +177,8 @@ namespace moe
         public Stream
     {
     public:
-        BytesViewStream(const BytesView& view);
-        BytesViewStream(const MutableBytesView& view);
+        BytesViewStream(BytesView view);
+        BytesViewStream(MutableBytesView view);
 
     public:
         bool IsReadable()const noexcept;
@@ -185,11 +188,11 @@ namespace moe
         size_t GetPosition()const;
         void Flush();
         int ReadByte();
-        size_t Read(MutableBytesView& out, size_t count);
+        size_t Read(MutableBytesView out, size_t count);
         size_t Seek(int64_t offset, StreamSeekOrigin origin);
         void SetLength(size_t length);
         void WriteByte(uint8_t b);
-        void Write(const BytesView& view, size_t count);
+        void Write(BytesView view, size_t count);
 
     private:
         size_t m_uPosition = 0;

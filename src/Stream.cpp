@@ -15,12 +15,12 @@ Stream::~Stream()
 
 //////////////////////////////////////////////////////////////////////////////// BytesViewStream
 
-BytesViewStream::BytesViewStream(const BytesView& view)
+BytesViewStream::BytesViewStream(BytesView view)
     : m_stView(view)
 {
 }
 
-BytesViewStream::BytesViewStream(const MutableBytesView& view)
+BytesViewStream::BytesViewStream(MutableBytesView view)
     : m_stView(view), m_stMutableView(InPlaceInit, view)
 {
 }
@@ -61,7 +61,7 @@ int BytesViewStream::ReadByte()
     return m_stView[m_uPosition++];
 }
 
-size_t BytesViewStream::Read(MutableBytesView& out, size_t count)
+size_t BytesViewStream::Read(MutableBytesView out, size_t count)
 {
     assert(m_stView.GetSize() >= m_uPosition);
     assert(out.GetSize() >= count);
@@ -127,7 +127,7 @@ void BytesViewStream::WriteByte(uint8_t b)
     (*m_stMutableView)[m_uPosition++] = b;
 }
 
-void BytesViewStream::Write(const BytesView& view, size_t count)
+void BytesViewStream::Write(BytesView view, size_t count)
 {
     assert(view.GetSize() >= count);
     count = std::min(count, view.GetSize());

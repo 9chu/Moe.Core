@@ -48,6 +48,7 @@ Moe游戏框架底层模块。
     - [x] Vector3
     - [x] Quaternion
     - [ ] Matrix
+- [ ] Mbp: 二进制数据交换协议
 - [x] StringUtils/PathUtils: 字符串与路径处理辅助库
 - [x] RefPtr: 侵入式引用计数指针
 - [x] Stream: 流式接口定义
