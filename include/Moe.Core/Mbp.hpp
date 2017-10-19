@@ -20,7 +20,11 @@ namespace moe
         List = 6,  // vector<T>/array<T>
         Map = 7,  // unordered_map<K,V>/map<K,V>
         Struct = 8,  // struct
+
+        MAX = 9,
     };
+
+    using MbpTag = uint16_t;
 
     struct MbpStruct
     {
@@ -197,14 +201,78 @@ namespace moe
             return (-(ret & 0x01)) ^ ((ret >> 1) & ~(1ull << 63));
         }
 
-    public:
-        MbpReader(StreamPtr stream);
+        static void ReadHead(Stream* stream, MbpTag& tag, MbpWireTypes& type)
+        {
+            /**
+             * 头由一个或者多个字节构成：
+             *   8                     0
+             *   TAG(4bits)  TYPE(4bits)
+             * 其中，TAG使用VARINT编码，即占据前4bits+若干后继字节。
+             *
+             * 限制TAG最大不超过UINT16_MAX，则至多占据三个字节。
+             */
+
+            assert(stream);
+            int b;
+            if ((b = stream->ReadByte()) < 0)
+                MOE_THROW(OutOfRangeException, "EOF");
+
+            int t = (b & 0x0F);
+            if (t >= static_cast<int>(MbpWireTypes::MAX))
+                MOE_THROW(BadFormat, "Invalid head type near position {0}", stream->GetPosition() - 1);
+            type = static_cast<MbpWireTypes>(t);
+
+            b >>= 4;
+            tag = static_cast<MbpTag>(b & 0x7);
+            if ((b & 0x8) == 0)
+                return;
+
+            b = stream->ReadByte();  // 2
+            if (b < 0)
+                MOE_THROW(OutOfRangeException, "EOF");
+            tag |= static_cast<MbpTag>(b & 0x7F) << 3;
+            if ((b & 0x80) == 0)
+                return;
+
+            b = stream->ReadByte();  // 3
+            if (b < 0)
+                MOE_THROW(OutOfRangeException, "EOF");
+            tag |= static_cast<MbpTag>(b & 0x3F) << 10;
+            if ((b & 0xC0) == 0)
+                return;
+
+            MOE_THROW(BadFormat, "Tag is too big near position {0}", stream->GetPosition() - 1);
+        }
 
     public:
+        MbpReader(StreamPtr stream)
+            : m_pStream(stream) {}
 
+        MbpReader(const MbpReader&) = default;
+        MbpReader(MbpReader&&) = default;
+
+    public:
+        void Read(MbpTag tag, bool& val)
+        {
+            MOE_THROW(NotImplementException, "");
+        }
+
+    private:
+        void ReadHead()
+        {
+            std::pair<MbpTag, MbpWireTypes> head;
+            ReadHead(m_pStream.GetPointer(), head.first, head.second);
+            m_stHead = head;
+        }
+
+        void SkipToTag(MbpTag tag)
+        {
+            MOE_THROW(NotImplementException, "");
+        }
 
     private:
         StreamPtr m_pStream;
+        Optional<std::pair<MbpTag, MbpWireTypes>> m_stHead;
     };
 
     class MbpWriter
@@ -321,5 +389,41 @@ namespace moe
         {
             return static_cast<uint64_t>((value << 1) ^ (value >> 31));
         }
+
+        static void WriteHead(Stream* stream, MbpTag tag, MbpWireTypes type)
+        {
+            assert(stream);
+            uint8_t bytes[3];
+            bytes[0] = static_cast<uint8_t>(((tag & 0x7) << 4) | static_cast<int>(type) | 0x80);
+            if ((tag >>= 3) == 0)
+            {
+                bytes[0] &= 0x7F;
+                stream->WriteByte(bytes[0]);
+                return;
+            }
+
+            bytes[1] = static_cast<uint8_t>((tag & 0x7F) | 0x80);
+            if ((tag >>= 7) == 0)
+            {
+                bytes[1] &= 0x7F;
+                stream->Write(BytesView(bytes, sizeof(bytes)), 2);
+                return;
+            }
+
+            bytes[2] = static_cast<uint8_t>(tag & 0x3F);
+            stream->Write(BytesView(bytes, sizeof(bytes)), 3);
+        }
+
+    public:
+        MbpWriter(StreamPtr stream)
+            : m_pStream(stream) {}
+
+        MbpWriter(const MbpWriter&) = default;
+        MbpWriter(MbpWriter&&) = default;
+
+    public:
+
+    private:
+        StreamPtr m_pStream;
     };
 }
