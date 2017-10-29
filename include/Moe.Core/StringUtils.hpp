@@ -788,7 +788,8 @@ namespace moe
                 }
             };
 
-            template <typename TChar, typename T>
+            template <typename TChar, typename T, typename P = typename std::conditional<std::is_unsigned<T>::value,
+                uint64_t, int64_t>::type>
             struct IntergeToStringFormatter
             {
                 static const size_t kPreAllocate = 32;
@@ -796,7 +797,10 @@ namespace moe
                 static bool AppendToString(std::basic_string<TChar>& output, const void* object,
                     const ArrayView<TChar>& format)
                 {
-                    T value = *static_cast<const T*>(object);
+                    static_assert(std::numeric_limits<T>::max() <= std::numeric_limits<P>::max(), "Error");
+                    static_assert(std::numeric_limits<T>::min() >= std::numeric_limits<P>::min(), "Error");
+
+                    P value = static_cast<P>(*static_cast<const T*>(object));
 
                     bool result = true;
                     size_t count = 0;
