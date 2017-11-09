@@ -1451,6 +1451,7 @@ namespace
             assert(m_stStack.size() > 1);
 
             JsonValue& top = *m_stStack.top();
+            MOE_UNUSED(top);
             assert(top.Is<JsonValue::ArrayType>());
             m_stStack.pop();
         }
@@ -1488,6 +1489,7 @@ namespace
             assert(m_stStack.size() > 1);
 
             JsonValue& top = *m_stStack.top();
+            MOE_UNUSED(top);
             assert(top.Is<JsonValue::ObjectType>());
             m_stStack.pop();
         }

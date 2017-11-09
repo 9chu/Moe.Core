@@ -4709,6 +4709,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToDecimalString(uint8_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 4);
             return details::UInt8ToBuffer(value, buffer);
         }
@@ -4765,6 +4766,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToDecimalString(uint32_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 11);
             return details::UInt32ToBuffer(value, buffer);
         }
@@ -4779,6 +4781,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToDecimalString(int64_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 21);
             return details::Int64ToBuffer(value, buffer);
         }
@@ -4793,6 +4796,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToDecimalString(uint64_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 21);
             return details::UInt64ToBuffer(value, buffer);
         }
@@ -4859,6 +4863,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToHexString(uint64_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 17);
             return details::UInt64ToHexBuffer(value, buffer);
         }
@@ -4883,6 +4888,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToHexStringLower(uint8_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 3);
             return details::UInt8ToHexBufferLower(value, buffer);
         }
@@ -4925,6 +4931,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToHexStringLower(uint64_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 17);
             return details::UInt64ToHexBufferLower(value, buffer);
         }
