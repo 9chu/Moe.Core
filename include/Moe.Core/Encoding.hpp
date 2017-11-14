@@ -158,21 +158,24 @@ namespace moe
 
         /**
          * @brief 执行编码转换
-         * @tparam SrcEncoding 原始编码
          * @tparam DestEncoding 目标编码
-         * @tparam TSrcChar 原始字符类型
+         * @tparam SrcEncoding 原始编码
          * @tparam TDestChar 目标字符类型
+         * @tparam TSrcChar 原始字符类型
+         * @tparam DestContainer 目的容器
+         * @tparam SrcContainer 原始容器
          * @throw InvalidEncoding 无效转换
          * @param src 原始字符串
          * @param replacer 非法字符替换字符, 若为0则在错误时抛出异常
          * @return 目标字符串
          */
-        template <typename SrcEncoding, typename DestEncoding, typename TSrcChar = typename SrcEncoding::CharType,
-            typename TDestChar = typename DestEncoding::CharType, typename SrcContainer = std::basic_string<TSrcChar>,
-            typename DestContainer = std::basic_string<TDestChar>>
+        template <typename DestEncoding, typename SrcEncoding, typename TDestChar = typename DestEncoding::CharType,
+            typename TSrcChar = typename SrcEncoding::CharType, typename DestContainer = std::basic_string<TDestChar>,
+            typename SrcContainer = std::basic_string<TSrcChar>>
         DestContainer Convert(const SrcContainer& src, char32_t replacer=0xFFFD)
         {
-            static_assert(DestEncoding::kMaxCodePointSize > 0, "Invalid kMaxCodePointSize, which must bigger than zero.");
+            static_assert(DestEncoding::kMaxCodePointSize > 0,
+                "Invalid kMaxCodePointSize, which must bigger than zero.");
             static_assert(sizeof(typename SrcContainer::value_type) ==
                 sizeof(typename SrcEncoding::CharType), "Type size mismatched.");
             static_assert(sizeof(typename DestContainer::value_type) ==
@@ -251,6 +254,108 @@ namespace moe
             }
 
             return ret;
+        }
+
+        /**
+         * @brief 执行编码转换
+         * @tparam DestEncoding 目标编码
+         * @tparam SrcEncoding 原始编码
+         * @tparam TDestChar 目标字符类型
+         * @tparam TSrcChar 原始字符类型
+         * @param dest 目的字符串缓冲区
+         * @param destSize 目的字符串缓冲区大小
+         * @param src 原始字符串缓冲区
+         * @param srcSize 原始字符串缓冲区大小
+         * @param replacer 非法字符替换字符, 若为0则在错误时直接退出
+         * @return 转换的字符数量（个数）
+         *
+         * @warning 方法不会在缓冲区结尾加入'\0'。
+         */
+        template <typename DestEncoding, typename SrcEncoding, typename TDestChar = typename DestEncoding::CharType,
+            typename TSrcChar = typename SrcEncoding::CharType>
+        size_t Convert(TDestChar* dest, size_t destSize, const TSrcChar* src, size_t srcSize,
+            char32_t replacer=0xFFFD)noexcept
+        {
+            static_assert(DestEncoding::kMaxCodePointSize > 0,
+                "Invalid kMaxCodePointSize, which must bigger than zero.");
+
+            typename SrcEncoding::Decoder decoder;
+            typename DestEncoding::Encoder encoder;
+
+            // 保存解码器的输出
+            EncodingResult lastDecoderResult = EncodingResult::Accept;
+            char32_t decoderOutput = 0;
+
+            // 保存编码器的输出
+            TDestChar destOutput[DestEncoding::kMaxCodePointSize] = { 0 };
+            uint32_t destOutputCount = 0;
+
+            size_t encodedCount = 0;
+            for (size_t i = 0; i < srcSize; ++i)
+            {
+                auto ch = src[i];
+                if (ch == '\0')
+                    break;
+
+                switch (lastDecoderResult = decoder(ch, decoderOutput))
+                {
+                    case EncodingResult::Reject:  // 将错误的序列进行替换
+                        if (replacer == 0)
+                            return encodedCount;
+                        decoderOutput = replacer;
+                        lastDecoderResult = EncodingResult::Accept;
+                    case EncodingResult::Accept:
+                        switch (encoder(decoderOutput, destOutput, destOutputCount))
+                        {
+                            case EncodingResult::Reject:
+                            case EncodingResult::Incomplete:
+                                if (replacer == 0)
+                                    return encodedCount;
+
+                                // 试图使用replacer进行编码
+                                switch (encoder(replacer, destOutput, destOutputCount))
+                                {
+                                    case EncodingResult::Reject:
+                                    case EncodingResult::Incomplete:  // 若替换为替换字符依旧无法编码,则抛出异常
+                                        return encodedCount;
+                                    case EncodingResult::Accept:
+                                        break;
+                                }
+                            case EncodingResult::Accept:
+                                if (destOutputCount + encodedCount > destSize)
+                                    return encodedCount;  // 此时会导致截断
+                                for (uint32_t j = 0; j < destOutputCount; ++j)
+                                    dest[encodedCount++] = destOutput[j];
+                                break;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            // 检查是否所有字符都被解码
+            if (lastDecoderResult != EncodingResult::Accept)
+            {
+                if (replacer != 0)
+                {
+                    switch (encoder(replacer, destOutput, destOutputCount))
+                    {
+                        case EncodingResult::Reject:
+                        case EncodingResult::Incomplete:
+                            return encodedCount;
+                        case EncodingResult::Accept:
+                            break;
+                    }
+
+                    if (destOutputCount + encodedCount > destSize)
+                        return encodedCount;  // 此时会导致截断
+                    for (uint32_t j = 0; j < destOutputCount; ++j)
+                        dest[encodedCount++] = destOutput[j];
+                }
+            }
+
+            return encodedCount;
         }
     }
 }
