@@ -154,13 +154,13 @@ namespace moe
     {
         std::string ret;
         ReadWholeFileInPlace(ret, path);
-        return std::move(ret);
+        return ret;
     }
 
     inline std::string ReadWholeFile(const std::string& path)
     {
         std::string ret;
         ReadWholeFileInPlace(ret, path.c_str());
-        return std::move(ret);
+        return ret;
     }
 }
