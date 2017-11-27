@@ -1,11 +1,16 @@
 /**
  * @file
  * @date 2017/7/5
+ * @see https://github.com/WaterJuice/CryptLib
  */
 #include <Moe.Core/Hasher.hpp>
 
+#include <cstring>
+
 using namespace std;
 using namespace moe;
+using namespace Hasher;
+using namespace details;
 
 //////////////////////////////////////////////////////////////////////////////// MPQHash
 
@@ -177,3 +182,241 @@ const uint32_t* Hasher::GetMPQCryptTable()noexcept
     return s_arrMPQCryptTable;
 }
 
+//////////////////////////////////////////////////////////////////////////////// MD5
+
+// 基本的MD5操作
+#define MD5_F(x, y, z) ((z) ^ ((x) & ((y) ^ (z))))
+#define MD5_G(x, y, z) ((y) ^ ((z) & ((x) ^ (y))))
+#define MD5_H(x, y, z) ((x) ^ (y) ^ (z))
+#define MD5_I(x, y, z) ((y) ^ ((x) | ~(z)))
+
+// 单次变换操作
+#define MD5_STEP(f, a, b, c, d, x, t, s) \
+    (a) += f((b), (c), (d)) + (x) + (t); \
+    (a) = (((a) << (s)) | (((a) & 0xFFFFFFFF) >> (32 - (s)))); \
+    (a) += (b);
+
+// 获取小端序
+#define MD5_READLE(arr, i) \
+    ((arr)[(i)] | (static_cast<uint32_t>((arr)[(i) + 1]) << 8) | (static_cast<uint32_t>((arr)[(i) + 2]) << 16) | \
+    (static_cast<uint32_t>((arr)[(i) + 3] << 24)))
+
+namespace
+{
+    // 处理一个64字节的数据块
+    const uint8_t* MD5Transform(MD5Context* context, const uint8_t* data, uint32_t size)
+    {
+        assert(size % 64 == 0);
+
+        auto a = context->a;
+        auto b = context->b;
+        auto c = context->c;
+        auto d = context->d;
+
+        do
+        {
+            auto saved_a = a;
+            auto saved_b = b;
+            auto saved_c = c;
+            auto saved_d = d;
+
+            uint32_t chunk[16] = {
+                MD5_READLE(data, 0),
+                MD5_READLE(data, 4),
+                MD5_READLE(data, 8),
+                MD5_READLE(data, 12),
+                MD5_READLE(data, 16),
+                MD5_READLE(data, 20),
+                MD5_READLE(data, 24),
+                MD5_READLE(data, 28),
+                MD5_READLE(data, 32),
+                MD5_READLE(data, 36),
+                MD5_READLE(data, 40),
+                MD5_READLE(data, 44),
+                MD5_READLE(data, 48),
+                MD5_READLE(data, 52),
+                MD5_READLE(data, 56),
+                MD5_READLE(data, 60),
+            };
+
+            // Round 1
+            MD5_STEP(MD5_F, a, b, c, d, chunk[0],  0xd76aa478, 7)
+            MD5_STEP(MD5_F, d, a, b, c, chunk[1],  0xe8c7b756, 12)
+            MD5_STEP(MD5_F, c, d, a, b, chunk[2],  0x242070db, 17)
+            MD5_STEP(MD5_F, b, c, d, a, chunk[3],  0xc1bdceee, 22)
+            MD5_STEP(MD5_F, a, b, c, d, chunk[4],  0xf57c0faf, 7)
+            MD5_STEP(MD5_F, d, a, b, c, chunk[5],  0x4787c62a, 12)
+            MD5_STEP(MD5_F, c, d, a, b, chunk[6],  0xa8304613, 17)
+            MD5_STEP(MD5_F, b, c, d, a, chunk[7],  0xfd469501, 22)
+            MD5_STEP(MD5_F, a, b, c, d, chunk[8],  0x698098d8, 7)
+            MD5_STEP(MD5_F, d, a, b, c, chunk[9],  0x8b44f7af, 12)
+            MD5_STEP(MD5_F, c, d, a, b, chunk[10], 0xffff5bb1, 17)
+            MD5_STEP(MD5_F, b, c, d, a, chunk[11], 0x895cd7be, 22)
+            MD5_STEP(MD5_F, a, b, c, d, chunk[12], 0x6b901122, 7)
+            MD5_STEP(MD5_F, d, a, b, c, chunk[13], 0xfd987193, 12)
+            MD5_STEP(MD5_F, c, d, a, b, chunk[14], 0xa679438e, 17)
+            MD5_STEP(MD5_F, b, c, d, a, chunk[15], 0x49b40821, 22)
+
+            // Round 2
+            MD5_STEP(MD5_G, a, b, c, d, chunk[1],  0xf61e2562, 5)
+            MD5_STEP(MD5_G, d, a, b, c, chunk[6],  0xc040b340, 9)
+            MD5_STEP(MD5_G, c, d, a, b, chunk[11], 0x265e5a51, 14)
+            MD5_STEP(MD5_G, b, c, d, a, chunk[0],  0xe9b6c7aa, 20)
+            MD5_STEP(MD5_G, a, b, c, d, chunk[5],  0xd62f105d, 5)
+            MD5_STEP(MD5_G, d, a, b, c, chunk[10], 0x02441453, 9)
+            MD5_STEP(MD5_G, c, d, a, b, chunk[15], 0xd8a1e681, 14)
+            MD5_STEP(MD5_G, b, c, d, a, chunk[4],  0xe7d3fbc8, 20)
+            MD5_STEP(MD5_G, a, b, c, d, chunk[9],  0x21e1cde6, 5)
+            MD5_STEP(MD5_G, d, a, b, c, chunk[14], 0xc33707d6, 9)
+            MD5_STEP(MD5_G, c, d, a, b, chunk[3],  0xf4d50d87, 14)
+            MD5_STEP(MD5_G, b, c, d, a, chunk[8],  0x455a14ed, 20)
+            MD5_STEP(MD5_G, a, b, c, d, chunk[13], 0xa9e3e905, 5)
+            MD5_STEP(MD5_G, d, a, b, c, chunk[2],  0xfcefa3f8, 9)
+            MD5_STEP(MD5_G, c, d, a, b, chunk[7],  0x676f02d9, 14)
+            MD5_STEP(MD5_G, b, c, d, a, chunk[12], 0x8d2a4c8a, 20)
+
+            // Round 3
+            MD5_STEP(MD5_H, a, b, c, d, chunk[5],  0xfffa3942, 4)
+            MD5_STEP(MD5_H, d, a, b, c, chunk[8],  0x8771f681, 11)
+            MD5_STEP(MD5_H, c, d, a, b, chunk[11], 0x6d9d6122, 16)
+            MD5_STEP(MD5_H, b, c, d, a, chunk[14], 0xfde5380c, 23)
+            MD5_STEP(MD5_H, a, b, c, d, chunk[1],  0xa4beea44, 4)
+            MD5_STEP(MD5_H, d, a, b, c, chunk[4],  0x4bdecfa9, 11)
+            MD5_STEP(MD5_H, c, d, a, b, chunk[7],  0xf6bb4b60, 16)
+            MD5_STEP(MD5_H, b, c, d, a, chunk[10], 0xbebfbc70, 23)
+            MD5_STEP(MD5_H, a, b, c, d, chunk[13], 0x289b7ec6, 4)
+            MD5_STEP(MD5_H, d, a, b, c, chunk[0],  0xeaa127fa, 11)
+            MD5_STEP(MD5_H, c, d, a, b, chunk[3],  0xd4ef3085, 16)
+            MD5_STEP(MD5_H, b, c, d, a, chunk[6],  0x04881d05, 23)
+            MD5_STEP(MD5_H, a, b, c, d, chunk[9],  0xd9d4d039, 4)
+            MD5_STEP(MD5_H, d, a, b, c, chunk[12], 0xe6db99e5, 11)
+            MD5_STEP(MD5_H, c, d, a, b, chunk[15], 0x1fa27cf8, 16)
+            MD5_STEP(MD5_H, b, c, d, a, chunk[2],  0xc4ac5665, 23)
+
+            // Round 4
+            MD5_STEP(MD5_I, a, b, c, d, chunk[0],  0xf4292244, 6)
+            MD5_STEP(MD5_I, d, a, b, c, chunk[7],  0x432aff97, 10)
+            MD5_STEP(MD5_I, c, d, a, b, chunk[14], 0xab9423a7, 15)
+            MD5_STEP(MD5_I, b, c, d, a, chunk[5],  0xfc93a039, 21)
+            MD5_STEP(MD5_I, a, b, c, d, chunk[12], 0x655b59c3, 6)
+            MD5_STEP(MD5_I, d, a, b, c, chunk[3],  0x8f0ccc92, 10)
+            MD5_STEP(MD5_I, c, d, a, b, chunk[10], 0xffeff47d, 15)
+            MD5_STEP(MD5_I, b, c, d, a, chunk[1],  0x85845dd1, 21)
+            MD5_STEP(MD5_I, a, b, c, d, chunk[8],  0x6fa87e4f, 6)
+            MD5_STEP(MD5_I, d, a, b, c, chunk[15], 0xfe2ce6e0, 10)
+            MD5_STEP(MD5_I, c, d, a, b, chunk[6],  0xa3014314, 15)
+            MD5_STEP(MD5_I, b, c, d, a, chunk[13], 0x4e0811a1, 21)
+            MD5_STEP(MD5_I, a, b, c, d, chunk[4],  0xf7537e82, 6)
+            MD5_STEP(MD5_I, d, a, b, c, chunk[11], 0xbd3af235, 10)
+            MD5_STEP(MD5_I, c, d, a, b, chunk[2],  0x2ad7d2bb, 15)
+            MD5_STEP(MD5_I, b, c, d, a, chunk[9],  0xeb86d391, 21)
+
+            a += saved_a;
+            b += saved_b;
+            c += saved_c;
+            d += saved_d;
+
+            data += 64;
+            size -= 64;
+        } while(size > 0);
+
+        context->a = a;
+        context->b = b;
+        context->c = c;
+        context->d = d;
+        return data;
+    }
+}
+
+void Hasher::details::MD5Init(MD5Context* context)noexcept
+{
+    ::memset(context, 0, sizeof(MD5Context));
+
+    context->a = 0x67452301;
+    context->b = 0xeFCDAB89;
+    context->c = 0x98BADCFE;
+    context->d = 0x10325476;
+
+    context->lo = 0;
+    context->hi = 0;
+}
+
+void Hasher::details::MD5Update(MD5Context* context, const uint8_t* data, uint32_t size)noexcept
+{
+    auto lo = context->lo;
+    if ((context->lo = (lo + size) & 0x1FFFFFFF) < lo)
+        context->hi++;
+    context->hi += (uint32_t)(size >> 29);
+
+    auto used = lo & 0x3F;
+
+    if (used)
+    {
+        auto free = 64 - used;
+
+        if (size < free)
+        {
+            ::memcpy(&context->Buffer[used], data, size);
+            return;
+        }
+
+        ::memcpy(&context->Buffer[used], data, free);
+        data += free;
+        size -= free;
+        MD5Transform(context, context->Buffer, 64);
+    }
+
+    if (size >= 64)
+    {
+        data = MD5Transform(context, data, size & ~0x3Fu);
+        size &= 0x3F;
+    }
+
+    ::memcpy(context->Buffer, data, size);
+}
+
+void Hasher::details::MD5Final(MD5Context* context, uint8_t result[])noexcept
+{
+    auto used = context->lo & 0x3F;
+    context->Buffer[used++] = 0x80;
+    auto free = 64 - used;
+
+    if (free < 8)
+    {
+        ::memset(&context->Buffer[used], 0, free);
+        MD5Transform(context, context->Buffer, 64);
+        used = 0;
+        free = 64;
+    }
+
+    ::memset(&context->Buffer[used], 0, free - 8);
+
+    context->lo <<= 3;
+    context->Buffer[56] = (uint8_t)(context->lo & 0xFF);
+    context->Buffer[57] = (uint8_t)((context->lo >> 8) & 0xFF);
+    context->Buffer[58] = (uint8_t)((context->lo >> 16) & 0xFF);
+    context->Buffer[59] = (uint8_t)((context->lo >> 24) & 0xFF);
+    context->Buffer[60] = (uint8_t)(context->hi & 0xFF);
+    context->Buffer[61] = (uint8_t)((context->hi >> 8) & 0xFF);
+    context->Buffer[62] = (uint8_t)((context->hi >> 16) & 0xFF);
+    context->Buffer[63] = (uint8_t)((context->hi >> 24) & 0xFF);
+
+    MD5Transform(context, context->Buffer, 64);
+
+    result[0]  = (uint8_t)(context->a & 0xFF);
+    result[1]  = (uint8_t)((context->a >> 8) & 0xFF);
+    result[2]  = (uint8_t)((context->a >> 16) & 0xFF);
+    result[3]  = (uint8_t)((context->a >> 24) & 0xFF);
+    result[4]  = (uint8_t)(context->b & 0xFF);
+    result[5]  = (uint8_t)((context->b >> 8) & 0xFF);
+    result[6]  = (uint8_t)((context->b >> 16) & 0xFF);
+    result[7]  = (uint8_t)((context->b >> 24) & 0xFF);
+    result[8]  = (uint8_t)(context->c & 0xFF);
+    result[9]  = (uint8_t)((context->c >> 8) & 0xFF);
+    result[10] = (uint8_t)((context->c >> 16) & 0xFF);
+    result[11] = (uint8_t)((context->c >> 24) & 0xFF);
+    result[12] = (uint8_t)(context->d & 0xFF);
+    result[13] = (uint8_t)((context->d >> 8) & 0xFF);
+    result[14] = (uint8_t)((context->d >> 16) & 0xFF);
+    result[15] = (uint8_t)((context->d >> 24) & 0xFF);
+}

@@ -11,7 +11,7 @@ const std::string& Exception::ToString()const
 {
     if (m_strFullDescCache.empty())
     {
-        StringUtils::FormatInPlace(m_strFullDescCache, "[{0}:{1}:{2}] {3}", GetSourceFile(), GetFunctionName(),
+        StringUtils::Format(m_strFullDescCache, "[{0}:{1}:{2}] {3}", GetSourceFile(), GetFunctionName(),
             GetLineNumber(), GetDescription());
     }
 

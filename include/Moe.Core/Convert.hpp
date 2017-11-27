@@ -4200,8 +4200,8 @@ namespace moe
             template <typename TChar>
             inline size_t UInt8ToHexBuffer(uint16_t value, TChar* buffer)noexcept
             {
+                static const TChar* lut = GetHexDigitLookupTable32<TChar>();
                 const TChar* start = buffer;
-                const TChar* lut = GetHexDigitLookupTable32<TChar>();
 
                 if (value > 0xF)
                     *(buffer++) = lut[(value >> 4) & 0xF];
@@ -4214,8 +4214,8 @@ namespace moe
             template <typename TChar>
             inline size_t UInt8ToHexBufferLower(uint8_t value, TChar* buffer)noexcept
             {
+                static const TChar* lut = GetHexDigitLookupTable32<TChar>() + 16;
                 const TChar* start = buffer;
-                const TChar* lut = GetHexDigitLookupTable32<TChar>() + 16;
 
                 if (value > 0xF)
                     *(buffer++) = lut[(value >> 4) & 0xF];
@@ -4228,8 +4228,8 @@ namespace moe
             template <typename TChar>
             inline size_t UInt16ToHexBuffer(uint16_t value, TChar* buffer)noexcept
             {
+                static const TChar* lut = GetHexDigitLookupTable32<TChar>();
                 const TChar* start = buffer;
-                const TChar* lut = GetHexDigitLookupTable32<TChar>();
 
                 if (value > 0xFFF)
                     *(buffer++) = lut[(value >> 12) & 0xF];
@@ -4246,8 +4246,8 @@ namespace moe
             template <typename TChar>
             inline size_t UInt16ToHexBufferLower(uint16_t value, TChar* buffer)noexcept
             {
+                static const TChar* lut = GetHexDigitLookupTable32<TChar>() + 16;
                 const TChar* start = buffer;
-                const TChar* lut = GetHexDigitLookupTable32<TChar>() + 16;
 
                 if (value > 0xFFF)
                     *(buffer++) = lut[(value >> 12) & 0xF];
@@ -4264,8 +4264,8 @@ namespace moe
             template <typename TChar>
             inline size_t UInt32ToHexBuffer(uint32_t value, TChar* buffer)noexcept
             {
+                static const TChar* lut = GetHexDigitLookupTable32<TChar>();
                 const TChar* start = buffer;
-                const TChar* lut = GetHexDigitLookupTable32<TChar>();
 
                 if (value > 0xFFFFFFF)
                     *(buffer++) = lut[(value >> 28) & 0xF];
@@ -4290,8 +4290,8 @@ namespace moe
             template <typename TChar>
             inline size_t UInt32ToHexBufferLower(uint32_t value, TChar* buffer)noexcept
             {
+                static const TChar* lut = GetHexDigitLookupTable32<TChar>() + 16;
                 const TChar* start = buffer;
-                const TChar* lut = GetHexDigitLookupTable32<TChar>() + 16;
 
                 if (value > 0xFFFFFFF)
                     *(buffer++) = lut[(value >> 28) & 0xF];
@@ -4316,8 +4316,8 @@ namespace moe
             template <typename TChar>
             inline size_t UInt64ToHexBuffer(uint64_t value, TChar* buffer)noexcept
             {
+                static const TChar* lut = GetHexDigitLookupTable32<TChar>();
                 const TChar* start = buffer;
-                const TChar* lut = GetHexDigitLookupTable32<TChar>();
 
                 if (value > 0xFFFFFFFFFFFFFFFull)
                     *(buffer++) = lut[(value >> 60) & 0xF];
@@ -4358,8 +4358,8 @@ namespace moe
             template <typename TChar>
             inline size_t UInt64ToHexBufferLower(uint64_t value, TChar* buffer)noexcept
             {
+                static const TChar* lut = GetHexDigitLookupTable32<TChar>() + 16;
                 const TChar* start = buffer;
-                const TChar* lut = GetHexDigitLookupTable32<TChar>() + 16;
 
                 if (value > 0xFFFFFFFFFFFFFFFull)
                     *(buffer++) = lut[(value >> 60) & 0xF];

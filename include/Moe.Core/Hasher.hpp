@@ -5,6 +5,7 @@
 #pragma once
 #include <string>
 #include <unordered_map>
+#include <limits>
 
 #include "ArrayView.hpp"
 
@@ -146,6 +147,68 @@ namespace moe
             h ^= h >> r;
 
             return h;
+        }
+
+        //////////////////////////////////////// </editor-fold>
+
+        //////////////////////////////////////// <editor-fold desc="MD5">
+
+        namespace details
+        {
+            struct MD5Context
+            {
+                uint32_t lo, hi;
+                uint32_t a, b, c, d;
+
+                uint8_t Buffer[64];
+            };
+
+            void MD5Init(MD5Context* context)noexcept;
+            void MD5Update(MD5Context* context, const uint8_t* data, uint32_t size)noexcept;
+
+            /**
+             * @brief 计算MD5最终结果
+             * @param ctx 上下文
+             * @param result 结果，必须为16字节
+             *
+             * 调用方法后必须使用MD5Init来重置状态。
+             */
+            void MD5Final(MD5Context* context, uint8_t result[])noexcept;
+        }
+
+        /**
+         * @brief 计算MD5
+         * @tparam Size 输出缓冲区大小
+         * @param out 输出缓冲区，必须为16字节
+         * @param data 输入数据
+         * @param len 输入长度
+         * @return 输出缓冲区
+         */
+        template <size_t Size>
+        inline BytesView MD5(uint8_t (&out)[Size], const uint8_t* data, size_t len)noexcept
+        {
+            static_assert(Size >= 16, "Bad buffer size");
+            assert(len <= std::numeric_limits<uint32_t>::max());
+
+            details::MD5Context context;
+            details::MD5Init(&context);
+            details::MD5Update(&context, data, static_cast<uint32_t>(len));
+            details::MD5Final(&context, out);
+            return BytesView(out, 16);
+        }
+
+        /**
+         * @brief 计算字符串MD5
+         * @tparam Size 输出缓冲区大小
+         * @param out 输出缓冲区，必须为16字节
+         * @param data 输入字符串
+         * @return 输出缓冲区
+         */
+        template <size_t Size>
+        inline BytesView MD5(uint8_t (&out)[Size], const std::string& data)noexcept
+        {
+            static_assert(Size >= 16, "Bad buffer size");
+            return MD5(out, reinterpret_cast<const uint8_t*>(data.c_str()), data.size());
         }
 
         //////////////////////////////////////// </editor-fold>

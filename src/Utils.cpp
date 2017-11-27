@@ -10,7 +10,7 @@
 using namespace std;
 using namespace moe;
 
-std::string& moe::ReadWholeFileInPlace(std::string& out, const char* path)
+std::string& moe::ReadWholeFile(std::string& out, const char* path)
 {
     out.clear();
 

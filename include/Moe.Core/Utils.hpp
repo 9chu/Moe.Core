@@ -148,19 +148,19 @@ namespace moe
      * @param path 路径
      * @return 数据，即out
      */
-    std::string& ReadWholeFileInPlace(std::string& out, const char* path);
+    std::string& ReadWholeFile(std::string& out, const char* path);
 
     inline std::string ReadWholeFile(const char* path)
     {
         std::string ret;
-        ReadWholeFileInPlace(ret, path);
+        ReadWholeFile(ret, path);
         return ret;
     }
 
     inline std::string ReadWholeFile(const std::string& path)
     {
         std::string ret;
-        ReadWholeFileInPlace(ret, path.c_str());
+        ReadWholeFile(ret, path.c_str());
         return ret;
     }
 }

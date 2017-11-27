@@ -200,6 +200,10 @@ TEST(StringUtils, Format)
     EXPECT_STREQ("0", Format("{0:H}", 0x0u).c_str());
     EXPECT_STREQ("0", Format("{0:h}", 0x0u).c_str());
 
+    // 特殊整数类型测试
+    EXPECT_STREQ("123456", Format("{0}", static_cast<long>(123456)).c_str());
+    EXPECT_STREQ("123456", Format("{0}", static_cast<unsigned long>(123456)).c_str());
+
     // 浮点数类型测试
     EXPECT_STREQ("123.456", Format("{0}", 123.456).c_str());
     EXPECT_STREQ("123.456", Format("{0:}", 123.456).c_str());
@@ -320,6 +324,10 @@ TEST(StringUtils, WstringFormat)
     EXPECT_STREQ(L"FFFFFFFFFFFFFFFF", Format(L"{0:H}", static_cast<int64_t>(-1)).c_str());
     EXPECT_STREQ(L"0", Format(L"{0:H}", 0x0u).c_str());
     EXPECT_STREQ(L"0", Format(L"{0:h}", 0x0u).c_str());
+
+    // 特殊整数类型测试
+    EXPECT_STREQ(L"123456", Format(L"{0}", static_cast<long>(123456)).c_str());
+    EXPECT_STREQ(L"123456", Format(L"{0}", static_cast<unsigned long>(123456)).c_str());
 
     // 浮点数类型测试
     EXPECT_STREQ(L"123.456", Format(L"{0}", 123.456).c_str());

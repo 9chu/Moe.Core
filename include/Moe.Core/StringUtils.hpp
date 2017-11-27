@@ -689,6 +689,99 @@ namespace moe
             return tmp;
         }
 
+        /**
+         * @brief 字节数据转16进制字符串
+         * @tparam TChar 目标字符类型
+         * @param out 输出字符串
+         * @param buffer 缓冲区
+         * @param len 缓冲区长度
+         * @return 输出字符串引用
+         */
+        template <typename TChar = char>
+        inline std::basic_string<TChar>& BufferToHex(std::basic_string<TChar>& out, const uint8_t* buffer, size_t len)
+        {
+            static const TChar* lut = Convert::details::GetHexDigitLookupTable32<TChar>();
+
+            out.clear();
+            out.reserve(len * 2);
+
+            for (size_t i = 0; i < len; ++i)
+            {
+                uint8_t value = buffer[i];
+
+                if (value > 0xF)
+                    out.push_back(lut[(value >> 4) & 0xF]);
+                else
+                    out.push_back(lut[0]);
+                out.push_back(lut[value & 0xF]);
+            }
+
+            return out;
+        }
+
+        /**
+         * @brief 字节数据转16进制字符串（小写）
+         * @tparam TChar 目标字符类型
+         * @param out 输出字符串
+         * @param buffer 缓冲区
+         * @param len 缓冲区长度
+         * @return 输出字符串引用
+         */
+        template <typename TChar = char>
+        inline std::basic_string<TChar>& BufferToHexLower(std::basic_string<TChar>& out, const uint8_t* buffer,
+            size_t len)
+        {
+            static const TChar* lut = Convert::details::GetHexDigitLookupTable32<TChar>() + 16;
+
+            out.clear();
+            out.reserve(len * 2);
+
+            for (size_t i = 0; i < len; ++i)
+            {
+                uint8_t value = buffer[i];
+
+                if (value > 0xF)
+                    out.push_back(lut[(value >> 4) & 0xF]);
+                else
+                    out.push_back(lut[0]);
+                out.push_back(lut[value & 0xF]);
+            }
+
+            return out;
+        }
+
+        template <typename TChar = char>
+        inline std::basic_string<TChar> BufferToHex(const uint8_t* buffer, size_t len)
+        {
+            std::basic_string<TChar> ret;
+            BufferToHex(ret, buffer, len);
+            return ret;
+        }
+
+        template <typename TChar = char>
+        inline std::basic_string<TChar> BufferToHexLower(const uint8_t* buffer, size_t len)
+        {
+            std::basic_string<TChar> ret;
+            BufferToHexLower(ret, buffer, len);
+            return ret;
+        }
+
+        template <typename TChar = char>
+        inline std::basic_string<TChar> BufferToHex(BytesView buffer)
+        {
+            std::basic_string<TChar> ret;
+            BufferToHex(ret, buffer.GetBuffer(), buffer.GetSize());
+            return ret;
+        }
+
+        template <typename TChar = char>
+        inline std::basic_string<TChar> BufferToHexLower(BytesView buffer)
+        {
+            std::basic_string<TChar> ret;
+            BufferToHexLower(ret, buffer.GetBuffer(), buffer.GetSize());
+            return ret;
+        }
+
         //////////////////////////////////////// </editor-fold>
 
         //////////////////////////////////////// <editor-fold desc="字符串格式化">
@@ -754,6 +847,28 @@ namespace moe
                 public decltype(HasMethodToStringExValidator<TChar>::template Test<T>(0))
             {};
 
+            template <typename T>
+            struct LongCaster
+            {
+                using value = T;
+            };
+
+            template <>
+            struct LongCaster<long>
+            {
+                static_assert(sizeof(int32_t) == sizeof(long), "Bad platform");
+
+                using value = int32_t;
+            };
+
+            template <>
+            struct LongCaster<unsigned long>
+            {
+                static_assert(sizeof(uint32_t) == sizeof(unsigned long), "Bad platform");
+
+                using value = uint32_t;
+            };
+
             template <typename TChar>
             using ToStringFormatter = bool(*)(std::basic_string<TChar>&, const void*, const ArrayView<TChar>&);
 
@@ -788,8 +903,7 @@ namespace moe
                 }
             };
 
-            template <typename TChar, typename T, typename P = typename std::conditional<std::is_unsigned<T>::value,
-                uint64_t, int64_t>::type>
+            template <typename TChar, typename T, typename P = typename LongCaster<T>::value>
             struct IntergeToStringFormatter
             {
                 static const size_t kPreAllocate = 32;
@@ -797,8 +911,8 @@ namespace moe
                 static bool AppendToString(std::basic_string<TChar>& output, const void* object,
                     const ArrayView<TChar>& format)
                 {
-                    static_assert(std::numeric_limits<T>::max() <= std::numeric_limits<P>::max(), "Error");
-                    static_assert(std::numeric_limits<T>::min() >= std::numeric_limits<P>::min(), "Error");
+                    static_assert(std::numeric_limits<T>::max() == std::numeric_limits<P>::max(), "Error");
+                    static_assert(std::numeric_limits<T>::min() == std::numeric_limits<P>::min(), "Error");
 
                     P value = static_cast<P>(*static_cast<const T*>(object));
 
@@ -1221,7 +1335,7 @@ namespace moe
         }
 
         /**
-         * @brief 字符串格式化（原地）
+         * @brief 字符串格式化
          * @tparam TChar 字符类型
          * @tparam Args 参数类型
          * @param[out] out 输出结果
@@ -1267,7 +1381,7 @@ namespace moe
          *     - 默认：调用 ToString(const ArrayView<TChar>&)，若不可用，调用 ToString()
          */
         template <typename TChar = char, typename... Args>
-        void FormatInPlace(std::basic_string<TChar>& out, const ArrayView<TChar>& format, const Args&... args)
+        void Format(std::basic_string<TChar>& out, const ArrayView<TChar>& format, const Args&... args)
         {
             static const unsigned kIndexLimit = 1000000u;
             static const unsigned kWidthLimit = 1000000u;
@@ -1492,10 +1606,10 @@ namespace moe
         }
 
         template <typename TChar = char, typename... Args>
-        void FormatInPlace(std::basic_string<TChar>& out, const TChar* format, const Args&... args)
+        void Format(std::basic_string<TChar>& out, const TChar* format, const Args&... args)
         {
             size_t length = std::char_traits<TChar>::length(format);
-            FormatInPlace(out, ArrayView<TChar>(format, length), args...);
+            Format(out, ArrayView<TChar>(format, length), args...);
         }
 
         template <typename TChar = char, typename... Args>
@@ -1506,7 +1620,7 @@ namespace moe
             std::basic_string<TChar> ret;
             ret.reserve(256);
 
-            FormatInPlace(ret, ArrayView<TChar>(format, length), args...);
+            Format(ret, ArrayView<TChar>(format, length), args...);
             return ret;
         }
 
@@ -1529,7 +1643,7 @@ namespace moe
          * @param format 格式化参数
          */
         template <typename T, typename TChar = char>
-        void ToStringInPlace(std::basic_string<TChar>& out, const T& obj, const TChar* format="")
+        void ToString(std::basic_string<TChar>& out, const T& obj, const TChar* format="")
         {
             using Formatter = details::ToStringFormatterSelector<TChar, T>;
 
@@ -1551,7 +1665,7 @@ namespace moe
         std::basic_string<TChar> ToString(const T& obj, const TChar* format="")
         {
             std::basic_string<TChar> ret;
-            ToStringInPlace<T, TChar>(ret, obj, format);
+            ToString<T, TChar>(ret, obj, format);
 
             return std::move(ret);
         }
