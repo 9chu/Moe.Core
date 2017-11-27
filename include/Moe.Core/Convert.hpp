@@ -4695,6 +4695,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToDecimalString(int8_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 5);
             return details::Int8ToBuffer(value, buffer);
         }
@@ -4724,6 +4725,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToDecimalString(int16_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 7);
             return details::Int16ToBuffer(value, buffer);
         }
@@ -4738,6 +4740,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToDecimalString(uint16_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 6);
             return details::UInt16ToBuffer(value, buffer);
         }
@@ -4752,6 +4755,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToDecimalString(int32_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 12);
             return details::Int32ToBuffer(value, buffer);
         }
@@ -4821,6 +4825,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToHexString(uint8_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 3);
             return details::UInt8ToHexBuffer(value, buffer);
         }
@@ -4835,6 +4840,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToHexString(uint16_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 5);
             return details::UInt16ToHexBuffer(value, buffer);
         }
@@ -4849,6 +4855,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToHexString(uint32_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 9);
             return details::UInt32ToHexBuffer(value, buffer);
         }
@@ -4903,6 +4910,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToHexStringLower(uint16_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 5);
             return details::UInt16ToHexBufferLower(value, buffer);
         }
@@ -4917,6 +4925,7 @@ namespace moe
         template <typename T = char>
         inline size_t ToHexStringLower(uint32_t value, T* buffer, size_t length)noexcept
         {
+            MOE_UNUSED(length);
             assert(buffer && length >= 9);
             return details::UInt32ToHexBufferLower(value, buffer);
         }
