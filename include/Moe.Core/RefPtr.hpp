@@ -454,6 +454,10 @@ namespace moe
             return GetPointer();
         }
 
+        constexpr bool operator==(std::nullptr_t)const noexcept { return m_pObject == nullptr; }
+
+        constexpr bool operator!=(std::nullptr_t)const noexcept { return m_pObject != nullptr; }
+
         template <typename U>
         constexpr bool operator==(const RefPtr<U>& r)const noexcept { return m_pObject == r.m_pObject; }
 

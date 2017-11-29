@@ -88,22 +88,24 @@ namespace moe
                     std::terminate();
                 }
 
-                // 释放所有缓冲区
-                FixedBuffer* node = m_stFreeBuffers.Next;
-                while (node)
-                {
-                    FixedBuffer* next = node->Next;
-
-                    ::free(node);
-                    node = next;
-                }
+                CollectGarbage();
             }
 
         public:
             /**
              * @brief 获取单个分配单元的大小
              */
-            size_t GetBlockSize()const noexcept { return Size; }
+            constexpr size_t GetBlockSize()const noexcept { return Size; }
+
+            /**
+             * @brief 获取缓冲区个数
+             */
+            size_t GetTotalBufferCount()const noexcept { return m_uCount; }
+
+            /**
+             * @brief 获取空闲缓冲区个数
+             */
+            size_t GetFreeBufferCount()const noexcept { return m_uFreeCount; }
 
             /**
              * @brief 分配一个缓冲区
@@ -171,6 +173,26 @@ namespace moe
                 assert(m_uFreeCount <= m_uCount);
             }
 
+            /**
+             * @brief 释放所有空闲的缓冲区
+             */
+            void CollectGarbage()noexcept
+            {
+                FixedBuffer* node = m_stFreeBuffers.Next;
+                while (node)
+                {
+                    FixedBuffer* next = node->Next;
+
+                    ::free(node);
+                    --m_uCount;
+                    --m_uFreeCount;
+
+                    node = next;
+                }
+                m_stFreeBuffers.Next = nullptr;
+                assert(m_uFreeCount == 0);
+            }
+
         private:
             size_t m_uCount = 0;  // 节点总数
             size_t m_uFreeCount = 0;  // 空闲的数量
@@ -186,6 +208,44 @@ namespace moe
         FixedBufferPool() = default;
 
     public:
+        /**
+         * @brief 获取总分配的内存大小
+         */
+        size_t GetTotalBufferSize()noexcept
+        {
+            size_t total = 0;
+            total += m_stBuffer512.GetBlockSize() * m_stBuffer512.GetTotalBufferCount();
+            total += m_stBuffer4096.GetBlockSize() * m_stBuffer4096.GetTotalBufferCount();
+            total += m_stBuffer32768.GetBlockSize() * m_stBuffer32768.GetTotalBufferCount();
+            total += m_stBuffer262144.GetBlockSize() * m_stBuffer262144.GetTotalBufferCount();
+            total += m_stBuffer2097152.GetBlockSize() * m_stBuffer2097152.GetTotalBufferCount();
+            total += m_stBuffer16777216.GetBlockSize() * m_stBuffer16777216.GetTotalBufferCount();
+            return total;
+        }
+
+        /**
+         * @brief 获取空闲的内存大小
+         */
+        size_t GetTotalFreeSize()noexcept
+        {
+            size_t total = 0;
+            total += m_stBuffer512.GetBlockSize() * m_stBuffer512.GetFreeBufferCount();
+            total += m_stBuffer4096.GetBlockSize() * m_stBuffer4096.GetFreeBufferCount();
+            total += m_stBuffer32768.GetBlockSize() * m_stBuffer32768.GetFreeBufferCount();
+            total += m_stBuffer262144.GetBlockSize() * m_stBuffer262144.GetFreeBufferCount();
+            total += m_stBuffer2097152.GetBlockSize() * m_stBuffer2097152.GetFreeBufferCount();
+            total += m_stBuffer16777216.GetBlockSize() * m_stBuffer16777216.GetFreeBufferCount();
+            return total;
+        }
+
+        /**
+         * @brief 获取使用中的内存大小
+         */
+        size_t GetTotalUsedSize()noexcept
+        {
+            return GetTotalBufferSize() - GetTotalFreeSize();
+        }
+
         /**
          * @brief 分配缓冲区
          * @param sz 缓冲区大小
@@ -238,6 +298,19 @@ namespace moe
                 m_stBuffer16777216.Free(buffer);
             else
                 MOE_THROW(BadArgumentException, "Invalid buffer size {0}", sz);
+        }
+
+        /**
+         * @brief 回收并释放所有空闲内存
+         */
+        void CollectGarbage()noexcept
+        {
+            m_stBuffer512.CollectGarbage();
+            m_stBuffer4096.CollectGarbage();
+            m_stBuffer32768.CollectGarbage();
+            m_stBuffer262144.CollectGarbage();
+            m_stBuffer2097152.CollectGarbage();
+            m_stBuffer16777216.CollectGarbage();
         }
 
     private:
