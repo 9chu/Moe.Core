@@ -277,7 +277,7 @@ namespace moe
          * @brief 释放缓冲区
          * @param buffer 缓冲区指针
          */
-        void Free(void* p)
+        void Free(void* p)noexcept
         {
             FixedBuffer* buffer =
                 reinterpret_cast<FixedBuffer*>(static_cast<uint8_t*>(p) - offsetof(FixedBuffer, Data));
@@ -296,8 +296,7 @@ namespace moe
                 m_stBuffer2097152.Free(buffer);
             else if (sz == 16777216)
                 m_stBuffer16777216.Free(buffer);
-            else
-                MOE_THROW(BadArgumentException, "Invalid buffer size {0}", sz);
+            assert(false);
         }
 
         /**
