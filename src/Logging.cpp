@@ -182,7 +182,12 @@ void FileLogger::Log(LogLevel level, const std::string& message, const char* fil
 
 static mutex s_stLoggerLock;
 static vector<shared_ptr<Logger>> s_stLoggerList = { make_shared<ConsoleLogger>() };
+
+#ifdef NDEBUG
+static LogLevel s_iFilterMinLevel = LogLevel::Info;
+#else
 static LogLevel s_iFilterMinLevel = LogLevel::Debug;
+#endif
 
 void Logging::details::DispatchLogMessage(LogLevel level, const std::string& message, const char* file, unsigned line,
     const char* function, thread::id thread, LoggingTimePoint time)noexcept

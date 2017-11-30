@@ -237,6 +237,11 @@ namespace moe
     MOE_DEFINE_EXCEPTION(OperationNotSupport);
 
     /**
+     * @brief 操作被取消异常
+     */
+    MOE_DEFINE_EXCEPTION(OperationCancelledException);
+
+    /**
      * @brief 错误的状态
      */
     MOE_DEFINE_EXCEPTION(BadStateException);

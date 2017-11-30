@@ -285,17 +285,35 @@ namespace moe
 
             size_t sz = buffer->Size;
             if (sz == 512)
+            {
                 m_stBuffer512.Free(buffer);
+                return;
+            }
             else if (sz == 4096)
+            {
                 m_stBuffer4096.Free(buffer);
+                return;
+            }
             else if (sz == 32768)
+            {
                 m_stBuffer32768.Free(buffer);
+                return;
+            }
             else if (sz == 262144)
+            {
                 m_stBuffer262144.Free(buffer);
+                return;
+            }
             else if (sz == 2097152)
+            {
                 m_stBuffer2097152.Free(buffer);
+                return;
+            }
             else if (sz == 16777216)
+            {
                 m_stBuffer16777216.Free(buffer);
+                return;
+            }
             assert(false);
         }
 
