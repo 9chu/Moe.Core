@@ -18,7 +18,7 @@ namespace moe
         static_assert(Size != 0, "Invalid argument for queue size.");
 
     public:
-        CircularQueue()noexcept = default;
+        CircularQueue() = default;
         CircularQueue(const CircularQueue&) = default;
         CircularQueue(CircularQueue&&) = default;
 
