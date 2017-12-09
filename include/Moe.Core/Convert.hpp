@@ -4806,7 +4806,8 @@ namespace moe
         }
 
         template <typename T = char, size_t Size>
-        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int32_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int32_t) &&
+            !std::is_same<long, int32_t>::value, size_t>::type
         ToDecimalString(long value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 12, "Buffer is not enough");
@@ -4814,7 +4815,8 @@ namespace moe
         }
 
         template <typename T = char>
-        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int32_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int32_t) &&
+            !std::is_same<long, int32_t>::value, size_t>::type
         ToDecimalString(long value, T* buffer, size_t length)noexcept
         {
             MOE_UNUSED(length);
@@ -4823,7 +4825,8 @@ namespace moe
         }
 
         template <typename T = char, size_t Size>
-        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint32_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint32_t) &&
+            !std::is_same<unsigned long, uint32_t>::value, size_t>::type
         ToDecimalString(unsigned long value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 11, "Buffer is not enough");
@@ -4831,7 +4834,8 @@ namespace moe
         }
 
         template <typename T = char>
-        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint32_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint32_t) &&
+            !std::is_same<unsigned long, uint32_t>::value, size_t>::type
         ToDecimalString(unsigned long value, T* buffer, size_t length)noexcept
         {
             MOE_UNUSED(length);
@@ -4840,7 +4844,8 @@ namespace moe
         }
 
         template <typename T = char, size_t Size>
-        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int64_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int64_t) &&
+            !std::is_same<long, int64_t>::value, size_t>::type
         ToDecimalString(long value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 21, "Buffer is not enough");
@@ -4848,7 +4853,8 @@ namespace moe
         }
 
         template <typename T = char>
-        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int64_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int64_t) &&
+            !std::is_same<long, int64_t>::value, size_t>::type
         ToDecimalString(long value, T* buffer, size_t length)noexcept
         {
             MOE_UNUSED(length);
@@ -4857,7 +4863,8 @@ namespace moe
         }
 
         template <typename T = char, size_t Size>
-        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint64_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint64_t) &&
+            !std::is_same<unsigned long, uint64_t>::value, size_t>::type
         ToDecimalString(unsigned long value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 21, "Buffer is not enough");
@@ -4865,7 +4872,8 @@ namespace moe
         }
 
         template <typename T = char>
-        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint64_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint64_t) &&
+            !std::is_same<unsigned long, uint64_t>::value, size_t>::type
         ToDecimalString(unsigned long value, T* buffer, size_t length)noexcept
         {
             MOE_UNUSED(length);
@@ -4944,7 +4952,8 @@ namespace moe
         }
 
         template <typename T = char, size_t Size>
-        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint32_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint32_t) &&
+            !std::is_same<unsigned long, uint32_t>::value, size_t>::type
         ToHexString(unsigned long value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 9, "Buffer is not enough");
@@ -4952,7 +4961,8 @@ namespace moe
         }
 
         template <typename T = char>
-        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint32_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint32_t) &&
+            !std::is_same<unsigned long, uint32_t>::value, size_t>::type
         ToHexString(unsigned long value, T* buffer, size_t length)noexcept
         {
             MOE_UNUSED(length);
@@ -4961,7 +4971,8 @@ namespace moe
         }
 
         template <typename T = char, size_t Size>
-        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint64_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint64_t) &&
+            !std::is_same<unsigned long, uint64_t>::value, size_t>::type
         ToHexString(unsigned long value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 17, "Buffer is not enough");
@@ -4969,7 +4980,8 @@ namespace moe
         }
 
         template <typename T = char>
-        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint64_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint64_t) &&
+            !std::is_same<unsigned long, uint64_t>::value, size_t>::type
         ToHexString(unsigned long value, T* buffer, size_t length)noexcept
         {
             MOE_UNUSED(length);
@@ -5048,7 +5060,8 @@ namespace moe
         }
 
         template <typename T = char, size_t Size>
-        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint32_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint32_t) &&
+            !std::is_same<unsigned long, uint32_t>::value, size_t>::type
         ToHexStringLower(unsigned long value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 9, "Buffer is not enough");
@@ -5056,7 +5069,8 @@ namespace moe
         }
 
         template <typename T = char>
-        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint32_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint32_t) &&
+            !std::is_same<unsigned long, uint32_t>::value, size_t>::type
         ToHexStringLower(unsigned long value, T* buffer, size_t length)noexcept
         {
             MOE_UNUSED(length);
@@ -5065,7 +5079,8 @@ namespace moe
         }
 
         template <typename T = char, size_t Size>
-        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint64_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint64_t) &&
+            !std::is_same<unsigned long, uint64_t>::value, size_t>::type
         ToHexStringLower(unsigned long value, T (&buffer)[Size])noexcept
         {
             static_assert(Size >= 17, "Buffer is not enough");
@@ -5073,7 +5088,8 @@ namespace moe
         }
 
         template <typename T = char>
-        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint64_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(unsigned long) == sizeof(uint64_t) &&
+            !std::is_same<unsigned long, uint64_t>::value, size_t>::type
         ToHexStringLower(unsigned long value, T* buffer, size_t length)noexcept
         {
             MOE_UNUSED(length);
@@ -5130,28 +5146,32 @@ namespace moe
         }
 
         template <typename T = char, size_t Size>
-        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int32_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int32_t) &&
+            !std::is_same<long, int32_t>::value, size_t>::type
         ToHexString(long value, T (&buffer)[Size])noexcept
         {
             return ToHexString(static_cast<uint32_t>(value), buffer);
         }
 
         template <typename T = char>
-        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int32_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int32_t) &&
+            !std::is_same<long, int32_t>::value, size_t>::type
         ToHexString(long value, T* buffer, size_t length)noexcept
         {
             return ToHexString(static_cast<uint32_t>(value), buffer, length);
         }
 
         template <typename T = char, size_t Size>
-        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int64_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int64_t) &&
+            !std::is_same<long, int64_t>::value, size_t>::type
         ToHexString(long value, T (&buffer)[Size])noexcept
         {
             return ToHexString(static_cast<uint64_t>(value), buffer);
         }
 
         template <typename T = char>
-        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int64_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int64_t) &&
+            !std::is_same<long, int64_t>::value, size_t>::type
         ToHexString(long value, T* buffer, size_t length)noexcept
         {
             return ToHexString(static_cast<uint64_t>(value), buffer, length);
@@ -5206,28 +5226,32 @@ namespace moe
         }
 
         template <typename T = char, size_t Size>
-        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int32_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int32_t) &&
+            !std::is_same<long, int32_t>::value, size_t>::type
         ToHexStringLower(long value, T (&buffer)[Size])noexcept
         {
             return ToHexStringLower(static_cast<uint32_t>(value), buffer);
         }
 
         template <typename T = char>
-        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int32_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int32_t) &&
+            !std::is_same<long, int32_t>::value, size_t>::type
         ToHexStringLower(long value, T* buffer, size_t length)noexcept
         {
             return ToHexStringLower(static_cast<uint32_t>(value), buffer, length);
         }
 
         template <typename T = char, size_t Size>
-        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int64_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int64_t) &&
+            !std::is_same<long, int64_t>::value, size_t>::type
         ToHexStringLower(long value, T (&buffer)[Size])noexcept
         {
             return ToHexStringLower(static_cast<uint64_t>(value), buffer);
         }
 
         template <typename T = char>
-        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int64_t), size_t>::type
+        inline typename std::enable_if<sizeof(T) && sizeof(long) == sizeof(int64_t) &&
+            !std::is_same<long, int64_t>::value, size_t>::type
         ToHexStringLower(long value, T* buffer, size_t length)noexcept
         {
             return ToHexStringLower(static_cast<uint64_t>(value), buffer, length);
