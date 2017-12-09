@@ -847,28 +847,6 @@ namespace moe
                 public decltype(HasMethodToStringExValidator<TChar>::template Test<T>(0))
             {};
 
-            template <typename T>
-            struct LongCaster
-            {
-                using value = T;
-            };
-
-            template <>
-            struct LongCaster<long>
-            {
-                static_assert(sizeof(int32_t) == sizeof(long), "Bad platform");
-
-                using value = int32_t;
-            };
-
-            template <>
-            struct LongCaster<unsigned long>
-            {
-                static_assert(sizeof(uint32_t) == sizeof(unsigned long), "Bad platform");
-
-                using value = uint32_t;
-            };
-
             template <typename TChar>
             using ToStringFormatter = bool(*)(std::basic_string<TChar>&, const void*, const ArrayView<TChar>&);
 
@@ -903,7 +881,7 @@ namespace moe
                 }
             };
 
-            template <typename TChar, typename T, typename P = typename LongCaster<T>::value>
+            template <typename TChar, typename T>
             struct IntergeToStringFormatter
             {
                 static const size_t kPreAllocate = 32;
@@ -911,10 +889,7 @@ namespace moe
                 static bool AppendToString(std::basic_string<TChar>& output, const void* object,
                     const ArrayView<TChar>& format)
                 {
-                    static_assert(std::numeric_limits<T>::max() == std::numeric_limits<P>::max(), "Error");
-                    static_assert(std::numeric_limits<T>::min() == std::numeric_limits<P>::min(), "Error");
-
-                    P value = static_cast<P>(*static_cast<const T*>(object));
+                    T value = *static_cast<const T*>(object);
 
                     bool result = true;
                     size_t count = 0;

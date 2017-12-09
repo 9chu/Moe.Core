@@ -5,6 +5,8 @@
 #pragma once
 #include "Exception.hpp"
 
+#include <array>
+
 namespace moe
 {
     /**
