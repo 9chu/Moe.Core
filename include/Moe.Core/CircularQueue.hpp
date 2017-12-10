@@ -50,7 +50,7 @@ namespace moe
          * @brief 追加一个元素
          * @throw OutOfRangeException 数据越界
          */
-        void Push(const T &obj)
+        void Push(const T& obj)
         {
             if (IsFull())
                 MOE_THROW(OutOfRangeException, "Queue is full");
@@ -58,12 +58,34 @@ namespace moe
             m_iHead = (m_iHead + 1) % m_stStorage.size();
         }
 
-        void Push(T &&obj)
+        void Push(T&& obj)
         {
             if (IsFull())
                 MOE_THROW(OutOfRangeException, "Queue is full");
             m_stStorage[m_iHead] = std::move(obj);
             m_iHead = (m_iHead + 1) % m_stStorage.size();
+        }
+
+        /**
+         * @brief 尝试追加一个元素
+         * @return 是否成功追加元素
+         */
+        bool TryPush(const T& obj)
+        {
+            if (IsFull())
+                return false;
+            m_stStorage[m_iHead] = obj;
+            m_iHead = (m_iHead + 1) % m_stStorage.size();
+            return true;
+        }
+
+        bool TryPush(T&& obj)noexcept
+        {
+            if (IsFull())
+                return false;
+            m_stStorage[m_iHead] = std::move(obj);
+            m_iHead = (m_iHead + 1) % m_stStorage.size();
+            return true;
         }
 
         /**
@@ -77,6 +99,32 @@ namespace moe
             T ret = std::move(m_stStorage[m_iTail]);
             m_iTail = (m_iTail + 1) % m_stStorage.size();
             return ret;
+        }
+
+        /**
+         * @brief 尝试弹出一个元素
+         * @param[out] ret 结果
+         * @return 是否成功弹出一个元素
+         */
+        bool Pop(T& ret)noexcept
+        {
+            if (IsEmpty())
+                return false;
+            ret = std::move(m_stStorage[m_iTail]);
+            m_iTail = (m_iTail + 1) % m_stStorage.size();
+            return true;
+        }
+
+        /**
+         * @brief 清空元素
+         */
+        void Clear()noexcept
+        {
+            while (!IsEmpty())
+            {
+                T ret = std::move(m_stStorage[m_iTail]);
+                m_iTail = (m_iTail + 1) % m_stStorage.size();
+            }
         }
 
     private:
