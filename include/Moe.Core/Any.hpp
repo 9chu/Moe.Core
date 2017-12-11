@@ -24,13 +24,13 @@ namespace moe
      */
     class Any
     {
+        static const size_t StorageSize = (sizeof(void*) > 32u ? sizeof(void*) : 32u) > sizeof(std::string) ?
+            (sizeof(void*) > 32u ? sizeof(void*) : 32u) : sizeof(std::string);
+        static const size_t AlignSize = (alignof(void*) > 8u ? alignof(void*) : 8u) > alignof(std::string) ?
+            (alignof(void*) > 8u ? alignof(void*) : 8u) : alignof(std::string);
+
         union Storage
         {
-            static const size_t StorageSize = (sizeof(void*) > 32u ? sizeof(void*) : 32u) > sizeof(std::string) ?
-                (sizeof(void*) > 32u ? sizeof(void*) : 32u) : sizeof(std::string);
-            static const size_t AlignSize = (alignof(void*) > 8u ? alignof(void*) : 8u) > alignof(std::string) ?
-                (alignof(void*) > 8u ? alignof(void*) : 8u) : alignof(std::string);
-
             void* Pointer;
             std::aligned_storage<StorageSize, AlignSize>::type Buffer;
 

@@ -19,13 +19,13 @@ namespace moe
     {
     public:
         Exception() = default;
-        Exception(const Exception& rhs) = default;
-        Exception(Exception&& rhs)noexcept = default;
+        Exception(const Exception&) = default;
+        Exception(Exception&&) = default;
         ~Exception() = default;
 
     public:
-        Exception& operator=(const Exception& rhs) = default;
-        Exception& operator=(Exception&& rhs)noexcept = default;
+        Exception& operator=(const Exception&) = default;
+        Exception& operator=(Exception&&) = default;
 
     public:
         /**
