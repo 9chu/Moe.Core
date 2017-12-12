@@ -28,17 +28,17 @@ namespace moe
         /**
          * @brief 是否为空
          */
-        bool IsEmpty()noexcept { return m_iHead == m_iTail; }
+        bool IsEmpty()const noexcept { return m_iHead == m_iTail; }
 
         /**
          * @brief 是否为满
          */
-        bool IsFull()noexcept { return (m_iHead + 1) % m_stStorage.size() == m_iTail; }
+        bool IsFull()const noexcept { return (m_iHead + 1) % m_stStorage.size() == m_iTail; }
 
         /**
          * @brief 获取元素数量
          */
-        size_t GetCount()noexcept
+        size_t GetCount()const noexcept
         {
             if (m_iHead >= m_iTail)
                 return m_iHead - m_iTail;
@@ -106,13 +106,30 @@ namespace moe
          * @param[out] ret 结果
          * @return 是否成功弹出一个元素
          */
-        bool Pop(T& ret)noexcept
+        bool TryPop(T& ret)noexcept
         {
             if (IsEmpty())
                 return false;
             ret = std::move(m_stStorage[m_iTail]);
             m_iTail = (m_iTail + 1) % m_stStorage.size();
             return true;
+        }
+
+        /**
+         * @brief 访问顶端元素
+         */
+        T& Top()
+        {
+            if (IsEmpty())
+                MOE_THROW(OutOfRangeException, "Queue is empty");
+            return m_stStorage[m_iTail];
+        }
+
+        const T& Top()const
+        {
+            if (IsEmpty())
+                MOE_THROW(OutOfRangeException, "Queue is empty");
+            return m_stStorage[m_iTail];
         }
 
         /**
