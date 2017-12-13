@@ -178,7 +178,7 @@ namespace moe
         /**
          * @brief 原地剔除字符串开头
          * @tparam TChar 字符类型
-         * @param[inout] str 字符串
+         * @param[in,out] str 字符串
          * @param set 字符集
          */
         template <typename TChar = char>
@@ -223,7 +223,7 @@ namespace moe
         /**
          * @brief 原地剔除字符串开头
          * @tparam TChar 字符类型
-         * @param[inout] str 字符串
+         * @param[in,out] str 字符串
          *
          * 该方法使用Unicode空白字符作为剔除字符集。
          */
@@ -270,7 +270,7 @@ namespace moe
         /**
          * @brief 原地剔除字符串末尾
          * @tparam TChar 字符类型
-         * @param[inout] str 字符串
+         * @param[in,out] str 字符串
          * @param set 字符集
          */
         template <typename TChar = char>
@@ -315,7 +315,7 @@ namespace moe
         /**
          * @brief 原地剔除字符串末尾
          * @tparam TChar 字符类型
-         * @param[inout] str 字符串
+         * @param[in,out] str 字符串
          *
          * 该方法使用Unicode空白字符作为剔除字符集。
          */
@@ -362,7 +362,7 @@ namespace moe
         /**
          * @brief 原地剔除字符串首尾空白
          * @tparam TChar 字符类型
-         * @param[inout] str 字符串
+         * @param[in,out] str 字符串
          * @param set 字符集
          */
         template <typename TChar = char>
@@ -396,7 +396,7 @@ namespace moe
         /**
          * @brief 原地剔除字符串首尾空白
          * @tparam TChar 字符类型
-         * @param[inout] str 字符串
+         * @param[in,out] str 字符串
          *
          * 该方法使用Unicode空白字符作为剔除字符集。
          */
@@ -642,7 +642,7 @@ namespace moe
         /**
          * @brief 全文本替换
          * @tparam TChar 字符类型
-         * @param[inout] out 输出字符串
+         * @param[in,out] out 输出字符串
          * @param pattern 模式
          * @param replace 替换串
          * @return 被替换的个数
