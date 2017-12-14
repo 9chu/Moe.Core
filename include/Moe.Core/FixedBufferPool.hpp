@@ -36,9 +36,9 @@ namespace moe
          */
         struct FixedBuffer
         {
+            bool Free = false;  // 是否空闲
             FixedBuffer* Prev = nullptr;  // 关联链中的上一个缓冲区
             FixedBuffer* Next = nullptr;  // 关联链中的下一个缓冲区
-            bool Free = false;  // 是否空闲
             size_t Size = 0;  // 缓冲区的大小
             uint8_t Data[1];  // 缓冲区
         };
@@ -214,6 +214,7 @@ namespace moe
         size_t GetTotalBufferSize()noexcept
         {
             size_t total = 0;
+            total += m_stBuffer64.GetBlockSize() * m_stBuffer64.GetTotalBufferCount();
             total += m_stBuffer512.GetBlockSize() * m_stBuffer512.GetTotalBufferCount();
             total += m_stBuffer4096.GetBlockSize() * m_stBuffer4096.GetTotalBufferCount();
             total += m_stBuffer32768.GetBlockSize() * m_stBuffer32768.GetTotalBufferCount();
@@ -229,6 +230,7 @@ namespace moe
         size_t GetTotalFreeSize()noexcept
         {
             size_t total = 0;
+            total += m_stBuffer64.GetBlockSize() * m_stBuffer64.GetFreeBufferCount();
             total += m_stBuffer512.GetBlockSize() * m_stBuffer512.GetFreeBufferCount();
             total += m_stBuffer4096.GetBlockSize() * m_stBuffer4096.GetFreeBufferCount();
             total += m_stBuffer32768.GetBlockSize() * m_stBuffer32768.GetFreeBufferCount();
@@ -255,7 +257,9 @@ namespace moe
         {
             FixedBuffer* buffer = nullptr;
 
-            if (sz <= 512)
+            if (sz <= 64)
+                buffer = m_stBuffer64.Alloc();
+            else if (sz <= 512)
                 buffer = m_stBuffer512.Alloc();
             else if (sz <= 4096)
                 buffer = m_stBuffer4096.Alloc();
@@ -270,6 +274,8 @@ namespace moe
             else
                 MOE_THROW(BadArgumentException, "Required buffer size {0} is too big", sz);
 
+            // assert((reinterpret_cast<size_t>(buffer->Data) & (-sizeof(void*))) ==
+            //    reinterpret_cast<size_t>(buffer->Data));
             return static_cast<void*>(buffer->Data);
         }
 
@@ -284,37 +290,33 @@ namespace moe
             assert(!buffer->Free);
 
             size_t sz = buffer->Size;
-            if (sz == 512)
+            switch (sz)
             {
-                m_stBuffer512.Free(buffer);
-                return;
+                case 64:
+                    m_stBuffer64.Free(buffer);
+                    return;
+                case 512:
+                    m_stBuffer512.Free(buffer);
+                    return;
+                case 4096:
+                    m_stBuffer4096.Free(buffer);
+                    return;
+                case 32768:
+                    m_stBuffer32768.Free(buffer);
+                    return;
+                case 262144:
+                    m_stBuffer262144.Free(buffer);
+                    return;
+                case 2097152:
+                    m_stBuffer2097152.Free(buffer);
+                    return;
+                case 16777216:
+                    m_stBuffer16777216.Free(buffer);
+                    return;
+                default:
+                    assert(false);
+                    break;
             }
-            else if (sz == 4096)
-            {
-                m_stBuffer4096.Free(buffer);
-                return;
-            }
-            else if (sz == 32768)
-            {
-                m_stBuffer32768.Free(buffer);
-                return;
-            }
-            else if (sz == 262144)
-            {
-                m_stBuffer262144.Free(buffer);
-                return;
-            }
-            else if (sz == 2097152)
-            {
-                m_stBuffer2097152.Free(buffer);
-                return;
-            }
-            else if (sz == 16777216)
-            {
-                m_stBuffer16777216.Free(buffer);
-                return;
-            }
-            assert(false);
         }
 
         /**
@@ -322,6 +324,7 @@ namespace moe
          */
         void CollectGarbage()noexcept
         {
+            m_stBuffer64.CollectGarbage();
             m_stBuffer512.CollectGarbage();
             m_stBuffer4096.CollectGarbage();
             m_stBuffer32768.CollectGarbage();
@@ -331,6 +334,7 @@ namespace moe
         }
 
     private:
+        FixedBufferManager<64> m_stBuffer64;  // 64
         FixedBufferManager<512> m_stBuffer512;  // 512
         FixedBufferManager<4096> m_stBuffer4096;  // 4K
         FixedBufferManager<32768> m_stBuffer32768;  // 32K
