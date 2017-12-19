@@ -20,9 +20,10 @@ namespace moe
     public:
         enum class OptionReadResult
         {
-            Ok,  // 解析成功
-            ParseError,  // 解析错误
-            Continue,  // 成功，可以继续解析
+            Terminated,
+            ParseError,
+            NeedMore,
+            MoreOrEmpty,
         };
 
         using OptionReadingStartFunc = OptionReadResult(*)(Any&, const Any&);  // 第二个参数指定默认值，通常只对bool类型有意义
@@ -91,6 +92,7 @@ namespace moe
             bool Required = false;
             Any DefaultValue;
             int ArgumentCount = 0;
+            bool Set = false;
 
             OptionReadingStartFunc OnStart = nullptr;
             OptionReadingFunc OnReadArg = nullptr;
@@ -161,12 +163,14 @@ namespace moe
     private:
         /**
          * @brief 解析命令行
+         * @exception BadArgumentException 参数无效时抛出
+         * @exception BadFormatException 用户输入无效时抛出
          * @param argc 参数个数
          * @param argv 参数值列表
          * @param[in,out] nonOptions 非选项结果
          * @return 解析个数
          */
-        ssize_t Parse(uint32_t argc, const char* argv[], std::vector<std::string>* nonOptions);
+        size_t Parse(uint32_t argc, const char* argv[], std::vector<std::string>* nonOptions);
 
     private:
         std::vector<Option> m_stOptions;
@@ -183,7 +187,7 @@ namespace moe
         {
             auto p = target.CastTo<bool*>();
             *p = !defaultVal.CastTo<bool>();
-            return OptionReadResult::Ok;
+            return OptionReadResult::Terminated;
         }
 
         static OptionReadResult OnReadArg(Any&, ArrayView<char>)
@@ -205,14 +209,14 @@ namespace moe
 
         static OptionReadResult OnStart(Any&, const Any&)
         {
-            return OptionReadResult::Continue;
+            return OptionReadResult::NeedMore;
         }
 
         static OptionReadResult OnReadArg(Any& target, ArrayView<char> arg)
         {
             auto p = target.CastTo<std::string*>();
             *p = std::string(arg.GetBuffer(), arg.GetSize());
-            return OptionReadResult::Ok;
+            return OptionReadResult::Terminated;
         }
 
         static void OnSetDefault(Any& target, const Any& defaultVal)
@@ -229,7 +233,7 @@ namespace moe
 
         static OptionReadResult OnStart(Any&, const Any&)
         {
-            return OptionReadResult::Continue;
+            return OptionReadResult::NeedMore;
         }
 
         static OptionReadResult OnReadArg(Any& target, ArrayView<char> arg)
@@ -242,7 +246,7 @@ namespace moe
                 return OptionReadResult::ParseError;
 
             *p = static_cast<P>(result);
-            return OptionReadResult::Ok;
+            return OptionReadResult::Terminated;
         }
 
         static void OnSetDefault(Any& target, const Any& defaultVal)
@@ -259,7 +263,7 @@ namespace moe
 
         static OptionReadResult OnStart(Any&, const Any&)
         {
-            return OptionReadResult::Continue;
+            return OptionReadResult::NeedMore;
         }
 
         static OptionReadResult OnReadArg(Any& target, ArrayView<char> arg)
@@ -272,7 +276,7 @@ namespace moe
                 return OptionReadResult::ParseError;
 
             *p = static_cast<P>(result);
-            return OptionReadResult::Ok;
+            return OptionReadResult::Terminated;
         }
 
         static void OnSetDefault(Any& target, const Any& defaultVal)
@@ -289,7 +293,7 @@ namespace moe
 
         static OptionReadResult OnStart(Any&, const Any&)
         {
-            return OptionReadResult::Continue;
+            return OptionReadResult::NeedMore;
         }
 
         static OptionReadResult OnReadArg(Any& target, ArrayView<char> arg)
@@ -302,7 +306,7 @@ namespace moe
                 return OptionReadResult::ParseError;
 
             *p = static_cast<P>(result);
-            return OptionReadResult::Ok;
+            return OptionReadResult::Terminated;
         }
 
         static void OnSetDefault(Any& target, const Any& defaultVal)
@@ -319,7 +323,7 @@ namespace moe
 
         static OptionReadResult OnStart(Any&, const Any&)
         {
-            return OptionReadResult::Continue;
+            return OptionReadResult::MoreOrEmpty;
         }
 
         static OptionReadResult OnReadArg(Any& target, ArrayView<char> arg)
@@ -329,11 +333,11 @@ namespace moe
             P storage;
             Any storageAny(&storage);
             auto result = OptionReader<P>::OnReadArg(storageAny, arg);
-            if (result != OptionReadResult::Ok)  // 只有P=vector<T>时才会出现Continue，不允许这么做
+            if (result != OptionReadResult::Terminated)  // 只有P=vector<T>时才会出现Continue，不允许这么做
                 return OptionReadResult::ParseError;
 
             p->emplace_back(std::move(storage));
-            return OptionReadResult::Continue;
+            return OptionReadResult::MoreOrEmpty;
         }
 
         static void OnSetDefault(Any& target, const Any& defaultVal)

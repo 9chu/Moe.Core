@@ -114,13 +114,13 @@ size_t BytesViewStream::Seek(int64_t offset, StreamSeekOrigin origin)
 void BytesViewStream::SetLength(size_t length)
 {
     MOE_UNUSED(length);
-    MOE_THROW(OperationNotSupport, "BytesView cannot reset size");
+    MOE_THROW(OperationNotSupportException, "BytesView cannot reset size");
 }
 
 void BytesViewStream::WriteByte(uint8_t b)
 {
     if (!m_stMutableView)
-        MOE_THROW(OperationNotSupport, "BytesView is not mutable");
+        MOE_THROW(OperationNotSupportException, "BytesView is not mutable");
     if (m_uPosition >= m_stMutableView->GetSize())
         MOE_THROW(OutOfRangeException, "Write out of range");
 
@@ -132,7 +132,7 @@ void BytesViewStream::Write(BytesView view, size_t count)
     assert(view.GetSize() >= count);
     count = std::min(count, view.GetSize());
     if (!m_stMutableView)
-        MOE_THROW(OperationNotSupport, "BytesView is not mutable");
+        MOE_THROW(OperationNotSupportException, "BytesView is not mutable");
     if (m_uPosition + count > m_stMutableView->GetSize())
         MOE_THROW(OutOfRangeException, "Write out of range");
 

@@ -242,20 +242,20 @@ bool XmlElement::IsText()const noexcept
 std::string& XmlElement::Stringify(std::string& str, int indent)const
 {
     if (m_stName.empty())
-        MOE_THROW(BadFormat, "Invalid empty tag name");
+        MOE_THROW(BadFormatException, "Invalid empty tag name");
     if (!IsXmlNamePrefix(m_stName[0]))
-        MOE_THROW(BadFormat, "Invalid tag name \"{0}\"", m_stName);
+        MOE_THROW(BadFormatException, "Invalid tag name \"{0}\"", m_stName);
     for (auto& i : m_stName)
     {
         if (!IsXmlNameLetter(i))
-            MOE_THROW(BadFormat, "Invalid tag name \"{0}\"", m_stName);
+            MOE_THROW(BadFormatException, "Invalid tag name \"{0}\"", m_stName);
     }
     for (auto& i : m_stAttributes)
     {
         for (auto& j : i.first)
         {
             if (!IsXmlNameLetter(j))
-                MOE_THROW(BadFormat, "Invalid attribute key \"{0}\", tag \"{1}\"", i.first, m_stName);
+                MOE_THROW(BadFormatException, "Invalid attribute key \"{0}\", tag \"{1}\"", i.first, m_stName);
         }
     }
 
@@ -716,9 +716,9 @@ namespace
         XmlElementPtr GetRootNode()
         {
             if (!m_pRoot)
-                MOE_THROW(BadFormat, "Empty document");
+                MOE_THROW(BadFormatException, "Empty document");
             if (!m_stStack.empty())
-                MOE_THROW(BadFormat, "Unclosed root element");
+                MOE_THROW(BadFormatException, "Unclosed root element");
             return m_pRoot;
         }
 
@@ -740,7 +740,7 @@ namespace
             assert(!m_stStack.empty());
             if (m_stStack.top()->GetName() != name)
             {
-                MOE_THROW(BadFormat, "Xml element not match, expect tag \"{0}\", but found \"{1}\"",
+                MOE_THROW(BadFormatException, "Xml element not match, expect tag \"{0}\", but found \"{1}\"",
                     m_stStack.top()->GetName(), name);
             }
             m_stStack.pop();

@@ -99,7 +99,7 @@ namespace moe
                                 }
                             }
 
-                            MOE_THROW(BadFormat, "Invalid character '{0}'.", c);
+                            MOE_THROW(BadFormatException, "Invalid character '{0}'.", c);
                         }
                         ret.push_back(c);
                         break;

@@ -198,14 +198,14 @@ namespace moe
      *
      * 通常用于指示字符串编码错误。
      */
-    MOE_DEFINE_EXCEPTION(InvalidEncoding);
+    MOE_DEFINE_EXCEPTION(InvalidEncodingException);
 
     /**
      * @brief 无效格式
      *
      * 通常用于指示文件/参数等格式的错误。
      */
-    MOE_DEFINE_EXCEPTION(BadFormat);
+    MOE_DEFINE_EXCEPTION(BadFormatException);
 
     /**
      * @brief API错误
@@ -234,7 +234,7 @@ namespace moe
     /**
      * @brief 不支持的操作
      */
-    MOE_DEFINE_EXCEPTION(OperationNotSupport);
+    MOE_DEFINE_EXCEPTION(OperationNotSupportException);
 
     /**
      * @brief 操作被取消异常

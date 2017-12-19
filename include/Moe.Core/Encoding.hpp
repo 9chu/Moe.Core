@@ -202,7 +202,7 @@ namespace moe
                 {
                     case EncodingResult::Reject:  // 将错误的序列进行替换
                         if (replacer == 0)
-                            MOE_THROW(InvalidEncoding, "Bad input character near {0}", it - src.begin());
+                            MOE_THROW(InvalidEncodingException, "Bad input character near {0}", it - src.begin());
                         decoderOutput = replacer;
                         lastDecoderResult = EncodingResult::Accept;
                     case EncodingResult::Accept:
@@ -211,14 +211,17 @@ namespace moe
                             case EncodingResult::Reject:
                             case EncodingResult::Incomplete:
                                 if (replacer == 0)
-                                    MOE_THROW(InvalidEncoding, "Cannot encode character near {0}", it - src.begin());
+                                {
+                                    MOE_THROW(InvalidEncodingException, "Cannot encode character near {0}",
+                                        it - src.begin());
+                                }
 
                                 // 试图使用replacer进行编码
                                 switch (encoder(replacer, destOutput, destOutputCount))
                                 {
                                     case EncodingResult::Reject:
                                     case EncodingResult::Incomplete:  // 若替换为替换字符依旧无法编码,则抛出异常
-                                        MOE_THROW(InvalidEncoding, "Cannot encode character near {0}",
+                                        MOE_THROW(InvalidEncodingException, "Cannot encode character near {0}",
                                             it - src.begin());
                                     case EncodingResult::Accept:
                                         break;
@@ -238,13 +241,13 @@ namespace moe
             if (lastDecoderResult != EncodingResult::Accept)
             {
                 if (replacer == 0)
-                    MOE_THROW(InvalidEncoding, "Not all character has been decoded");
+                    MOE_THROW(InvalidEncodingException, "Not all character has been decoded");
 
                 switch (encoder(replacer, destOutput, destOutputCount))
                 {
                     case EncodingResult::Reject:
-                    case EncodingResult::Incomplete:
-                        MOE_THROW(InvalidEncoding, "Cannot encode character");  // 若替换为替换字符依旧无法编码,则抛出异常
+                    case EncodingResult::Incomplete:  // 若替换为替换字符依旧无法编码,则抛出异常
+                        MOE_THROW(InvalidEncodingException, "Cannot encode character");
                     case EncodingResult::Accept:
                         break;
                 }
