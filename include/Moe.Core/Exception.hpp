@@ -7,6 +7,7 @@
 #include <unordered_map>
 
 #include "Any.hpp"
+#include "RefPtr.hpp"
 #include "StringUtils.hpp"
 
 namespace moe
@@ -17,21 +18,47 @@ namespace moe
     class Exception :
         public std::exception
     {
+        struct InternalStorage :
+            public RefBase<InternalStorage>
+        {
+            const char* SourceFile = nullptr;
+            const char* FunctionName = nullptr;
+            uint32_t LineNumber = 0;
+            std::string Desc;
+
+            std::string FullDescCache;
+
+            std::unordered_map<std::string, Any> Info;
+        };
+
     public:
-        Exception() = default;
-        Exception(const Exception&) = default;
-        Exception(Exception&&) = default;
+        Exception()
+        {
+            m_pStorage = MakeRef<InternalStorage>();
+        }
+        Exception(const Exception& rhs)noexcept  // 拷贝构造不能抛出异常
+            : m_pStorage(rhs.m_pStorage) {}
+
+        Exception(Exception&& rhs) = delete;
         ~Exception() = default;
 
     public:
-        Exception& operator=(const Exception&) = default;
-        Exception& operator=(Exception&&) = default;
+        Exception& operator=(const Exception& rhs)noexcept
+        {
+            m_pStorage = rhs.m_pStorage;
+            return *this;
+        }
+        Exception& operator=(Exception&&) = delete;
 
     public:
         /**
          * @brief 获取异常抛出点的源文件
          */
-        const char* GetSourceFile()const noexcept { return m_pszSourceFile; }
+        const char* GetSourceFile()const noexcept
+        {
+            assert(m_pStorage);
+            return m_pStorage->SourceFile;
+        }
 
         /**
          * @brief 设置抛出点的源文件
@@ -39,14 +66,19 @@ namespace moe
          */
         void SetSourceFile(const char* filename)noexcept
         {
-            m_pszSourceFile = filename;
-            m_strFullDescCache.clear();
+            assert(m_pStorage);
+            m_pStorage->SourceFile = filename;
+            m_pStorage->FullDescCache.clear();
         }
 
         /**
          * @brief 获取异常抛出点的函数名
          */
-        const char* GetFunctionName()const noexcept { return m_pszFunctionName; }
+        const char* GetFunctionName()const noexcept
+        {
+            assert(m_pStorage);
+            return m_pStorage->FunctionName;
+        }
 
         /**
          * @brief 设置抛出点的函数名
@@ -54,14 +86,19 @@ namespace moe
          */
         void SetFunctionName(const char* name)noexcept
         {
-            m_pszFunctionName = name;
-            m_strFullDescCache.clear();
+            assert(m_pStorage);
+            m_pStorage->FunctionName = name;
+            m_pStorage->FullDescCache.clear();
         }
 
         /**
          * @brief 获取异常抛出点的行号
          */
-        uint32_t GetLineNumber()const noexcept { return m_iLineNumber; }
+        uint32_t GetLineNumber()const noexcept
+        {
+            assert(m_pStorage);
+            return m_pStorage->LineNumber;
+        }
 
         /**
          * @brief 设置抛出点的行号
@@ -69,14 +106,19 @@ namespace moe
          */
         void SetLineNumber(uint32_t line)noexcept
         {
-            m_iLineNumber = line;
-            m_strFullDescCache.clear();
+            assert(m_pStorage);
+            m_pStorage->LineNumber = line;
+            m_pStorage->FullDescCache.clear();
         }
 
         /**
          * @brief 获取异常的描述
          */
-        const std::string& GetDescription()const noexcept { return m_strDesc; }
+        const std::string& GetDescription()const noexcept
+        {
+            assert(m_pStorage);
+            return m_pStorage->Desc;
+        }
 
         /**
          * @brief 设置异常描述
@@ -84,8 +126,9 @@ namespace moe
          */
         void SetDescription(const std::string& str)
         {
-            m_strDesc = str;
-            m_strFullDescCache.clear();
+            assert(m_pStorage);
+            m_pStorage->Desc = str;
+            m_pStorage->FullDescCache.clear();
         }
 
         /**
@@ -94,8 +137,9 @@ namespace moe
          */
         void SetDescription(std::string&& str)noexcept
         {
-            m_strDesc = std::move(str);
-            m_strFullDescCache.clear();
+            assert(m_pStorage);
+            m_pStorage->Desc = std::move(str);
+            m_pStorage->FullDescCache.clear();
         }
 
         /**
@@ -109,8 +153,9 @@ namespace moe
         template <typename T>
         T GetInfo(const std::string& key)const noexcept
         {
-            auto it = m_mapInfo.find(key);
-            if (it == m_mapInfo.end())
+            assert(m_pStorage);
+            auto it = m_pStorage->Info.find(key);
+            if (it == m_pStorage->Info.end())
                 return T();
             return it->second.SafeCastTo<T>();
         }
@@ -124,7 +169,8 @@ namespace moe
         template <typename T>
         void SetInfo(const std::string& key, T&& value)
         {
-            m_mapInfo[key] = Any(std::forward<T&&>(value));
+            assert(m_pStorage);
+            m_pStorage->Info[key] = Any(std::forward<T&&>(value));
         }
 
         /**
@@ -136,14 +182,7 @@ namespace moe
         const char* what()const noexcept override;  // 等价于ToString
 
     private:
-        const char* m_pszSourceFile = nullptr;
-        const char* m_pszFunctionName = nullptr;
-        uint32_t m_iLineNumber = 0;
-        std::string m_strDesc;
-
-        mutable std::string m_strFullDescCache;
-
-        std::unordered_map<std::string, Any> m_mapInfo;
+        RefPtr<InternalStorage> m_pStorage;
     };
 }
 

@@ -9,13 +9,14 @@ using namespace moe;
 
 const std::string& Exception::ToString()const
 {
-    if (m_strFullDescCache.empty())
+    assert(m_pStorage);
+    if (m_pStorage->FullDescCache.empty())
     {
-        StringUtils::Format(m_strFullDescCache, "[{0}:{1}] {2}: {3}", GetSourceFile(), GetLineNumber(),
+        StringUtils::Format(m_pStorage->FullDescCache, "[{0}:{1}] {2}: {3}", GetSourceFile(), GetLineNumber(),
             GetFunctionName(), GetDescription());
     }
 
-    return m_strFullDescCache;
+    return m_pStorage->FullDescCache;
 }
 
 const char* Exception::what()const noexcept
