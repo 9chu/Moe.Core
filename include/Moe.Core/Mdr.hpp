@@ -31,7 +31,7 @@ namespace moe
             MAX = 9,
         };
 
-        using TagType = uint16_t;
+        using TagType = uint64_t;
 
         /*
          * VarInt编码举例：
@@ -109,5 +109,32 @@ namespace moe
         {
             return static_cast<int64_t>(n >> 1) ^ -(static_cast<int64_t>(n) & 1);
         }
+
+        class Reader
+        {
+        public:
+            Reader()noexcept = default;
+            Reader(const Reader&)noexcept = default;
+            Reader(Reader&&)noexcept = default;
+
+            Reader(Stream* stream)noexcept
+                : m_pStream(stream) {}
+
+        public:
+
+        private:
+            void ReadFixed8(uint8_t* out);
+
+            void ReadFixed32(uint8_t* out);
+
+            void ReadFixed64(uint8_t* out);
+
+            void ReadVarint(uint8_t* out);
+
+            void ReadBuffer(std::string* out);
+
+        private:
+            Stream* m_pStream = nullptr;
+        };
     };
 }
