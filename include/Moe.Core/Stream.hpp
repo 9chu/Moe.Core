@@ -99,6 +99,39 @@ namespace moe
         virtual size_t Seek(int64_t offset, StreamSeekOrigin origin) = 0;
 
         /**
+         * @brief 从当前位置开始跳过若干字节
+         * @param count 跳过数量
+         * @return 实际跳过数量
+         */
+        size_t Skip(size_t count)
+        {
+            if (IsSeekable())
+            {
+                assert(count <= std::numeric_limits<int64_t>::max());
+                auto current = GetPosition();
+                auto newPosition = Seek(count, StreamSeekOrigin::Current);
+                return newPosition - current;
+            }
+            else
+            {
+                uint8_t buffer[256];
+                MutableBytesView view(buffer, sizeof(buffer));
+
+                size_t totalCount = 0;
+                while (count > 0)
+                {
+                    auto readCount = Read(view, std::min(view.GetSize(), count));
+                    if (readCount == 0)
+                        break;
+                    assert(count >= readCount);
+                    count -= readCount;
+                    totalCount += readCount;
+                }
+                return totalCount;
+            }
+        }
+
+        /**
          * @brief 设置流的长度
          * @exception OperationNotSupport 若不支持该操作则抛出异常
          */
@@ -126,7 +159,7 @@ namespace moe
         {
             assert(other);
 
-            uint8_t buffer[1024];
+            uint8_t buffer[256];
             MutableBytesView view(buffer, sizeof(buffer));
 
             size_t readCount = 0;
@@ -152,7 +185,7 @@ namespace moe
         {
             assert(other);
 
-            uint8_t buffer[1024];
+            uint8_t buffer[256];
             MutableBytesView view(buffer, sizeof(buffer));
 
             size_t readCount = 0;

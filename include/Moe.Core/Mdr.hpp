@@ -33,6 +33,12 @@ namespace moe
 
         using TagType = uint64_t;
 
+        struct FieldHead
+        {
+            TagType Tag;
+            WireTypes Type;
+        };
+
         /*
          * VarInt编码举例：
          *   整数        0100|1111 000|01111 11|101111 1|0100001
@@ -123,15 +129,140 @@ namespace moe
         public:
 
         private:
-            void ReadFixed8(uint8_t* out);
+            FieldHead ReadHead()
+            {
+                assert(m_pStream);
+                FieldHead ret;
+                auto h = m_pStream->ReadByte();
+                if (h < 0)
+                    MOE_THROW(OutOfRangeException, "Eof");
+                auto t = static_cast<TagType>(h & 0xF0) >> 4;
+                auto tt = static_cast<uint32_t>(h & 0x0F);
+                if (tt >= static_cast<uint32_t>(WireTypes::MAX))
+                    MOE_THROW(BadFormatException, "Unknown wire type {0}", tt);
+                if (t == 0xF)
+                    t = Mdr::ReadVarint(m_pStream) + 0xF;
+                ret.Tag = t;
+                ret.Type = static_cast<WireTypes>(tt);
+                return ret;
+            }
 
-            void ReadFixed32(uint8_t* out);
+            void ReadFixed8(uint8_t* out)
+            {
+                assert(m_pStream);
+                auto ret = m_pStream->ReadByte();
+                if (ret < 0)
+                    MOE_THROW(OutOfRangeException, "Eof");
+                if (out)
+                    *out = static_cast<uint8_t>(ret);
+            }
 
-            void ReadFixed64(uint8_t* out);
+            void ReadFixed32(uint32_t* out)
+            {
+                assert(m_pStream);
+                uint8_t buffer[4];
+                if (m_pStream->Read(MutableBytesView(buffer, 4), 4) != 4)
+                    MOE_THROW(OutOfRangeException, "Eof");
+                if (out)
+                    *out = buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24);
+            }
 
-            void ReadVarint(uint8_t* out);
+            void ReadFixed64(uint64_t* out)
+            {
+                assert(m_pStream);
+                uint8_t buffer[8];
+                if (m_pStream->Read(MutableBytesView(buffer, 8), 8) != 8)
+                    MOE_THROW(OutOfRangeException, "Eof");
+                if (out)
+                {
+                    *out = buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24) |
+                        ((uint64_t)buffer[4] << 32) | ((uint64_t)buffer[5] << 40) | ((uint64_t)buffer[6] << 48) |
+                        ((uint64_t)buffer[7] << 56);
+                }
+            }
 
-            void ReadBuffer(std::string* out);
+            void ReadVarint(uint64_t* out)
+            {
+                assert(m_pStream);
+                auto ret = Mdr::ReadVarint(m_pStream);
+                if (out)
+                    *out = ret;
+            }
+
+            void ReadBuffer(std::string* out)
+            {
+                assert(m_pStream);
+                auto len = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
+                if (out)
+                {
+                    out->resize(len);
+                    if (m_pStream->Read(MutableBytesView(reinterpret_cast<uint8_t*>(out->data()), out->length()), len)
+                        != len)
+                    {
+                        MOE_THROW(OutOfRangeException, "Eof");
+                    }
+                }
+                else
+                    m_pStream->Skip(len);
+            }
+
+            /*
+            template <typename Container>
+            void ReadList(Container* container)
+            {
+                assert(m_pStream);
+                auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
+
+                if (container)
+                {
+                    container->clear();
+                    container->reserve(count);
+
+                    for (size_t i = 0; i < count; ++i)
+                    {
+                        Container::value_type v;
+                        Read(v, 0);
+                        container->emplace_back(std::move(v));
+                    }
+                }
+                else
+                {
+                    for (size_t i = 0; i < count; ++i)
+                        Skip(0);
+                }
+            }
+
+            template <typename Container>
+            void ReadDict(Container* container)
+            {
+                assert(m_pStream);
+                auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
+
+                if (container)
+                {
+                    container->clear();
+                    container->reserve(count);
+                    for (size_t i = 0; i < count; ++i)
+                    {
+                        Container::key_type k;
+                        Container::value_type v;
+                        Read(k, 0);
+                        Read(v, 1);
+                        auto ret = container->emplace(std::move(k), std::move(v));
+                        if (!ret.second)
+                            MOE_THROW(BadFormatException, "Duplicated key \"{0}\"", k);
+                    }
+                }
+                else
+                {
+                    for (size_t i = 0; i < count; ++i)
+                    {
+                        Skip(0);
+                        Skip(1);
+                    }
+                }
+            }
+             */
 
         private:
             Stream* m_pStream = nullptr;
