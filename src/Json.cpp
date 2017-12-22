@@ -1103,7 +1103,7 @@ namespace
                     m_stStringBuffer.push_back('x');
                     Next();
 
-                    if (!('0' <= c && c <= '9'))
+                    if (!(('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')))
                         ThrowError("Unexpected character {0}", PrintChar(c));
 
                     base = 16;

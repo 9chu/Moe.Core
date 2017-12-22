@@ -40,6 +40,9 @@ TEST(Json, Parse5)
     EXPECT_TRUE(std::isnan(Json5::Parse("NaN").Get<double>()));
     EXPECT_TRUE(std::isinf(Json5::Parse("-Infinity").Get<double>()));
     EXPECT_EQ(Json5::Parse("0x42").Get<double>(), 0x42);
+    EXPECT_EQ(Json5::Parse("0x4F").Get<double>(), 0x4F);
+    EXPECT_EQ(Json5::Parse("0xA").Get<double>(), 0xA);
+    EXPECT_EQ(Json5::Parse("0xa").Get<double>(), 0xa);
     EXPECT_EQ(Json5::Parse("0E+").Get<double>(), 0);
     EXPECT_EQ(Json5::Parse(".2e-3").Get<double>(), 0.2e-3);
     EXPECT_EQ(Json5::Parse("123.456e-7").Get<double>(), 123.456e-7);
