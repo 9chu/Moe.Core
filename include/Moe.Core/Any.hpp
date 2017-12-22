@@ -267,7 +267,7 @@ namespace moe
 
         operator bool()const noexcept
         {
-            return IsEmpty();
+            return !IsEmpty();
         }
 
     public:

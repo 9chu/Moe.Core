@@ -186,7 +186,10 @@ namespace moe
         static OptionReadResult OnStart(Any& target, const Any& defaultVal)
         {
             auto p = target.CastTo<bool*>();
-            *p = !defaultVal.CastTo<bool>();
+            if (defaultVal)
+                *p = !defaultVal.CastTo<bool>();
+            else
+                *p = true;
             return OptionReadResult::Terminated;
         }
 
@@ -198,7 +201,10 @@ namespace moe
         static void OnSetDefault(Any& target, const Any& defaultVal)
         {
             auto p = target.CastTo<bool*>();
-            *p = defaultVal.CastTo<bool>();
+            if (defaultVal)
+                *p = defaultVal.CastTo<bool>();
+            else
+                *p = false;
         }
     };
 
@@ -221,8 +227,11 @@ namespace moe
 
         static void OnSetDefault(Any& target, const Any& defaultVal)
         {
-            auto p = target.CastTo<bool*>();
-            *p = defaultVal.CastTo<bool>();
+            auto p = target.CastTo<std::string*>();
+            if (defaultVal)
+                *p = defaultVal.CastTo<std::string>();
+            else
+                p->clear();
         }
     };
 
@@ -252,7 +261,10 @@ namespace moe
         static void OnSetDefault(Any& target, const Any& defaultVal)
         {
             auto p = target.CastTo<P*>();
-            *p = defaultVal.CastTo<P>();
+            if (defaultVal)
+                *p = defaultVal.CastTo<P>();
+            else
+                *p = P();
         }
     };
 
@@ -312,7 +324,10 @@ namespace moe
         static void OnSetDefault(Any& target, const Any& defaultVal)
         {
             auto p = target.CastTo<P*>();
-            *p = defaultVal.CastTo<P>();
+            if (defaultVal)
+                *p = defaultVal.CastTo<P>();
+            else
+                *p = P();
         }
     };
 
@@ -343,7 +358,10 @@ namespace moe
         static void OnSetDefault(Any& target, const Any& defaultVal)
         {
             auto p = target.CastTo<P*>();
-            *p = defaultVal.CastTo<P>();
+            if (defaultVal)
+                *p = defaultVal.CastTo<P>();
+            else
+                *p = P();
         }
     };
 }
