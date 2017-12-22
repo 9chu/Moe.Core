@@ -195,11 +195,16 @@ namespace moe
                 auto len = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
                 if (out)
                 {
-                    out->resize(len);
-                    if (m_pStream->Read(MutableBytesView(reinterpret_cast<uint8_t*>(out->data()), out->length()), len)
-                        != len)
+                    if (len == 0)
+                        out->clear();
+                    else
                     {
-                        MOE_THROW(OutOfRangeException, "Eof");
+                        out->resize(len);
+                        if (m_pStream->Read(MutableBytesView(reinterpret_cast<uint8_t*>(&out[0]), out->length()), len)
+                            != len)
+                        {
+                            MOE_THROW(OutOfRangeException, "Eof");
+                        }
                     }
                 }
                 else
