@@ -3,6 +3,10 @@
  * @date 2017/12/19
  */
 #pragma once
+#include <map>
+#include <vector>
+#include <unordered_map>
+
 #include "Stream.hpp"
 
 namespace moe
@@ -23,7 +27,7 @@ namespace moe
             Fixed32 = 2,  // float
             Fixed64 = 3,  // double
             Varint = 4,  // int
-            Buffer = 5,  // string/bytes
+            Buffer = 5,  // string/vector<uint8_t>/MutableBytesView
             List = 6,  // vector<T>/array<T>
             Map = 7,  // unordered_map<K,V>/map<K,V>
             Structure = 8,  // struct
@@ -260,18 +264,12 @@ namespace moe
                 auto head = ReadHead();
                 if (head.Tag != tag)
                     MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
-                switch (head.Type)
-                {
-                    case WireTypes::Fixed32:
-                        {
-                            uint32_t v = 0;
-                            ReadFixed32(&v);
-                            *reinterpret_cast<uint32_t*>(&out) = v;
-                        }
-                        break;
-                    default:
-                        MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
-                }
+                if (head.Type != WireTypes::Fixed32)
+                    MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+
+                uint32_t v = 0;
+                ReadFixed32(&v);
+                out = BitCast<float>(v);
             }
 
             void Read(double& out, TagType tag, unsigned deep=0u)
@@ -287,7 +285,14 @@ namespace moe
                         {
                             uint32_t v = 0;
                             ReadFixed32(&v);
-                            *reinterpret_cast<uint32_t*>(&out) = v;
+                            out = BitCast<float>(v);
+                        }
+                        break;
+                    case WireTypes::Fixed64:
+                        {
+                            uint64_t v = 0;
+                            ReadFixed64(&v);
+                            out = BitCast<double>(v);
                         }
                         break;
                     default:
@@ -297,18 +302,97 @@ namespace moe
 
             void Read(std::string& out, TagType tag, unsigned deep=0u)
             {
+                SkipUntil(tag, deep);
 
+                auto head = ReadHead();
+                if (head.Tag != tag)
+                    MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
+                if (head.Type != WireTypes::Buffer)
+                    MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+
+                ReadBuffer(out);
             }
 
-            template <size_t Size>
-            void Read(std::array<uint8_t, Size>& out, TagType tag, unsigned deep=0u)
+            void Read(std::vector<uint8_t>& out, TagType tag, unsigned deep=0u)
             {
+                SkipUntil(tag, deep);
 
+                auto head = ReadHead();
+                if (head.Tag != tag)
+                    MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
+                if (head.Type != WireTypes::Buffer)
+                    MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+
+                ReadBuffer(out);
             }
 
-            void Read(MutableBytesView out, TagType tag, unsigned deep=0u)
+            void Read(MutableBytesView out, size_t& sz, TagType tag, unsigned deep=0u)
             {
+                SkipUntil(tag, deep);
 
+                auto head = ReadHead();
+                if (head.Tag != tag)
+                    MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
+                if (head.Type != WireTypes::Buffer)
+                    MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+
+                sz = ReadBuffer(out);
+            }
+
+            template <typename TValue>
+            void Read(std::vector<TValue>& out, TagType tag, unsigned deep=0u)
+            {
+                SkipUntil(tag, deep);
+
+                auto head = ReadHead();
+                if (head.Tag != tag)
+                    MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
+                if (head.Type != WireTypes::List)
+                    MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+
+                ReadList(out, deep);
+            }
+
+            template <typename TValue, size_t Count>
+            void Read(std::array<TValue, Count>& out, size_t& sz, TagType tag, unsigned deep=0u)
+            {
+                SkipUntil(tag, deep);
+
+                auto head = ReadHead();
+                if (head.Tag != tag)
+                    MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
+                if (head.Type != WireTypes::List)
+                    MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+
+                sz = ReadList(MutableArrayView<TValue>(&out[0], out.size()), deep);
+            }
+
+            template <typename TKey, typename TValue>
+            void Read(std::map<TKey, TValue>& out, TagType tag, unsigned deep=0u)
+            {
+                SkipUntil(tag, deep);
+
+                auto head = ReadHead();
+                if (head.Tag != tag)
+                    MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
+                if (head.Type != WireTypes::Map)
+                    MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+
+                ReadDict(out, deep);
+            }
+
+            template <typename TKey, typename TValue>
+            void Read(std::unordered_map<TKey, TValue>& out, TagType tag, unsigned deep=0u)
+            {
+                SkipUntil(tag, deep);
+
+                auto head = ReadHead();
+                if (head.Tag != tag)
+                    MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
+                if (head.Type != WireTypes::Map)
+                    MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+
+                ReadDict(out, deep);
             }
 
         private:
@@ -429,43 +513,95 @@ namespace moe
                     *out = ret;
             }
 
-            void ReadBuffer(std::string* out)
+            void ReadBuffer(std::string& out)
             {
                 assert(m_pStream);
                 auto len = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
-                if (out)
+                if (len == 0)
+                    out.clear();
+                else
                 {
-                    if (len == 0)
-                        out->clear();
-                    else
+                    out.resize(len);
+                    if (m_pStream->Read(MutableBytesView(reinterpret_cast<uint8_t*>(&out[0]), out.length()), len)
+                        != len)
                     {
-                        out->resize(len);
-                        if (m_pStream->Read(MutableBytesView(reinterpret_cast<uint8_t*>(&out[0]), out->length()), len)
-                            != len)
-                        {
-                            MOE_THROW(OutOfRangeException, "Eof");
-                        }
+                        MOE_THROW(OutOfRangeException, "Eof");
                     }
                 }
+            }
+
+            void ReadBuffer(std::vector<uint8_t>& out)
+            {
+                assert(m_pStream);
+                auto len = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
+                if (len == 0)
+                    out.clear();
                 else
+                {
+                    out.resize(len);
+                    if (m_pStream->Read(MutableBytesView(&out[0], out.size()), len) != len)
+                        MOE_THROW(OutOfRangeException, "Eof");
+                }
+            }
+
+            size_t ReadBuffer(MutableBytesView buffer)
+            {
+                assert(m_pStream && buffer);
+                auto len = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
+                if (len == 0)
+                    return 0;
+                else
+                {
+                    size_t readSize = std::min(len, buffer.GetSize());
+                    if (m_pStream->Read(buffer, readSize) != readSize)
+                        MOE_THROW(OutOfRangeException, "Eof");
+                    len -= readSize;
+                    if (len > 0)
+                        m_pStream->Skip(len);
+                    return readSize;
+                }
+            }
+
+            void SkipBuffer()
+            {
+                assert(m_pStream);
+                auto len = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
+                if (len > 0)
                     m_pStream->Skip(len);
             }
 
-            template <typename Container>
-            void ReadList(Container& container, unsigned deep)
+            template <typename TContainer>
+            void ReadList(TContainer& container, unsigned deep)
             {
                 assert(m_pStream);
                 auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
 
                 container.clear();
                 container.reserve(count);
-
                 for (size_t i = 0; i < count; ++i)
                 {
-                    typename Container::value_type v;
+                    typename TContainer::value_type v;
                     Read(v, 0, deep);
                     container.emplace_back(std::move(v));
                 }
+            }
+
+            template <typename TValue>
+            size_t ReadList(MutableArrayView<TValue> buffer, unsigned deep)
+            {
+                assert(m_pStream && buffer);
+                auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
+
+                auto realCount = std::min(count, buffer.GetSize());
+                for (size_t i = 0; i < realCount; ++i)
+                    Read(buffer[i], 0, deep);
+                count -= realCount;
+                for (size_t i = 0; i < count; ++i)
+                {
+                    if (!Skip(0, deep))
+                        MOE_THROW(BadFormatException, "Invalid list format");
+                }
+                return realCount;
             }
 
             void SkipList(unsigned deep)
@@ -480,18 +616,17 @@ namespace moe
                 }
             }
 
-            template <typename Container>
-            void ReadDict(Container& container, unsigned deep)
+            template <typename TContainer>
+            void ReadDict(TContainer& container, unsigned deep)
             {
                 assert(m_pStream);
                 auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
 
                 container.clear();
-                container.reserve(count);
                 for (size_t i = 0; i < count; ++i)
                 {
-                    typename Container::key_type k;
-                    typename Container::value_type v;
+                    typename TContainer::key_type k;
+                    typename TContainer::value_type::second_type v;
                     Read(k, 0, deep);
                     Read(v, 1, deep);
                     auto ret = container.emplace(std::move(k), std::move(v));
@@ -530,7 +665,7 @@ namespace moe
                         ReadVarint(nullptr);
                         break;
                     case WireTypes::Buffer:
-                        ReadBuffer(nullptr);
+                        SkipBuffer();
                         break;
                     case WireTypes::List:
                         if (deep + 1 >= m_uMaxRecursiveDeep)
