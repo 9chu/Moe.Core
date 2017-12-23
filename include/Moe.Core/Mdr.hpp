@@ -116,6 +116,16 @@ namespace moe
             return static_cast<int64_t>(n >> 1) ^ -(static_cast<int64_t>(n) & 1);
         }
 
+        /**
+         * @brief Mdr流读取器
+         *
+         * 需要注意：
+         *   一个Mdr文档和另一个Mdr文档之间必须有严格的边界，不能在一个流中直接并列。
+         * 这是因为默认以不可Seek流进行数据读取，当向前看时必然会多读取一个FieldHead。
+         * 这将导致越过文档边界，破坏相邻文档的完整性。
+         *   如果读取的是Struct，即以StructEnd（WireTypes::Null）终止则可以避免这
+         * 个问题。
+         */
         class Reader
         {
         public:
@@ -123,16 +133,216 @@ namespace moe
             Reader(const Reader&)noexcept = default;
             Reader(Reader&&)noexcept = default;
 
-            Reader(Stream* stream)noexcept
+            explicit Reader(Stream* stream)noexcept
                 : m_pStream(stream) {}
 
         public:
+            /**
+             * @brief 获取最大递归深度
+             */
+            unsigned GetMaxRecursiveDeep()const noexcept { return m_uMaxRecursiveDeep; }
 
+            /**
+             * @brief 设置最大递归深度
+             * @param m 深度
+             */
+            void SetMaxRecursiveDeep(unsigned m)noexcept { m_uMaxRecursiveDeep = m; }
+
+            template <typename T>
+            typename std::enable_if<std::is_integral<T>::value && std::is_signed<T>::value, void>::type
+            Read(T& out, TagType tag, unsigned deep=0u)
+            {
+                SkipUntil(tag, deep);
+
+                auto head = ReadHead();
+                if (head.Tag != tag)
+                    MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
+                switch (head.Type)
+                {
+                    case WireTypes::Fixed8:
+                        {
+                            uint8_t v = 0;
+                            ReadFixed8(&v);
+                            out = static_cast<T>(static_cast<signed char>(v));
+                        }
+                        break;
+                    case WireTypes::Fixed32:
+                        if (sizeof(T) < 4)
+                            MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+                        else
+                        {
+                            uint32_t v = 0;
+                            ReadFixed32(&v);
+                            out = static_cast<T>(static_cast<int32_t>(v));
+                        }
+                        break;
+                    case WireTypes::Fixed64:
+                        if (sizeof(T) < 8)
+                            MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+                        else
+                        {
+                            uint64_t v = 0;
+                            ReadFixed64(&v);
+                            out = static_cast<T>(static_cast<int64_t>(v));
+                        }
+                        break;
+                    case WireTypes::Varint:
+                        {
+                            uint64_t v = 0;
+                            ReadVarint(&v);
+                            int64_t s = DeZigzag(v);
+                            if (s < std::numeric_limits<T>::min() || s > std::numeric_limits<T>::max())
+                                MOE_THROW(BadFormatException, "Numeric is overflowed near tag {0}", tag);
+                            out = static_cast<T>(s);
+                        }
+                        break;
+                    default:
+                        MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+                }
+            }
+
+            template <typename T>
+            typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value, void>::type
+            Read(T& out, TagType tag, unsigned deep=0u)
+            {
+                SkipUntil(tag, deep);
+
+                auto head = ReadHead();
+                if (head.Tag != tag)
+                    MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
+                switch (head.Type)
+                {
+                    case WireTypes::Fixed8:
+                        {
+                            uint8_t v = 0;
+                            ReadFixed8(&v);
+                            out = static_cast<T>(v);
+                        }
+                        break;
+                    case WireTypes::Fixed32:
+                        if (sizeof(T) < 4)
+                            MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+                        else
+                        {
+                            uint32_t v = 0;
+                            ReadFixed32(&v);
+                            out = static_cast<T>(v);
+                        }
+                        break;
+                    case WireTypes::Fixed64:
+                        if (sizeof(T) < 8)
+                            MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+                        else
+                        {
+                            uint64_t v = 0;
+                            ReadFixed64(&v);
+                            out = static_cast<T>(v);
+                        }
+                        break;
+                    case WireTypes::Varint:
+                        {
+                            uint64_t v = 0;
+                            ReadVarint(&v);
+                            if (v < std::numeric_limits<T>::min() || v > std::numeric_limits<T>::max())
+                                MOE_THROW(BadFormatException, "Numeric is overflowed near tag {0}", tag);
+                            out = static_cast<T>(v);
+                        }
+                        break;
+                    default:
+                        MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+                }
+            }
+
+            void Read(float& out, TagType tag, unsigned deep=0u)
+            {
+                SkipUntil(tag, deep);
+
+                auto head = ReadHead();
+                if (head.Tag != tag)
+                    MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
+                switch (head.Type)
+                {
+                    case WireTypes::Fixed32:
+                        {
+                            uint32_t v = 0;
+                            ReadFixed32(&v);
+                            *reinterpret_cast<uint32_t*>(&out) = v;
+                        }
+                        break;
+                    default:
+                        MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+                }
+            }
+
+            void Read(double& out, TagType tag, unsigned deep=0u)
+            {
+                SkipUntil(tag, deep);
+
+                auto head = ReadHead();
+                if (head.Tag != tag)
+                    MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
+                switch (head.Type)
+                {
+                    case WireTypes::Fixed32:
+                        {
+                            uint32_t v = 0;
+                            ReadFixed32(&v);
+                            *reinterpret_cast<uint32_t*>(&out) = v;
+                        }
+                        break;
+                    default:
+                        MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
+                }
+            }
+
+            void Read(std::string& out, TagType tag, unsigned deep=0u)
+            {
+
+            }
+
+            template <size_t Size>
+            void Read(std::array<uint8_t, Size>& out, TagType tag, unsigned deep=0u)
+            {
+
+            }
+
+            void Read(MutableBytesView out, TagType tag, unsigned deep=0u)
+            {
+
+            }
+            
         private:
+            bool Skip(TagType tag, unsigned deep)
+            {
+                auto head = PeekHead();
+                while (head && head->Tag <= tag && head->Type != WireTypes::Null)
+                {
+                    auto curTag = head->Tag;
+                    SkipNextField(deep);
+                    if (curTag == tag)
+                        return true;
+                }
+                return false;
+            }
+
+            void SkipUntil(TagType tag, unsigned deep)
+            {
+                auto head = PeekHead();
+                while (head && head->Tag < tag && head->Type != WireTypes::Null)
+                    SkipNextField(deep);
+            }
+
             FieldHead ReadHead()
             {
                 assert(m_pStream);
-                FieldHead ret;
+
+                if (m_stForward)
+                {
+                    FieldHead ret = *m_stForward;
+                    m_stForward.Clear();
+                    return ret;
+                }
+
                 auto h = m_pStream->ReadByte();
                 if (h < 0)
                     MOE_THROW(OutOfRangeException, "Eof");
@@ -142,9 +352,39 @@ namespace moe
                     MOE_THROW(BadFormatException, "Unknown wire type {0}", tt);
                 if (t == 0xF)
                     t = Mdr::ReadVarint(m_pStream) + 0xF;
+
+                FieldHead ret;
                 ret.Tag = t;
                 ret.Type = static_cast<WireTypes>(tt);
                 return ret;
+            }
+
+            const Optional<FieldHead>& PeekHead()
+            {
+                assert(m_pStream);
+
+                if (m_stForward)
+                    return m_stForward;
+
+                auto h = m_pStream->ReadByte();
+                if (h < 0)
+                {
+                    assert(!m_stForward);
+                    return m_stForward;
+                }
+
+                auto t = static_cast<TagType>(h & 0xF0) >> 4;
+                auto tt = static_cast<uint32_t>(h & 0x0F);
+                if (tt >= static_cast<uint32_t>(WireTypes::MAX))
+                    MOE_THROW(BadFormatException, "Unknown wire type {0}", tt);
+                if (t == 0xF)
+                    t = Mdr::ReadVarint(m_pStream) + 0xF;
+
+                FieldHead ret;
+                ret.Tag = t;
+                ret.Type = static_cast<WireTypes>(tt);
+                m_stForward = ret;
+                return m_stForward;
             }
 
             void ReadFixed8(uint8_t* out)
@@ -211,66 +451,119 @@ namespace moe
                     m_pStream->Skip(len);
             }
 
-            /*
             template <typename Container>
-            void ReadList(Container* container)
+            void ReadList(Container& container, unsigned deep)
             {
                 assert(m_pStream);
                 auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
 
-                if (container)
-                {
-                    container->clear();
-                    container->reserve(count);
+                container.clear();
+                container.reserve(count);
 
-                    for (size_t i = 0; i < count; ++i)
-                    {
-                        Container::value_type v;
-                        Read(v, 0);
-                        container->emplace_back(std::move(v));
-                    }
-                }
-                else
+                for (size_t i = 0; i < count; ++i)
                 {
-                    for (size_t i = 0; i < count; ++i)
-                        Skip(0);
+                    typename Container::value_type v;
+                    Read(v, 0, deep);
+                    container.emplace_back(std::move(v));
                 }
             }
 
-            template <typename Container>
-            void ReadDict(Container* container)
+            void SkipList(unsigned deep)
             {
                 assert(m_pStream);
                 auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
 
-                if (container)
+                for (size_t i = 0; i < count; ++i)
                 {
-                    container->clear();
-                    container->reserve(count);
-                    for (size_t i = 0; i < count; ++i)
-                    {
-                        Container::key_type k;
-                        Container::value_type v;
-                        Read(k, 0);
-                        Read(v, 1);
-                        auto ret = container->emplace(std::move(k), std::move(v));
-                        if (!ret.second)
-                            MOE_THROW(BadFormatException, "Duplicated key \"{0}\"", k);
-                    }
-                }
-                else
-                {
-                    for (size_t i = 0; i < count; ++i)
-                    {
-                        Skip(0);
-                        Skip(1);
-                    }
+                    if (!Skip(0, deep))
+                        MOE_THROW(BadFormatException, "Invalid list format");
                 }
             }
-             */
+
+            template <typename Container>
+            void ReadDict(Container& container, unsigned deep)
+            {
+                assert(m_pStream);
+                auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
+
+                container.clear();
+                container.reserve(count);
+                for (size_t i = 0; i < count; ++i)
+                {
+                    typename Container::key_type k;
+                    typename Container::value_type v;
+                    Read(k, 0, deep);
+                    Read(v, 1, deep);
+                    auto ret = container.emplace(std::move(k), std::move(v));
+                    if (!ret.second)
+                        MOE_THROW(BadFormatException, "Duplicated key \"{0}\"", k);
+                }
+            }
+
+            void SkipDict(unsigned deep)
+            {
+                assert(m_pStream);
+                auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
+
+                for (size_t i = 0; i < count; ++i)
+                {
+                    if (!Skip(0, deep) || !Skip(1, deep))
+                        MOE_THROW(BadFormatException, "Invalid dict format");
+                }
+            }
+
+            void SkipNextField(unsigned deep)  // 跳过除EndStruct以外的域
+            {
+                auto head = ReadHead();
+                switch (head.Type)
+                {
+                    case WireTypes::Fixed8:
+                        ReadFixed8(nullptr);
+                        break;
+                    case WireTypes::Fixed32:
+                        ReadFixed32(nullptr);
+                        break;
+                    case WireTypes::Fixed64:
+                        ReadFixed64(nullptr);
+                        break;
+                    case WireTypes::Varint:
+                        ReadVarint(nullptr);
+                        break;
+                    case WireTypes::Buffer:
+                        ReadBuffer(nullptr);
+                        break;
+                    case WireTypes::List:
+                        if (deep + 1 >= m_uMaxRecursiveDeep)
+                            MOE_THROW(BadFormatException, "Stack overflow");
+                        SkipList(deep + 1);
+                        break;
+                    case WireTypes::Map:
+                        if (deep + 1 >= m_uMaxRecursiveDeep)
+                            MOE_THROW(BadFormatException, "Stack overflow");
+                        SkipDict(deep + 1);
+                        break;
+                    case WireTypes::Structure:
+                        if (deep + 1 >= m_uMaxRecursiveDeep)
+                            MOE_THROW(BadFormatException, "Stack overflow");
+                        else
+                        {
+                            auto adv = PeekHead();
+                            while (adv && adv->Type != WireTypes::Null)
+                                SkipNextField(deep + 1);
+                            ReadHead();
+                            assert(head.Type == WireTypes::Null);
+                        }
+                        break;
+                    default:
+                        MOE_THROW(BadFormatException, "Unexpected field type {0}", head.Type);
+                        break;
+                }
+            }
 
         private:
             Stream* m_pStream = nullptr;
+            Optional<FieldHead> m_stForward;
+            unsigned m_uMaxRecursiveDeep = 16;  // 最大嵌套深度
         };
     };
 }
