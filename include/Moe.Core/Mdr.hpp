@@ -310,7 +310,7 @@ namespace moe
             {
 
             }
-            
+
         private:
             bool Skip(TagType tag, unsigned deep)
             {
