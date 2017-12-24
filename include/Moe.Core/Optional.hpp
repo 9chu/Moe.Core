@@ -190,7 +190,7 @@ namespace moe
         constexpr Optional()noexcept
             : OptionalBase<T>() {}
 
-        Optional(const Optional& rhs)
+        Optional(const Optional& rhs)noexcept(std::is_nothrow_copy_constructible<T>::value)
             : OptionalBase<T>()
         {
             if (rhs.Initialized())
