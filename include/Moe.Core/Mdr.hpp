@@ -106,7 +106,7 @@ namespace moe
                 auto b = static_cast<unsigned char>(value & 0x7F);
                 value >>= 7;
                 b |= (value > 0 ? 0x80 : 0);
-                bytes[++pos] = b;
+                bytes[pos++] = b;
             } while (value > 0);
             stream->Write(BytesView(bytes, pos), pos);
         }
@@ -517,6 +517,7 @@ namespace moe
 
             void SkipUntil(TagType tag, unsigned deep)
             {
+                assert(m_pStream);
                 auto head = PeekHead();
                 while (head && head->Tag < tag && head->Type != WireTypes::Null)
                     SkipNextField(deep);
@@ -524,8 +525,6 @@ namespace moe
 
             FieldHead ReadHead()
             {
-                assert(m_pStream);
-
                 if (m_stForward)
                 {
                     FieldHead ret = *m_stForward;
@@ -536,8 +535,8 @@ namespace moe
                 auto h = m_pStream->ReadByte();
                 if (h < 0)
                     MOE_THROW(OutOfRangeException, "Eof");
-                auto t = static_cast<TagType>(h & 0xF0) >> 4;
-                auto tt = static_cast<uint32_t>(h & 0x0F);
+                auto t = static_cast<TagType>(h & 0xF0) >> 4;  // 高4位存Tag
+                auto tt = static_cast<uint32_t>(h & 0x0F);  // 低4位存类型
                 if (tt >= static_cast<uint32_t>(WireTypes::MAX))
                     MOE_THROW(BadFormatException, "Unknown wire type {0}", tt);
                 if (t == 0xF)
@@ -551,8 +550,6 @@ namespace moe
 
             const Optional<FieldHead>& PeekHead()
             {
-                assert(m_pStream);
-
                 if (m_stForward)
                     return m_stForward;
 
@@ -579,7 +576,6 @@ namespace moe
 
             void ReadFixed8(uint8_t* out)
             {
-                assert(m_pStream);
                 auto ret = m_pStream->ReadByte();
                 if (ret < 0)
                     MOE_THROW(OutOfRangeException, "Eof");
@@ -589,7 +585,6 @@ namespace moe
 
             void ReadFixed32(uint32_t* out)
             {
-                assert(m_pStream);
                 uint8_t buffer[4];
                 if (m_pStream->Read(MutableBytesView(buffer, 4), 4) != 4)
                     MOE_THROW(OutOfRangeException, "Eof");
@@ -599,7 +594,6 @@ namespace moe
 
             void ReadFixed64(uint64_t* out)
             {
-                assert(m_pStream);
                 uint8_t buffer[8];
                 if (m_pStream->Read(MutableBytesView(buffer, 8), 8) != 8)
                     MOE_THROW(OutOfRangeException, "Eof");
@@ -613,7 +607,6 @@ namespace moe
 
             void ReadVarint(uint64_t* out)
             {
-                assert(m_pStream);
                 auto ret = Mdr::ReadVarint(m_pStream);
                 if (out)
                     *out = ret;
@@ -621,7 +614,6 @@ namespace moe
 
             void SkipBuffer()
             {
-                assert(m_pStream);
                 auto len = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
                 if (len > 0)
                     m_pStream->Skip(len);
@@ -629,9 +621,7 @@ namespace moe
 
             void SkipList(unsigned deep)
             {
-                assert(m_pStream);
                 auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
-
                 for (size_t i = 0; i < count; ++i)
                 {
                     if (!Skip(0, deep))
@@ -641,9 +631,7 @@ namespace moe
 
             void SkipDict(unsigned deep)
             {
-                assert(m_pStream);
                 auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
-
                 for (size_t i = 0; i < count; ++i)
                 {
                     if (!Skip(0, deep) || !Skip(1, deep))
@@ -710,7 +698,220 @@ namespace moe
          */
         class Writer
         {
+        public:
+            // clang: https://stackoverflow.com/questions/43819314/default-member-initializer-needed-within-definition-\
+            // of-enclosing-class-outside
+            Writer()noexcept {}
+            Writer(const Writer& rhs)noexcept = default;
+            Writer(Writer&&)noexcept = default;
 
+            explicit Writer(Stream* stream)noexcept
+                : m_pStream(stream) {}
+
+        public:
+            template <typename T>
+            typename std::enable_if<std::is_integral<T>::value && std::is_signed<T>::value, void>::type
+            Write(T value, TagType tag)
+            {
+                assert(m_pStream);
+                FieldHead head;
+                head.Tag = tag;
+
+                if (sizeof(value) == 1)
+                {
+                    head.Type = WireTypes::Fixed8;
+                    WriteHead(head);
+                    WriteFixed8(static_cast<uint8_t>(value));
+                }
+                else  // TODO: 优化到Fixed32或Fixed64
+                {
+                    head.Type = WireTypes::Varint;
+                    WriteHead(head);
+                    WriteVarint(static_cast<uint64_t>(static_cast<int64_t>(value)));
+                }
+            }
+
+            template <typename T>
+            typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value, void>::type
+            Write(T value, TagType tag)
+            {
+                assert(m_pStream);
+                FieldHead head;
+                head.Tag = tag;
+
+                if (sizeof(value) == 1)
+                {
+                    head.Type = WireTypes::Fixed8;
+                    WriteHead(head);
+                    WriteFixed8(static_cast<uint8_t>(value));
+                }
+                else  // TODO: 优化到Fixed32或Fixed64
+                {
+                    head.Type = WireTypes::Varint;
+                    WriteHead(head);
+                    WriteVarint(static_cast<uint64_t>(value));
+                }
+            }
+
+            void Write(float value, TagType tag)
+            {
+                FieldHead head = { tag, WireTypes::Fixed32 };
+                WriteHead(head);
+                WriteFixed32(BitCast<uint32_t>(value));
+            }
+
+            void Write(double value, TagType tag)
+            {
+                FieldHead head = { tag, WireTypes::Fixed64 };
+                WriteHead(head);
+                WriteFixed64(BitCast<uint64_t>(value));
+            }
+
+            void Write(const std::string& value, TagType tag)
+            {
+                FieldHead head = { tag, WireTypes::Buffer };
+                WriteHead(head);
+                WriteVarint(value.length());
+                if (value.length())
+                {
+                    m_pStream->Write(BytesView(reinterpret_cast<const uint8_t*>(value.data()), value.length()),
+                        value.length());
+                }
+            }
+
+            void Write(const std::vector<uint8_t>& value, TagType tag)
+            {
+                FieldHead head = { tag, WireTypes::Buffer };
+                WriteHead(head);
+                WriteVarint(value.size());
+                if (value.size())
+                    m_pStream->Write(BytesView(value.data(), value.size()), value.size());
+            }
+
+            void Write(BytesView value, TagType tag)
+            {
+                FieldHead head = { tag, WireTypes::Buffer };
+                WriteHead(head);
+                WriteVarint(value.GetSize());
+                if (value.GetSize())
+                    m_pStream->Write(value, value.GetSize());
+            }
+
+            template <typename TValue>
+            void Write(const std::vector<TValue>& value, TagType tag)
+            {
+                FieldHead head = { tag, WireTypes::List };
+                WriteHead(head);
+                WriteVarint(value.size());
+                for (size_t i = 0; i < value.size(); ++i)
+                    Write(value[i], 0);
+            }
+
+            template <typename TValue, size_t Count>
+            void Write(const std::array<TValue, Count>& value, size_t sz, TagType tag)
+            {
+                assert(m_pStream && sz <= value.size());
+                sz = std::min(sz, value.size());
+
+                FieldHead head = { tag, WireTypes::List };
+                WriteHead(head);
+                WriteVarint(sz);
+                for (size_t i = 0; i < sz; ++i)
+                    Write(value[i], 0);
+            }
+
+            template <typename TKey, typename TValue>
+            void Write(const std::map<TKey, TValue>& value, TagType tag)
+            {
+                FieldHead head = { tag, WireTypes::Map };
+                WriteHead(head);
+                WriteVarint(value.size());
+                for (const auto& i : value)
+                {
+                    Write(i->first, 0);
+                    Write(i->second, 1);
+                }
+            }
+
+            template <typename TKey, typename TValue>
+            void Write(const std::unordered_map<TKey, TValue>& value, TagType tag)
+            {
+                FieldHead head = { tag, WireTypes::Map };
+                WriteHead(head);
+                WriteVarint(value.size());
+                for (const auto& i : value)
+                {
+                    Write(i->first, 0);
+                    Write(i->second, 1);
+                }
+            }
+
+            template <typename T>
+            typename std::enable_if<std::is_class<T>::value, void>::type
+            Write(const T& value, TagType tag)
+            {
+                FieldHead head = { tag, WireTypes::Structure };
+                WriteHead(head);
+
+                value.WriteTo(this);
+
+                head.Tag = 0;
+                head.Type = WireTypes::Null;
+                WriteHead(head);
+            }
+
+            template <typename T>
+            void Write(const Optional<T>& out, TagType tag)
+            {
+                if (out)
+                    Write(*out, tag);
+            }
+
+        private:
+            void WriteHead(const FieldHead& head)
+            {
+                assert(head.Type < WireTypes::MAX);
+                if (head.Tag < 0xF)
+                    m_pStream->WriteByte(static_cast<uint8_t>((head.Tag << 4) | static_cast<uint32_t>(head.Type)));
+                else
+                {
+                    m_pStream->WriteByte(static_cast<uint8_t>(0xF0 | static_cast<uint32_t>(head.Type)));
+                    Mdr::WriteVarint(m_pStream, head.Tag - 0xF);
+                }
+            }
+
+            void WriteFixed8(uint8_t value)
+            {
+                m_pStream->WriteByte(value);
+            }
+
+            void WriteFixed32(uint32_t value)
+            {
+                uint8_t buffer[4] = {
+                    static_cast<uint8_t>(value & 0xFF), static_cast<uint8_t>((value >> 8) & 0xFF),
+                    static_cast<uint8_t>((value >> 16) & 0xFF), static_cast<uint8_t>((value >> 24) & 0xFF)
+                };
+                m_pStream->Write(BytesView(buffer, 4), 4);
+            }
+
+            void WriteFixed64(uint64_t value)
+            {
+                uint8_t buffer[8] = {
+                    static_cast<uint8_t>(value & 0xFF), static_cast<uint8_t>((value >> 8) & 0xFF),
+                    static_cast<uint8_t>((value >> 16) & 0xFF), static_cast<uint8_t>((value >> 24) & 0xFF),
+                    static_cast<uint8_t>((value >> 32) & 0xFF), static_cast<uint8_t>((value >> 40) & 0xFF),
+                    static_cast<uint8_t>((value >> 48) & 0xFF), static_cast<uint8_t>((value >> 56) & 0xFF),
+                };
+                m_pStream->Write(BytesView(buffer, 8), 8);
+            }
+
+            void WriteVarint(uint64_t value)
+            {
+                Mdr::WriteVarint(m_pStream, value);
+            }
+
+        private:
+            Stream* m_pStream = nullptr;
         };
     };
 }
