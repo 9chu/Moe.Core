@@ -148,7 +148,9 @@ namespace moe
         class Reader
         {
         public:
-            Reader()noexcept = default;
+            // clang: https://stackoverflow.com/questions/43819314/default-member-initializer-needed-within-definition-
+            // of-enclosing-class-outside
+            Reader()noexcept {}
             Reader(const Reader& rhs)noexcept = default;
             Reader(Reader&&)noexcept = default;
             ~Reader() = default;
@@ -728,8 +730,6 @@ namespace moe
         class Writer
         {
         public:
-            // clang: https://stackoverflow.com/questions/43819314/default-member-initializer-needed-within-definition-
-            // of-enclosing-class-outside
             Writer()noexcept {}
             Writer(const Writer& rhs)noexcept = default;
             Writer(Writer&&)noexcept = default;
