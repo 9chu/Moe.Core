@@ -67,7 +67,8 @@ size_t BytesViewStream::Read(MutableBytesView out, size_t count)
     assert(out.GetSize() >= count);
     count = std::min(count, out.GetSize());
     count = std::min(count, m_stView.GetSize() - m_uPosition);
-    ::memcpy(out.GetBuffer(), m_stView.GetBuffer(), count);
+    ::memcpy(out.GetBuffer(), m_stView.GetBuffer() + m_uPosition, count);
+    m_uPosition += count;
     return count;
 }
 

@@ -24,16 +24,18 @@ namespace moe
         enum class WireTypes
         {
             Null,
-            Fixed8 = 1,  // bool/char/byte
-            Fixed32 = 2,  // float
-            Fixed64 = 3,  // double
-            Varint = 4,  // int
-            Buffer = 5,  // string/vector<uint8_t>/MutableBytesView
-            List = 6,  // vector<T>/array<T>
-            Map = 7,  // unordered_map<K,V>/map<K,V>
-            Structure = 8,  // struct
+            Zero = 1,  // bool(false)
+            One = 2,  // bool(true)
+            Fixed8 = 3,  // char/byte
+            Fixed32 = 4,  // float
+            Fixed64 = 5,  // double
+            Varint = 6,  // int
+            Buffer = 7,  // string/vector<uint8_t>/MutableBytesView
+            List = 8,  // vector<T>/array<T>
+            Map = 9,  // unordered_map<K,V>/map<K,V>
+            Structure = 10,  // struct
 
-            MAX = 9,
+            MAX = 11,
         };
 
         using TagType = uint64_t;
@@ -44,17 +46,29 @@ namespace moe
             WireTypes Type;
         };
 
-        /*
-         * VarInt编码举例：
-         *   整数        0100|1111 000|01111 11|101111 1|0100001
-         *   使用varint  [1]0100001 [1]1011111 [1]0111111 [1]1111000 [0]0000100
-         *   其中，字节最高位被用来指示是否有后继字节。
+        class Reader;
+        class Writer;
+
+        /**
+         * @brief 结构体基类
+         *
+         * 任何写入到流的复合类型都必须继承自该类。
          */
+        struct StructBase
+        {
+            virtual void ReadFrom(Reader* reader) = 0;
+            virtual void WriteTo(Writer* writer)const = 0;
+        };
 
         /**
          * @brief 读取变长整数
          * @param stream 流
          * @return 值
+         *
+         * VarInt编码举例：
+         *   整数        0100|1111 000|01111 11|101111 1|0100001
+         *   使用varint  [1]0100001 [1]1011111 [1]0111111 [1]1111000 [0]0000100
+         *   其中，字节最高位被用来指示是否有后继字节。
          */
         static uint64_t ReadVarint(Stream* stream)
         {
@@ -137,9 +151,12 @@ namespace moe
             Reader()noexcept = default;
             Reader(const Reader& rhs)noexcept = default;
             Reader(Reader&&)noexcept = default;
+            ~Reader() = default;
 
             explicit Reader(Stream* stream)noexcept
                 : m_pStream(stream) {}
+
+            Reader& operator=(const Reader&)noexcept = default;
 
         public:
             /**
@@ -164,6 +181,12 @@ namespace moe
                     MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
                 switch (head.Type)
                 {
+                    case WireTypes::Zero:
+                        out = static_cast<T>(0);
+                        break;
+                    case WireTypes::One:
+                        out = static_cast<T>(1);
+                        break;
                     case WireTypes::Fixed8:
                         {
                             uint8_t v = 0;
@@ -217,6 +240,12 @@ namespace moe
                     MOE_THROW(BadFormatException, "Field with tag {0} not found", tag);
                 switch (head.Type)
                 {
+                    case WireTypes::Zero:
+                        out = static_cast<T>(0);
+                        break;
+                    case WireTypes::One:
+                        out = static_cast<T>(1);
+                        break;
                     case WireTypes::Fixed8:
                         {
                             uint8_t v = 0;
@@ -599,7 +628,7 @@ namespace moe
                     MOE_THROW(OutOfRangeException, "Eof");
                 if (out)
                 {
-                    *out = buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24) |
+                    *out = buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | ((uint64_t)buffer[3] << 24) |
                         ((uint64_t)buffer[4] << 32) | ((uint64_t)buffer[5] << 40) | ((uint64_t)buffer[6] << 48) |
                         ((uint64_t)buffer[7] << 56);
                 }
@@ -699,35 +728,66 @@ namespace moe
         class Writer
         {
         public:
-            // clang: https://stackoverflow.com/questions/43819314/default-member-initializer-needed-within-definition-\
+            // clang: https://stackoverflow.com/questions/43819314/default-member-initializer-needed-within-definition-
             // of-enclosing-class-outside
             Writer()noexcept {}
             Writer(const Writer& rhs)noexcept = default;
             Writer(Writer&&)noexcept = default;
+            ~Writer() = default;
 
             explicit Writer(Stream* stream)noexcept
                 : m_pStream(stream) {}
+
+            Writer& operator=(const Writer&)noexcept = default;
 
         public:
             template <typename T>
             typename std::enable_if<std::is_integral<T>::value && std::is_signed<T>::value, void>::type
             Write(T value, TagType tag)
             {
+                static_assert(sizeof(T) <= 8, "Error");
                 assert(m_pStream);
                 FieldHead head;
                 head.Tag = tag;
 
-                if (sizeof(value) == 1)
+                if (value == static_cast<T>(0))
+                {
+                    head.Type = WireTypes::Zero;
+                    WriteHead(head);
+                }
+                else if (value == static_cast<T>(1))
+                {
+                    head.Type = WireTypes::One;
+                    WriteHead(head);
+                }
+                else if (sizeof(value) == 1)
                 {
                     head.Type = WireTypes::Fixed8;
                     WriteHead(head);
                     WriteFixed8(static_cast<uint8_t>(value));
                 }
-                else  // TODO: 优化到Fixed32或Fixed64
+                else
                 {
-                    head.Type = WireTypes::Varint;
-                    WriteHead(head);
-                    WriteVarint(static_cast<uint64_t>(static_cast<int64_t>(value)));
+                    auto encoded = Zigzag(static_cast<int64_t>(value));
+
+                    if (sizeof(value) == 4 && encoded > 268435455)
+                    {
+                        head.Type = WireTypes::Fixed32;
+                        WriteHead(head);
+                        WriteFixed32(static_cast<uint32_t>(static_cast<int32_t>(value)));
+                    }
+                    else if (sizeof(value) == 8 && encoded > 72057594037927935)
+                    {
+                        head.Type = WireTypes::Fixed64;
+                        WriteHead(head);
+                        WriteFixed64(static_cast<uint64_t>(static_cast<int64_t>(value)));
+                    }
+                    else
+                    {
+                        head.Type = WireTypes::Varint;
+                        WriteHead(head);
+                        WriteVarint(encoded);
+                    }
                 }
             }
 
@@ -735,17 +795,40 @@ namespace moe
             typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value, void>::type
             Write(T value, TagType tag)
             {
+                static_assert(sizeof(T) <= 8, "Error");
                 assert(m_pStream);
                 FieldHead head;
                 head.Tag = tag;
 
-                if (sizeof(value) == 1)
+                if (value == static_cast<T>(0))
+                {
+                    head.Type = WireTypes::Zero;
+                    WriteHead(head);
+                }
+                else if (value == static_cast<T>(1))
+                {
+                    head.Type = WireTypes::One;
+                    WriteHead(head);
+                }
+                else if (sizeof(value) == 1)
                 {
                     head.Type = WireTypes::Fixed8;
                     WriteHead(head);
                     WriteFixed8(static_cast<uint8_t>(value));
                 }
-                else  // TODO: 优化到Fixed32或Fixed64
+                else if (sizeof(value) == 4 && static_cast<uint32_t>(value) > 268435455)
+                {
+                    head.Type = WireTypes::Fixed32;
+                    WriteHead(head);
+                    WriteFixed32(static_cast<uint32_t>(value));
+                }
+                else if (sizeof(value) == 8 && static_cast<uint64_t>(value) > 72057594037927935)
+                {
+                    head.Type = WireTypes::Fixed64;
+                    WriteHead(head);
+                    WriteFixed64(static_cast<uint64_t>(value));
+                }
+                else
                 {
                     head.Type = WireTypes::Varint;
                     WriteHead(head);

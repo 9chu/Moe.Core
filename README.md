@@ -27,6 +27,7 @@ Moe游戏框架底层模块。
 - [x] Cipher: 加密算法库
     - [x] RC4
 - [x] CircularQueue: 循环队列
+- [x] CmdParser: 命令行解析器
 - [x] Convert: 转换库
     - [x] ParseInt
     - [x] ParseUInt
@@ -40,6 +41,7 @@ Moe游戏框架底层模块。
 - [x] Hasher: 哈希算法
     - [x] MPQHash
     - [x] MurmurHash
+    - [x] MD5
 - [x] TextReader/Parser/Json/Xml: 解析器相关与实现
 - [x] Logging: 全局日志接口
 - [x] Math: 数学库
@@ -48,7 +50,7 @@ Moe游戏框架底层模块。
     - [x] Vector3
     - [x] Quaternion
     - [ ] Matrix
-- [ ] Mbp: 二进制数据交换协议
+- [ ] Mdr: 二进制数据交换协议
 - [x] StringUtils/PathUtils: 字符串与路径处理辅助库
 - [x] RefPtr: 侵入式引用计数指针
 - [x] Stream: 流式接口定义
