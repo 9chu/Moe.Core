@@ -10,6 +10,43 @@
 
 #include "Stream.hpp"
 
+/**
+ * @brief Mdr结构体成员宏
+ *
+ * 用于声明结构体成员并产生ReadFrom和WriteTo方法。
+ * 如：
+ *   struct Test
+ *   {
+ *       MOE_DR_FIELDS(
+ *           (0, int, a),
+ *           (1, float, b)
+ *       )
+ *   };
+ * 括号分量依次表示tag, type, name。
+ * tag务必递增。
+ */
+#define MOE_DR_FIELDS(...) \
+    MOE_MAP(MOE_DR__EXPAND_MEMBER, __VA_ARGS__) \
+    void ReadFrom(moe::Mdr::Reader* reader) { \
+        MOE_MAP(MOE_DR__EXPAND_READ, __VA_ARGS__) \
+    } \
+    void WriteTo(moe::Mdr::Writer* writer)const { \
+        MOE_MAP(MOE_DR__EXPAND_WRITE, __VA_ARGS__) \
+    }
+
+#define MOE_DR__GET_TAG(tag, type, name) tag
+#define MOE_DR__GET_TYPE(tag, type, name) type
+#define MOE_DR__GET_NAME(tag, type, name) name
+
+#define MOE_DR__EXPAND_MEMBER(field) \
+    MOE_DR__GET_TYPE field MOE_DR__GET_NAME field;
+
+#define MOE_DR__EXPAND_READ(field) \
+    reader->Read(MOE_DR__GET_NAME field, MOE_DR__GET_TAG field);
+
+#define MOE_DR__EXPAND_WRITE(field) \
+    writer->Write(MOE_DR__GET_NAME field, MOE_DR__GET_TAG field);
+
 namespace moe
 {
     /**
@@ -48,17 +85,6 @@ namespace moe
 
         class Reader;
         class Writer;
-
-        /**
-         * @brief 结构体基类
-         *
-         * 任何写入到流的复合类型都必须继承自该类。
-         */
-        struct StructBase
-        {
-            virtual void ReadFrom(Reader* reader) = 0;
-            virtual void WriteTo(Writer* writer)const = 0;
-        };
 
         /**
          * @brief 读取变长整数
@@ -144,6 +170,8 @@ namespace moe
          * 这将导致越过文档边界，破坏相邻文档的完整性。
          *   如果读取的是Struct，即以StructEnd（WireTypes::Null）终止则可以避免这
          * 个问题。
+         *   此外，当读取时抛出异常，部分内部状态（m_uDepth）会没有机会重置计数，因此
+         * 务必在栈上分配，用完即走。
          */
         class Reader
         {
@@ -164,19 +192,19 @@ namespace moe
             /**
              * @brief 获取最大递归深度
              */
-            unsigned GetMaxRecursiveDeep()const noexcept { return m_uMaxRecursiveDeep; }
+            unsigned GetMaxRecursiveDepth()const noexcept { return m_uMaxRecursiveDepth; }
 
             /**
              * @brief 设置最大递归深度
              * @param m 深度
              */
-            void SetMaxRecursiveDeep(unsigned m)noexcept { m_uMaxRecursiveDeep = m; }
+            void SetMaxRecursiveDepth(unsigned m)noexcept { m_uMaxRecursiveDepth = m; }
 
             template <typename T>
             typename std::enable_if<std::is_integral<T>::value && std::is_signed<T>::value, void>::type
-            Read(T& out, TagType tag, unsigned deep=0u)
+            Read(T& out, TagType tag)
             {
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto head = ReadHead();
                 if (head.Tag != tag)
@@ -233,9 +261,9 @@ namespace moe
 
             template <typename T>
             typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value, void>::type
-            Read(T& out, TagType tag, unsigned deep=0u)
+            Read(T& out, TagType tag)
             {
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto head = ReadHead();
                 if (head.Tag != tag)
@@ -289,9 +317,9 @@ namespace moe
                 }
             }
 
-            void Read(float& out, TagType tag, unsigned deep=0u)
+            void Read(float& out, TagType tag)
             {
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto head = ReadHead();
                 if (head.Tag != tag)
@@ -304,9 +332,9 @@ namespace moe
                 out = BitCast<float>(v);
             }
 
-            void Read(double& out, TagType tag, unsigned deep=0u)
+            void Read(double& out, TagType tag)
             {
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto head = ReadHead();
                 if (head.Tag != tag)
@@ -332,9 +360,9 @@ namespace moe
                 }
             }
 
-            void Read(std::string& out, TagType tag, unsigned deep=0u)
+            void Read(std::string& out, TagType tag)
             {
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto head = ReadHead();
                 if (head.Tag != tag)
@@ -356,9 +384,9 @@ namespace moe
                 }
             }
 
-            void Read(std::vector<uint8_t>& out, TagType tag, unsigned deep=0u)
+            void Read(std::vector<uint8_t>& out, TagType tag)
             {
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto head = ReadHead();
                 if (head.Tag != tag)
@@ -377,9 +405,9 @@ namespace moe
                 }
             }
 
-            void Read(MutableBytesView out, size_t& sz, TagType tag, unsigned deep=0u)
+            void Read(MutableBytesView out, size_t& sz, TagType tag)
             {
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto head = ReadHead();
                 if (head.Tag != tag)
@@ -403,9 +431,9 @@ namespace moe
             }
 
             template <typename TValue>
-            void Read(std::vector<TValue>& out, TagType tag, unsigned deep=0u)
+            void Read(std::vector<TValue>& out, TagType tag)
             {
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto head = ReadHead();
                 if (head.Tag != tag)
@@ -419,15 +447,15 @@ namespace moe
                 for (size_t i = 0; i < count; ++i)
                 {
                     TValue v;
-                    Read(v, 0, deep);
+                    Read(v, 0);
                     out.emplace_back(std::move(v));
                 }
             }
 
             template <typename TValue, size_t Count>
-            void Read(std::array<TValue, Count>& out, size_t& sz, TagType tag, unsigned deep=0u)
+            void Read(std::array<TValue, Count>& out, size_t& sz, TagType tag)
             {
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto head = ReadHead();
                 if (head.Tag != tag)
@@ -438,20 +466,20 @@ namespace moe
                 auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
                 auto realCount = std::min(count, Count);
                 for (size_t i = 0; i < realCount; ++i)
-                    Read(out[i], 0, deep);
+                    Read(out[i], 0);
                 count -= realCount;
                 for (size_t i = 0; i < count; ++i)
                 {
-                    if (!Skip(0, deep))
+                    if (!Skip(0))
                         MOE_THROW(BadFormatException, "Invalid list format");
                 }
                 sz = realCount;
             }
 
             template <typename TKey, typename TValue>
-            void Read(std::map<TKey, TValue>& out, TagType tag, unsigned deep=0u)
+            void Read(std::map<TKey, TValue>& out, TagType tag)
             {
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto head = ReadHead();
                 if (head.Tag != tag)
@@ -465,8 +493,8 @@ namespace moe
                 {
                     TKey k;
                     TValue v;
-                    Read(k, 0, deep);
-                    Read(v, 1, deep);
+                    Read(k, 0);
+                    Read(v, 1);
                     auto ret = out.emplace(std::move(k), std::move(v));
                     if (!ret.second)
                         MOE_THROW(BadFormatException, "Duplicated key \"{0}\"", k);
@@ -474,9 +502,9 @@ namespace moe
             }
 
             template <typename TKey, typename TValue>
-            void Read(std::unordered_map<TKey, TValue>& out, TagType tag, unsigned deep=0u)
+            void Read(std::unordered_map<TKey, TValue>& out, TagType tag)
             {
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto head = ReadHead();
                 if (head.Tag != tag)
@@ -491,8 +519,8 @@ namespace moe
                 {
                     TKey k;
                     TValue v;
-                    Read(k, 0, deep);
-                    Read(v, 1, deep);
+                    Read(k, 0);
+                    Read(v, 1);
                     auto ret = out.emplace(std::move(k), std::move(v));
                     if (!ret.second)
                         MOE_THROW(BadFormatException, "Duplicated key \"{0}\"", k);
@@ -501,9 +529,9 @@ namespace moe
 
             template <typename T>
             typename std::enable_if<std::is_class<T>::value, void>::type
-            Read(T& out, TagType tag, unsigned deep=0u)
+            Read(T& out, TagType tag)
             {
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto head = ReadHead();
                 if (head.Tag != tag)
@@ -518,40 +546,40 @@ namespace moe
             }
 
             template <typename T>
-            void Read(Optional<T>& out, TagType tag, unsigned deep=0u)
+            void Read(Optional<T>& out, TagType tag)
             {
                 out.Clear();
-                SkipUntil(tag, deep);
+                SkipUntil(tag);
 
                 auto peek = PeekHead();
                 if (peek && peek->Type != WireTypes::Null && peek->Tag == tag)
                 {
                     T v;
-                    Read(v, tag, deep);
+                    Read(v, tag);
                     out = std::move(v);
                 }
             }
 
         private:
-            bool Skip(TagType tag, unsigned deep)
+            bool Skip(TagType tag)
             {
                 auto head = PeekHead();
                 while (head && head->Tag <= tag && head->Type != WireTypes::Null)
                 {
                     auto curTag = head->Tag;
-                    SkipNextField(deep);
+                    SkipNextField();
                     if (curTag == tag)
                         return true;
                 }
                 return false;
             }
 
-            void SkipUntil(TagType tag, unsigned deep)
+            void SkipUntil(TagType tag)
             {
                 assert(m_pStream);
                 auto head = PeekHead();
                 while (head && head->Tag < tag && head->Type != WireTypes::Null)
-                    SkipNextField(deep);
+                    SkipNextField();
             }
 
             FieldHead ReadHead()
@@ -650,27 +678,27 @@ namespace moe
                     m_pStream->Skip(len);
             }
 
-            void SkipList(unsigned deep)
+            void SkipList()
             {
                 auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
                 for (size_t i = 0; i < count; ++i)
                 {
-                    if (!Skip(0, deep))
+                    if (!Skip(0))
                         MOE_THROW(BadFormatException, "Invalid list format");
                 }
             }
 
-            void SkipDict(unsigned deep)
+            void SkipDict()
             {
                 auto count = static_cast<size_t>(Mdr::ReadVarint(m_pStream));
                 for (size_t i = 0; i < count; ++i)
                 {
-                    if (!Skip(0, deep) || !Skip(1, deep))
+                    if (!Skip(0) || !Skip(1))
                         MOE_THROW(BadFormatException, "Invalid dict format");
                 }
             }
 
-            void SkipNextField(unsigned deep)  // 跳过除EndStruct以外的域
+            void SkipNextField()  // 跳过除EndStruct以外的域
             {
                 auto head = ReadHead();
                 switch (head.Type)
@@ -691,24 +719,27 @@ namespace moe
                         SkipBuffer();
                         break;
                     case WireTypes::List:
-                        if (deep + 1 >= m_uMaxRecursiveDeep)
+                        if (++m_uDepth >= m_uMaxRecursiveDepth)
                             MOE_THROW(BadFormatException, "Stack overflow");
-                        SkipList(deep + 1);
+                        SkipList();
+                        --m_uDepth;
                         break;
                     case WireTypes::Map:
-                        if (deep + 1 >= m_uMaxRecursiveDeep)
+                        if (++m_uDepth >= m_uMaxRecursiveDepth)
                             MOE_THROW(BadFormatException, "Stack overflow");
-                        SkipDict(deep + 1);
+                        SkipDict();
+                        --m_uDepth;
                         break;
                     case WireTypes::Structure:
-                        if (deep + 1 >= m_uMaxRecursiveDeep)
+                        if (++m_uDepth >= m_uMaxRecursiveDepth)
                             MOE_THROW(BadFormatException, "Stack overflow");
                         else
                         {
                             auto adv = PeekHead();
                             while (adv && adv->Type != WireTypes::Null)
-                                SkipNextField(deep + 1);
+                                SkipNextField();
                             ReadHead();
+                            --m_uDepth;
                             assert(head.Type == WireTypes::Null);
                         }
                         break;
@@ -721,7 +752,9 @@ namespace moe
         private:
             Stream* m_pStream = nullptr;
             Optional<FieldHead> m_stForward;
-            unsigned m_uMaxRecursiveDeep = 16;  // 最大嵌套深度
+            unsigned m_uMaxRecursiveDepth = 16;  // 最大嵌套深度
+
+            unsigned m_uDepth = 0;  // 正常结构体不考虑Depth，专门用来追踪被跳过的结构，防止非法内容
         };
 
         /**
@@ -996,5 +1029,20 @@ namespace moe
         private:
             Stream* m_pStream = nullptr;
         };
+
+        //////////////////////////////////////// <editor-fold desc="扩展&反射部分">
+
+        /**
+         * @brief 结构体基类
+         *
+         * 任何写入到流的复合类型都必须继承自该类。
+         */
+        struct StructBase
+        {
+            virtual void ReadFrom(Reader* reader) = 0;
+            virtual void WriteTo(Writer* writer)const = 0;
+        };
+
+        //////////////////////////////////////// </editor-fold>
     };
 }

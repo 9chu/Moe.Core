@@ -9,6 +9,8 @@
 #include <type_traits>
 #include <string>
 
+//////////////////////////////////////// <editor-fold desc="辅助宏">
+
 /**
  * @brief 平台宏
  *
@@ -73,6 +75,34 @@
 #else
 #define MOE_ASSERT_EXPR(CHECK, EXPR) ((CHECK) ? (EXPR) : ([]{assert(!#CHECK);}(), (EXPR)))
 #endif
+
+/**
+ * @brief MAP宏
+ * @see https://github.com/swansontec/map-macro
+ */
+#define MOE_MAP(f, ...) MOE_MAP__EVAL(MOE_MAP__MAP1(f, __VA_ARGS__, ()()(), ()()(), ()()(), 0))
+
+#define MOE_MAP__EVAL0(...) __VA_ARGS__
+#define MOE_MAP__EVAL1(...) MOE_MAP__EVAL0(MOE_MAP__EVAL0(MOE_MAP__EVAL0(__VA_ARGS__)))
+#define MOE_MAP__EVAL2(...) MOE_MAP__EVAL1(MOE_MAP__EVAL1(MOE_MAP__EVAL1(__VA_ARGS__)))
+#define MOE_MAP__EVAL3(...) MOE_MAP__EVAL2(MOE_MAP__EVAL2(MOE_MAP__EVAL2(__VA_ARGS__)))
+#define MOE_MAP__EVAL4(...) MOE_MAP__EVAL3(MOE_MAP__EVAL3(MOE_MAP__EVAL3(__VA_ARGS__)))
+#define MOE_MAP__EVAL(...) MOE_MAP__EVAL4(MOE_MAP__EVAL4(MOE_MAP__EVAL4(__VA_ARGS__)))
+
+#define MOE_MAP__END(...)
+#define MOE_MAP__OUT
+
+#define MOE_MAP__GET_END2() 0, MOE_MAP__END
+#define MOE_MAP__GET_END1(...) MOE_MAP__GET_END2
+#define MOE_MAP__GET_END(...) MOE_MAP__GET_END1
+#define MOE_MAP__NEXT0(test, next, ...) next MOE_MAP__OUT
+#define MOE_MAP__NEXT1(test, next) MOE_MAP__NEXT0(test, next, 0)
+#define MOE_MAP__NEXT(test, next) MOE_MAP__NEXT1(MOE_MAP__GET_END test, next)
+
+#define MOE_MAP__MAP0(f, x, peek, ...) f(x) MOE_MAP__NEXT(peek, MOE_MAP__MAP1)(f, peek, __VA_ARGS__)
+#define MOE_MAP__MAP1(f, x, peek, ...) f(x) MOE_MAP__NEXT(peek, MOE_MAP__MAP0)(f, peek, __VA_ARGS__)
+
+//////////////////////////////////////// </editor-fold>
 
 namespace moe
 {
