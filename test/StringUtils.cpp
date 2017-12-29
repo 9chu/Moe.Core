@@ -74,59 +74,59 @@ TEST(StringUtils, Split)
 {
     vector<string> out;
 
-    EXPECT_EQ(1, Split(out, "", '/'));
+    EXPECT_EQ(1u, Split(out, "", '/'));
     EXPECT_TRUE(out.size() == 1);
 
-    EXPECT_EQ(2, Split(out, "/usr", '/'));
+    EXPECT_EQ(2u, Split(out, "/usr", '/'));
     EXPECT_TRUE(out.size() == 2);
     EXPECT_STREQ("", out[0].c_str());
     EXPECT_STREQ("usr", out[1].c_str());
 
-    EXPECT_EQ(3, Split(out, "/usr/var", '/'));
+    EXPECT_EQ(3u, Split(out, "/usr/var", '/'));
     EXPECT_TRUE(out.size() == 3);
     EXPECT_STREQ("", out[0].c_str());
     EXPECT_STREQ("usr", out[1].c_str());
     EXPECT_STREQ("var", out[2].c_str());
 
-    EXPECT_EQ(4, Split(out, "/usr/var/", '/'));
+    EXPECT_EQ(4u, Split(out, "/usr/var/", '/'));
     EXPECT_TRUE(out.size() == 4);
     EXPECT_STREQ("", out[0].c_str());
     EXPECT_STREQ("usr", out[1].c_str());
     EXPECT_STREQ("var", out[2].c_str());
     EXPECT_STREQ("", out[3].c_str());
 
-    EXPECT_EQ(2, Split(out, "/usr/var/", '/', SplitFlags::RemoveEmptyEntries));
+    EXPECT_EQ(2u, Split(out, "/usr/var/", '/', SplitFlags::RemoveEmptyEntries));
     EXPECT_TRUE(out.size() == 2);
     EXPECT_STREQ("usr", out[0].c_str());
     EXPECT_STREQ("var", out[1].c_str());
 
-    EXPECT_EQ(1, Split(out, "", "/"));
+    EXPECT_EQ(1u, Split(out, "", "/"));
     EXPECT_TRUE(out.size() == 1);
 
-    EXPECT_EQ(2, Split(out, "/usr", "/"));
+    EXPECT_EQ(2u, Split(out, "/usr", "/"));
     EXPECT_TRUE(out.size() == 2);
     EXPECT_STREQ("", out[0].c_str());
     EXPECT_STREQ("usr", out[1].c_str());
 
-    EXPECT_EQ(3, Split(out, "/usr/var", "/"));
+    EXPECT_EQ(3u, Split(out, "/usr/var", "/"));
     EXPECT_TRUE(out.size() == 3);
     EXPECT_STREQ("", out[0].c_str());
     EXPECT_STREQ("usr", out[1].c_str());
     EXPECT_STREQ("var", out[2].c_str());
 
-    EXPECT_EQ(4, Split(out, "/usr/var/", "/"));
+    EXPECT_EQ(4u, Split(out, "/usr/var/", "/"));
     EXPECT_TRUE(out.size() == 4);
     EXPECT_STREQ("", out[0].c_str());
     EXPECT_STREQ("usr", out[1].c_str());
     EXPECT_STREQ("var", out[2].c_str());
     EXPECT_STREQ("", out[3].c_str());
 
-    EXPECT_EQ(2, Split(out, "/usr/var/", "/", SplitFlags::RemoveEmptyEntries));
+    EXPECT_EQ(2u, Split(out, "/usr/var/", "/", SplitFlags::RemoveEmptyEntries));
     EXPECT_TRUE(out.size() == 2);
     EXPECT_STREQ("usr", out[0].c_str());
     EXPECT_STREQ("var", out[1].c_str());
 
-    EXPECT_EQ(2, Split(out, "/usr//var//", "//", SplitFlags::RemoveEmptyEntries));
+    EXPECT_EQ(2u, Split(out, "/usr//var//", "//", SplitFlags::RemoveEmptyEntries));
     EXPECT_TRUE(out.size() == 2);
     EXPECT_STREQ("/usr", out[0].c_str());
     EXPECT_STREQ("var", out[1].c_str());
