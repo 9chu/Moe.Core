@@ -27,6 +27,35 @@ CmdParser& CmdParser::operator<<(Option&& opt)
     return *this;
 }
 
+bool CmdParser::Contains(const std::string& option)noexcept
+{
+    return m_stOptionTable.find(option) != m_stOptionTable.end();
+}
+
+bool CmdParser::Remove(const std::string& option)noexcept
+{
+    for (auto it = m_stOptions.begin(); it != m_stOptions.end(); ++it)
+    {
+        if (it->LongOption == option)
+        {
+            auto jt = m_stOptionTable.find(it->LongOption);
+            if (jt != m_stOptionTable.end())
+                m_stOptionTable.erase(jt);
+
+            if (it->ShortOption != '\0')
+            {
+                auto kt = m_stShortOptTable.find(it->ShortOption);
+                if (kt != m_stShortOptTable.end())
+                    m_stShortOptTable.erase(kt);
+            }
+
+            m_stOptions.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
 void CmdParser::Clear()noexcept
 {
     m_stOptions.clear();

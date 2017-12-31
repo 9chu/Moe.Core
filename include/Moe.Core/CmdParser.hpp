@@ -136,6 +136,20 @@ namespace moe
         size_t GetCount()const noexcept { return m_stOptions.size(); }
 
         /**
+         * @brief 检查是否存在选项
+         * @param option 选项长名称
+         * @return 是否存在选项
+         */
+        bool Contains(const std::string& option)noexcept;
+
+        /**
+         * @brief 移除选项
+         * @param option 选项长名称
+         * @return 是否成功移除
+         */
+        bool Remove(const std::string& option)noexcept;
+
+        /**
          * @brief 清空所有选项
          */
         void Clear()noexcept;
