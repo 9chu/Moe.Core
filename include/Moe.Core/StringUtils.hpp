@@ -67,6 +67,14 @@ namespace moe
          */
         bool IsUnicodeWhitespace(char32_t c);
 
+        /**
+         * @brief 计算Unicode字符宽度
+         * @see https://github.com/termux/wcwidth
+         * @param c 字符
+         * @return 若c为'\0'则返回0，否则返回字符宽度。若为不可打印字符则返回-1。
+         */
+        int GetUnicodeWidth(char32_t c);
+
         //////////////////////////////////////// </editor-fold>
 
         //////////////////////////////////////// <editor-fold desc="大小写转换">
