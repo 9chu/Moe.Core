@@ -166,7 +166,7 @@ size_t CmdParser::Parse(uint32_t argc, const char* argv[], std::vector<std::stri
         i.Set = false;
 
     if (argc < 1)
-        MOE_THROW(BadArgumentException, "Commandline arguments cannot be empty");
+        MOE_THROW(CmdlineParseException, "Commandline arguments cannot be empty");
 
     int state = 0;
     Option* option = nullptr;
@@ -223,19 +223,19 @@ size_t CmdParser::Parse(uint32_t argc, const char* argv[], std::vector<std::stri
                         argStart = current + 1;
                     }
                     else if (c == '\0')
-                        MOE_THROW(BadFormatException, "Option expected");
+                        MOE_THROW(CmdlineParseException, "Option expected");
                     else
                     {
                         auto it = m_stShortOptTable.find(c);
                         if (it == m_stShortOptTable.end())
-                            MOE_THROW(BadFormatException, "Unknown option '{0}'", c);
+                            MOE_THROW(CmdlineParseException, "Unknown option '{0}'", c);
                         option = &m_stOptions[it->second];
 
                         // 读取掉末尾的其他字符
                         while ((c = (*(++current))) != '\0')
                         {
                             if (!StringUtils::IsWhitespace(c))
-                                MOE_THROW(BadFormatException, "Unexpected character '{0}'", c);
+                                MOE_THROW(CmdlineParseException, "Unexpected character '{0}'", c);
                         }
 
                         // 通知Option
@@ -249,7 +249,7 @@ size_t CmdParser::Parse(uint32_t argc, const char* argv[], std::vector<std::stri
                                 state = 0;
                                 break;
                             case OptionReadResult::ParseError:
-                                MOE_THROW(BadFormatException, "Option '{0}' parse error", option->ShortOption);
+                                MOE_THROW(CmdlineParseException, "Option '{0}' parse error", option->ShortOption);
                             case OptionReadResult::NeedMore:
                                 state = 10;
                                 break;
@@ -268,7 +268,7 @@ size_t CmdParser::Parse(uint32_t argc, const char* argv[], std::vector<std::stri
                         if (current == argStart)
                         {
                             if (c == '=')
-                                MOE_THROW(BadFormatException, "Option expected");
+                                MOE_THROW(CmdlineParseException, "Option expected");
 
                             // "--"
                             state = 30;
@@ -278,7 +278,7 @@ size_t CmdParser::Parse(uint32_t argc, const char* argv[], std::vector<std::stri
                         auto opt = string(argStart, current - argStart);
                         auto it = m_stOptionTable.find(opt);
                         if (it == m_stOptionTable.end())
-                            MOE_THROW(BadFormatException, "Unknown option \"{0}\"", opt);
+                            MOE_THROW(CmdlineParseException, "Unknown option \"{0}\"", opt);
                         option = &m_stOptions[it->second];
 
                         // 通知Option
@@ -294,12 +294,12 @@ size_t CmdParser::Parse(uint32_t argc, const char* argv[], std::vector<std::stri
                                 while ((c = (*(++current))) != '\0')
                                 {
                                     if (!StringUtils::IsWhitespace(c))
-                                        MOE_THROW(BadFormatException, "Unexpected character '{0}'", c);
+                                        MOE_THROW(CmdlineParseException, "Unexpected character '{0}'", c);
                                 }
                                 assert(current == end);
                                 break;
                             case OptionReadResult::ParseError:
-                                MOE_THROW(BadFormatException, "Option \"{0}\" parse error", option->LongOption);
+                                MOE_THROW(CmdlineParseException, "Option \"{0}\" parse error", option->LongOption);
                             case OptionReadResult::NeedMore:
                                 state = 10;
                                 break;
@@ -327,7 +327,7 @@ size_t CmdParser::Parse(uint32_t argc, const char* argv[], std::vector<std::stri
                             state = 0;
                             break;
                         case OptionReadResult::ParseError:
-                            MOE_THROW(BadFormatException, "Option \"{0}\" parse error", option->LongOption);
+                            MOE_THROW(CmdlineParseException, "Option \"{0}\" parse error", option->LongOption);
                         case OptionReadResult::NeedMore:
                             state = 10;
                             break;
@@ -346,13 +346,13 @@ size_t CmdParser::Parse(uint32_t argc, const char* argv[], std::vector<std::stri
         }
 
         if (state > 0 && state < 10)
-            MOE_THROW(BadFormatException, "Bad input");
+            MOE_THROW(CmdlineParseException, "Bad input");
     }
 
     if (state == 10)
     {
         assert(option);
-        MOE_THROW(BadFormatException, "Value expected for option \"{0}\"", option->LongOption);
+        MOE_THROW(CmdlineParseException, "Value expected for option \"{0}\"", option->LongOption);
     }
 
     size_t cnt = 0;
@@ -360,7 +360,7 @@ size_t CmdParser::Parse(uint32_t argc, const char* argv[], std::vector<std::stri
     {
         // 检查是否所有必须项被填写
         if (i.Required && !i.Set)
-            MOE_THROW(BadFormatException, "Option \"{0}\" must be set", i.LongOption);
+            MOE_THROW(CmdlineParseException, "Option \"{0}\" must be set", i.LongOption);
 
         // 设置未填写的参数为默认值
         if (!i.Set)

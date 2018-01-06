@@ -172,6 +172,40 @@ namespace moe
     };
 
     /**
+     * @brief ScopeGuard
+     * @tparam T 函数类型
+     */
+    template <typename T>
+    class ScopeExit :
+        public NonCopyable
+    {
+    public:
+        explicit ScopeExit(const T& func)
+            : m_stFunc(func) {}
+        explicit ScopeExit(T&& func)
+            : m_stFunc(std::move(func)) {}
+
+        ScopeExit(ScopeExit&& rhs)
+            : m_stFunc(std::move(rhs.m_stFunc)), m_bDismiss(rhs.m_bDismiss) {}
+
+        ~ScopeExit()noexcept
+        {
+            if (!m_bDismiss)
+            {
+                if (m_stFunc)
+                    m_stFunc();
+            }
+        }
+
+    public:
+        void Dismiss()noexcept { m_bDismiss = true; }
+
+    private:
+        T m_stFunc;
+        bool m_bDismiss = false;
+    };
+
+    /**
      * @brief 读取整个文件（二进制的）
      * @exception IOException 打开文件失败抛出
      * @param[out] out 目标缓冲区

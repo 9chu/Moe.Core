@@ -11,10 +11,16 @@
 
 #include "Any.hpp"
 #include "ArrayView.hpp"
+#include "Exception.hpp"
 #include "Convert.hpp"
 
 namespace moe
 {
+    /**
+     * @brief 命令行解析失败时抛出
+     */
+    MOE_DEFINE_EXCEPTION(CmdlineParseException);
+
     class CmdParser
     {
     public:
@@ -177,8 +183,7 @@ namespace moe
     private:
         /**
          * @brief 解析命令行
-         * @exception BadArgumentException 参数无效时抛出
-         * @exception BadFormatException 用户输入无效时抛出
+         * @exception CmdlineParseException 命令行解析失败时抛出
          * @param argc 参数个数
          * @param argv 参数值列表
          * @param[in,out] nonOptions 非选项结果
