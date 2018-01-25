@@ -320,6 +320,47 @@ namespace moe
         }
 
         /**
+         * @brief 重新分配内存
+         * @param p 老的指针
+         * @param sz 新的大小
+         * @return 新的指针
+         *
+         * 重新分配内存以满足sz的大小：
+         *  - 若空间满足sz的大小则不做调整
+         *  - 若不足以容纳sz的大小则分配新的内存空间
+         *  - 若sz为0，且p有效，则执行Free逻辑
+         *  - 若p为nullptr，且sz不为0，则执行Alloc逻辑
+         */
+        void* Realloc(void* p, size_t sz)
+        {
+            if (sz == 0)
+            {
+                if (p)  // 走Free
+                    Free(p);
+                return nullptr;
+            }
+
+            if (p == nullptr)
+                return Alloc(sz);
+
+            FixedBuffer* buffer =
+                reinterpret_cast<FixedBuffer*>(static_cast<uint8_t*>(p) - offsetof(FixedBuffer, Data));
+            assert(!buffer->Free);
+
+            // 大小满足，直接返回
+            if (buffer->Size >= sz)
+                return p;
+
+            // 分配新的内存空间并拷贝内容
+            void* q = Alloc(sz);
+            ::memcpy(q, p, buffer->Size);
+
+            // 释放老的空间
+            Free(p);
+            return q;
+        }
+
+        /**
          * @brief 回收并释放所有空闲内存
          */
         void CollectGarbage()noexcept
