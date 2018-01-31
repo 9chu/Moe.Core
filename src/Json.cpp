@@ -7,6 +7,7 @@
 #include <Moe.Core/Encoding.hpp>
 
 #include <stack>
+#include <algorithm>
 
 using namespace std;
 using namespace moe;
@@ -1154,7 +1155,7 @@ namespace
 
                 result = (sign == '-' ? -result : result);
 
-                m_pHandler->OnJsonNumber(result);
+                m_pHandler->OnJsonNumber(static_cast<JsonValue::NumberType>(result));
             }
             else
             {

@@ -25,7 +25,7 @@ std::string& moe::ReadWholeFile(std::string& out, const char* path)
     auto size = t.tellg();
     if (size < 0)
         MOE_THROW(IOException, "Tellg on file \"{0}\" error", path);
-    out.reserve(size);
+    out.reserve(static_cast<size_t>(size));
 
     t.seekg(0, std::ios::beg);
     if (!t.good())

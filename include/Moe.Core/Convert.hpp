@@ -820,7 +820,7 @@ namespace moe
                     }
 
                     uint64_t digits = ReadUInt64(value, pos, length);
-                    MultiplyByPowerOfTen(length);
+                    MultiplyByPowerOfTen(static_cast<int>(length));
                     AddUInt64(digits);
                     Clamp();
                 }
@@ -1101,14 +1101,14 @@ namespace moe
                     return false;
                 }
 
-                static void BiggestPowerTen(uint32_t number, size_t numberBits, uint32_t& power, int& exponentPlusOne)
+                static void BiggestPowerTen(uint32_t number, unsigned numberBits, uint32_t& power, unsigned& exponentPlusOne)
                 {
                     static unsigned int const kSmallPowersOfTen[] = {
                         0, 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000
                     };
 
                     assert(number < (1u << (numberBits + 1)));
-                    int exponentPlusOneGuess = ((numberBits + 1) * 1233 >> 12);
+                    unsigned exponentPlusOneGuess = ((numberBits + 1) * 1233 >> 12);
                     exponentPlusOneGuess++;
                     if (number < kSmallPowersOfTen[exponentPlusOneGuess])
                         --exponentPlusOneGuess;
@@ -1133,10 +1133,10 @@ namespace moe
                     uint32_t integrals = static_cast<uint32_t>(tooHigh.Significand() >> -one.Exponent());
                     uint64_t fractionals = tooHigh.Significand() & (one.Significand() - 1);
                     uint32_t divisor = 0;
-                    int divisorExponentPlusOne = 0;
+                    unsigned divisorExponentPlusOne = 0;
                     BiggestPowerTen(integrals, static_cast<size_t>(DiyFp::kSignificandSize + one.Exponent()), divisor,
                         divisorExponentPlusOne);
-                    kappa = divisorExponentPlusOne;
+                    kappa = static_cast<int>(divisorExponentPlusOne);
                     length = 0;
 
                     while (kappa > 0)
@@ -1192,10 +1192,10 @@ namespace moe
                     uint32_t integrals = static_cast<uint32_t>(w.Significand() >> -one.Exponent());
                     uint64_t fractionals = w.Significand() & (one.Significand() - 1);
                     uint32_t divisor;
-                    int divisorExponentPlusOne;
+                    unsigned divisorExponentPlusOne;
                     BiggestPowerTen(integrals, static_cast<size_t>(DiyFp::kSignificandSize + one.Exponent()), divisor,
                         divisorExponentPlusOne);
-                    kappa = divisorExponentPlusOne;
+                    kappa = static_cast<int>(divisorExponentPlusOne);
                     length = 0;
 
                     while (kappa > 0)
@@ -1326,7 +1326,7 @@ namespace moe
 
                     if (result)
                     {
-                        decimalPoint = length + decimalExponent;
+                        decimalPoint = static_cast<int>(length) + decimalExponent;
                         buffer[length] = '\0';
                     }
 
@@ -1451,7 +1451,7 @@ namespace moe
                 }
 
                 template <typename T>
-                static void FillFractionals(uint64_t fractionals, int exponent, size_t fractionalCount,
+                static void FillFractionals(uint64_t fractionals, int exponent, unsigned fractionalCount,
                     MutableArrayView<T>& buffer, size_t& length, int& decimalPoint)
                 {
                     assert(-128 <= exponent && exponent <= 0);
@@ -1460,7 +1460,7 @@ namespace moe
                     {
                         assert(fractionals >> 56 == 0);
                         int point = -exponent;
-                        for (size_t i = 0; i < fractionalCount; ++i)
+                        for (unsigned i = 0; i < fractionalCount; ++i)
                         {
                             if (fractionals == 0)
                                 break;
@@ -1483,8 +1483,8 @@ namespace moe
                         assert(64 < -exponent && -exponent <= 128);
                         UInt128 fractionals128 = UInt128(fractionals, 0);
                         fractionals128.Shift(-exponent - 64);
-                        size_t point = 128;
-                        for (size_t i = 0; i < fractionalCount; ++i)
+                        int point = 128;
+                        for (unsigned i = 0; i < fractionalCount; ++i)
                         {
                             if (fractionals128.IsZero())
                                 break;
@@ -1507,7 +1507,7 @@ namespace moe
                     while (length > 0 && buffer[length - 1] == '0')
                         --length;
 
-                    size_t firstNonZero = 0;
+                    unsigned firstNonZero = 0;
                     while (firstNonZero < length && buffer[firstNonZero] == '0')
                         firstNonZero++;
 
@@ -1517,12 +1517,12 @@ namespace moe
                             buffer[i - firstNonZero] = buffer[i];
 
                         length -= firstNonZero;
-                        decimalPoint -= firstNonZero;
+                        decimalPoint -= static_cast<int>(firstNonZero);
                     }
                 }
 
                 template <typename T>
-                static bool Dtoa(double v, size_t fractionalCount, MutableArrayView<T>& buffer, size_t& length,
+                static bool Dtoa(double v, unsigned fractionalCount, MutableArrayView<T>& buffer, size_t& length,
                     int& decimalPoint)
                 {
                     const uint32_t kMaxUInt32 = 0xFFFFFFFF;
@@ -1559,13 +1559,13 @@ namespace moe
 
                         FillDigits32(quotient, buffer, length);
                         FillDigits64FixedLength(remainder, buffer, length);
-                        decimalPoint = length;
+                        decimalPoint = static_cast<int>(length);
                     }
                     else if (exponent >= 0)
                     {
                         significand <<= exponent;
                         FillDigits64(significand, buffer, length);
-                        decimalPoint = length;
+                        decimalPoint = static_cast<int>(length);
                     }
                     else if (exponent > -kDoubleSignificandSize)
                     {
@@ -1576,7 +1576,7 @@ namespace moe
                         else
                             FillDigits32(static_cast<uint32_t>(integrals), buffer, length);
 
-                        decimalPoint = length;
+                        decimalPoint = static_cast<int>(length);
                         FillFractionals(fractionals, exponent, fractionalCount, buffer, length, decimalPoint);
                     }
                     else if (exponent < -128)
@@ -1584,7 +1584,7 @@ namespace moe
                         assert(fractionalCount <= 20);
                         buffer[0] = '\0';
                         length = 0;
-                        decimalPoint = -fractionalCount;
+                        decimalPoint = -static_cast<int>(fractionalCount);
                     }
                     else
                     {
@@ -1595,7 +1595,7 @@ namespace moe
                     TrimZeros(buffer, length, decimalPoint);
                     buffer[length] = '\0';
                     if (length == 0)
-                        decimalPoint = -fractionalCount;
+                        decimalPoint = -static_cast<int>(fractionalCount);
                     return true;
                 }
             };
@@ -1766,7 +1766,7 @@ namespace moe
                 }
 
                 template <typename T>
-                static void Dtoa(double v, BignumDtoaMode mode, size_t requestedDigits, MutableArrayView<T>& buffer,
+                static void Dtoa(double v, BignumDtoaMode mode, unsigned requestedDigits, MutableArrayView<T>& buffer,
                     size_t& length, int& decimalPoint)
                 {
                     assert(v > 0);
@@ -1800,7 +1800,7 @@ namespace moe
                     {
                         buffer[0] = '\0';
                         length = 0;
-                        decimalPoint = -requestedDigits;
+                        decimalPoint = -static_cast<int>(requestedDigits);
                         return;
                     }
 
@@ -1822,7 +1822,7 @@ namespace moe
                                 length);
                             break;
                         case BignumDtoaMode::Fixed:
-                            BignumToFixed(requestedDigits, decimalPoint, numerator, denominator, buffer, length);
+                            BignumToFixed(static_cast<int>(requestedDigits), decimalPoint, numerator, denominator, buffer, length);
                             break;
                         case BignumDtoaMode::Precision:
                             GenerateCountedDigits(requestedDigits, decimalPoint, numerator, denominator, buffer,
@@ -1961,12 +1961,12 @@ namespace moe
                 //   ToPrecision(230.0, 2) -> "2.3e2" with EMIT_TRAILING_ZERO_AFTER_POINT.
                 DoubleToStringConverter(DtoaFlags flags, const T* infinitySymbol, const T* nanSymbol,
                     T exponentCharacter, int decimalInShortestLow, int decimalInShortestHigh,
-                    size_t maxLeadingPaddingZeroesInPrecisionMode, size_t maxTrailingPaddingZeroesInPrecisionMode)
+                    unsigned maxLeadingPaddingZeroesInPrecisionMode, unsigned maxTrailingPaddingZeroesInPrecisionMode)
                     : m_iFlags(static_cast<int>(flags)), m_szInfinitySymbol(infinitySymbol), m_szNanSymbol(nanSymbol),
                     m_cExponentCharacter(exponentCharacter), m_iDecimalInShortestLow(decimalInShortestLow),
                     m_iDecimalInShortestHigh(decimalInShortestHigh),
-                    m_iMaxLeadingPaddingZeroesInPrecisionMode(maxLeadingPaddingZeroesInPrecisionMode),
-                    m_iMaxTrailingPaddingZeroesInPrecisionMode(maxTrailingPaddingZeroesInPrecisionMode)
+                    m_iMaxLeadingPaddingZeroesInPrecisionMode(static_cast<int>(maxLeadingPaddingZeroesInPrecisionMode)),
+                    m_iMaxTrailingPaddingZeroesInPrecisionMode(static_cast<int>(maxTrailingPaddingZeroesInPrecisionMode))
                 {
                     assert(((static_cast<int>(flags) & static_cast<int>(DtoaFlags::EmitTrailingDecimalPoint)) != 0) ||
                         !((static_cast<int>(flags) & static_cast<int>(DtoaFlags::EmitTrailingZeroAfterPoint)) != 0));
@@ -2265,7 +2265,7 @@ namespace moe
                 // terminating null-character when computing the maximal output size.
                 // The given length is only used in debug mode to ensure the buffer is big
                 // enough.
-                static void DoubleToAscii(double v, DtoaMode mode, size_t requestedDigits, T* buffer,
+                static void DoubleToAscii(double v, DtoaMode mode, unsigned requestedDigits, T* buffer,
                     size_t bufferLength, bool& sign, size_t& length, int& point)
                 {
                     MutableArrayView<T> vector(buffer, bufferLength);
@@ -2471,8 +2471,8 @@ namespace moe
                             resultBuilder.AddPadding('0', static_cast<size_t>(-decimalPoint));
                             assert(length <= static_cast<size_t>(digitsAfterPoint - (-decimalPoint)));
                             resultBuilder.AddSubstring(decimalDigits, length);
-                            int remainingDigits = digitsAfterPoint - (-decimalPoint) - length;
-                            resultBuilder.AddPadding('0', static_cast<size_t>(remainingDigits));
+                            size_t remainingDigits = digitsAfterPoint - (-decimalPoint) - length;
+                            resultBuilder.AddPadding('0', remainingDigits);
                         }
                     }
                     else if (decimalPoint >= 0 && static_cast<size_t>(decimalPoint) >= length)
@@ -2495,8 +2495,8 @@ namespace moe
                         assert(length - decimalPoint <= digitsAfterPoint);
                         resultBuilder.AddSubstring(&decimalDigits[decimalPoint],
                             length - decimalPoint);
-                        int remainingDigits = digitsAfterPoint - (length - decimalPoint);
-                        resultBuilder.AddPadding('0', static_cast<size_t>(remainingDigits));
+                        size_t remainingDigits = digitsAfterPoint - (length - decimalPoint);
+                        resultBuilder.AddPadding('0', remainingDigits);
                     }
 
                     if (digitsAfterPoint == 0)
@@ -2646,7 +2646,7 @@ namespace moe
                     // Set the last digit to be non-zero. This is sufficient to guarantee
                     // correct rounding.
                     significantBuffer[kMaxSignificantDecimalDigits - 1] = '1';
-                    significantExponent = exponent + (buffer.GetSize() - kMaxSignificantDecimalDigits);
+                    significantExponent = exponent + static_cast<int>(buffer.GetSize() - kMaxSignificantDecimalDigits);
                 }
 
                 static void TrimAndCut(ArrayView<T> buffer, int exponent, T bufferCopySpace[], size_t spaceSize,
@@ -2654,7 +2654,7 @@ namespace moe
                 {
                     ArrayView<T> leftTrimmed = TrimLeadingZeros(buffer);
                     ArrayView<T> rightTrimmed = TrimTrailingZeros(leftTrimmed);
-                    exponent += leftTrimmed.GetSize() - rightTrimmed.GetSize();
+                    exponent += static_cast<int>(leftTrimmed.GetSize() - rightTrimmed.GetSize());
                     if (rightTrimmed.GetSize() > kMaxSignificantDecimalDigits)
                     {
                         MOE_UNUSED(spaceSize);
@@ -2775,7 +2775,7 @@ namespace moe
                             return true;
                         }
 
-                        int remainingDigits = kMaxExactDoubleIntegerDecimalDigits - trimmed.GetSize();
+                        auto remainingDigits = static_cast<int>(kMaxExactDoubleIntegerDecimalDigits - trimmed.GetSize());
                         if ((0 <= exponent) && (exponent - remainingDigits < kExactPowersOfTenSize))
                         {
                             // The trimmed string was short and we can multiply it with

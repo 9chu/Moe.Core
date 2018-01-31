@@ -435,7 +435,7 @@ void Bignum::Square()
         MOE_UNREACHABLE();
 
     DoubleChunk accumulator = 0;
-    int copyOffset = m_uUsedDigits;
+    auto copyOffset = m_uUsedDigits;
     for (size_t i = 0; i < m_uUsedDigits; ++i)
         m_stBigits[copyOffset + i] = m_stBigits[i];
 

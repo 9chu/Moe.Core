@@ -107,7 +107,7 @@ namespace moe
         {
             if (IsSeekable())
             {
-                assert(count <= std::numeric_limits<int64_t>::max());
+                assert(count <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max()));
                 auto current = GetPosition();
                 auto newPosition = Seek(count, StreamSeekOrigin::Current);
                 return newPosition - current;

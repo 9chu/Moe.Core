@@ -5,6 +5,8 @@
 #include <Moe.Core/CmdParser.hpp>
 #include <Moe.Core/Exception.hpp>
 
+#include <algorithm>
+
 using namespace std;
 using namespace moe;
 

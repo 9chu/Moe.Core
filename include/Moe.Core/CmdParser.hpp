@@ -121,7 +121,7 @@ namespace moe
          * @param[out] nonOptions 非选项命令行组成
          * @param argc 命令行参数个数，必然大于1
          * @param argv 命令行参数值，忽略argv[0]
-         * @return 解析个数，返回-1表示失败
+         * @return 解析个数
          *
          * 规则：
          *  --指示长选项，后可接等号或者空格分割值，如"--host=127.0.0.1"或者"--host 127.0.0.1"
@@ -129,8 +129,8 @@ namespace moe
          *  在解析过程中不被接受的项目被放入nonOptions中等待后续处理。
          *  如果遇到"--"，则后续的命令行将会直接被放弃解析放入nonOptions。
          */
-        ssize_t operator()(uint32_t argc, const char* argv[]) { return Parse(argc, argv, nullptr); }
-        ssize_t operator()(std::vector<std::string>& nonOptions, uint32_t argc, const char* argv[])
+        size_t operator()(uint32_t argc, const char* argv[]) { return Parse(argc, argv, nullptr); }
+        size_t operator()(std::vector<std::string>& nonOptions, uint32_t argc, const char* argv[])
         {
             return Parse(argc, argv, &nonOptions);
         }
