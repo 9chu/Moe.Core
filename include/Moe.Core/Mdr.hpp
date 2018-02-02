@@ -307,7 +307,7 @@ namespace moe
                         {
                             uint64_t v = 0;
                             ReadVarint(&v);
-                            if (v < std::numeric_limits<T>::min() || v > std::numeric_limits<T>::max())
+                            if (v > static_cast<uint64_t>(std::numeric_limits<T>::max()))
                                 MOE_THROW(BadFormatException, "Numeric is overflowed near tag {0}", tag);
                             out = static_cast<T>(v);
                         }
