@@ -281,7 +281,7 @@ SharedMemory::SharedMemory(SharedMemory&& org)noexcept
     org.m_uSize = 0;
     org.m_pMappingData = nullptr;
     org.m_bCreateMode = false;
-    org.m_bAutoFree = true;
+    org.m_bAutoFree = false;
 }
 
 SharedMemory::~SharedMemory()
@@ -326,7 +326,7 @@ SharedMemory& SharedMemory::operator=(SharedMemory&& rhs)noexcept
     rhs.m_bCreateMode = false;
     
     m_bAutoFree = rhs.m_bAutoFree;
-    rhs.m_bAutoFree = true;
+    rhs.m_bAutoFree = false;
 
     return *this;
 }
@@ -362,5 +362,5 @@ void SharedMemory::Free()noexcept
     m_stPlatformName.clear();
     m_uSize = 0;
     m_bCreateMode = false;
-    m_bAutoFree = true;
+    m_bAutoFree = false;
 }

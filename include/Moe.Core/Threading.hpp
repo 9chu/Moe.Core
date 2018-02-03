@@ -261,7 +261,7 @@ namespace moe
              *
              * 若自动释放则在析构时自动销毁共享内存。
              * Windows下无意义。
-             * 默认自动释放。
+             * 默认不自动释放。
              */
             bool IsAutoFree()const noexcept { return m_bAutoFree; }
             void SetAutoFree(bool free)noexcept { m_bAutoFree = free; }
@@ -284,7 +284,7 @@ namespace moe
             size_t m_uSize = 0;
             Header* m_pMappingData = nullptr;
             bool m_bCreateMode = false;
-            bool m_bAutoFree = true;
+            bool m_bAutoFree = false;
         };
     }
 }
