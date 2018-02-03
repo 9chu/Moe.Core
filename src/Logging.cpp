@@ -7,6 +7,7 @@
 
 #include <mutex>
 #include <vector>
+#include <atomic>
 #include <iostream>
 #include <iomanip>
 
@@ -178,24 +179,21 @@ void FileLogger::Log(LogLevel level, const std::string& message, const char* fil
     m_stFile.flush();
 }
 
-//////////////////////////////////////////////////////////////////////////////// Threading
+//////////////////////////////////////////////////////////////////////////////// Logging
 
 static mutex s_stLoggerLock;
 static vector<shared_ptr<Logger>> s_stLoggerList = { make_shared<ConsoleLogger>() };
 
 #ifdef NDEBUG
-static LogLevel s_iFilterMinLevel = LogLevel::Info;
+static std::atomic<unsigned> s_iFilterMinLevel(static_cast<unsigned>(LogLevel::Info));
 #else
-static LogLevel s_iFilterMinLevel = LogLevel::Debug;
+static std::atomic<unsigned> s_iFilterMinLevel(static_cast<unsigned>(LogLevel::Debug));
 #endif
 
 void Logging::details::DispatchLogMessage(LogLevel level, const std::string& message, const char* file, unsigned line,
     const char* function, thread::id thread, LoggingTimePoint time)noexcept
 {
     unique_lock<mutex> lockGuard(s_stLoggerLock);
-
-    if (level < s_iFilterMinLevel)
-        return;
 
     for (auto it = s_stLoggerList.begin(); it != s_stLoggerList.end(); ++it)
         (*it)->Log(level, message, file, line, function, thread, time);
@@ -249,12 +247,11 @@ void Logging::ClearLogger()noexcept
 
 LogLevel Logging::GetFilterMinLevel()noexcept
 {
-    unique_lock<mutex> lockGuard(s_stLoggerLock);
-    return s_iFilterMinLevel;
+    auto ret = s_iFilterMinLevel.load(memory_order_consume);
+    return static_cast<LogLevel>(ret);
 }
 
 void Logging::SetFilterMinLevel(LogLevel level)noexcept
 {
-    unique_lock<mutex> lockGuard(s_stLoggerLock);
-    s_iFilterMinLevel = level;
+    s_iFilterMinLevel.store(static_cast<unsigned>(level), memory_order_release);
 }

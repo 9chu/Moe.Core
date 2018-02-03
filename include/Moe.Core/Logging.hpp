@@ -158,22 +158,25 @@ namespace moe
 }
 
 #define MOE_LOG(level, format, ...) \
-    moe::Logging::Log(level, __FILE__, __LINE__, __FUNCTION__, format, ##__VA_ARGS__)
+    do { \
+        if (level >= moe::Logging::GetFilterMinLevel()) \
+            moe::Logging::Log(level, __FILE__, __LINE__, __FUNCTION__, format, ##__VA_ARGS__); \
+    } while (false)
 
 #define MOE_DEBUG(format, ...) \
-    moe::Logging::Log(moe::Logging::LogLevel::Debug, __FILE__, __LINE__, __FUNCTION__, format, ##__VA_ARGS__)
+    MOE_LOG(moe::Logging::LogLevel::Debug, format, ##__VA_ARGS__)
 
 #define MOE_TRACE(format, ...) \
-    moe::Logging::Log(moe::Logging::LogLevel::Trace, __FILE__, __LINE__, __FUNCTION__, format, ##__VA_ARGS__)
+    MOE_LOG(moe::Logging::LogLevel::Trace, format, ##__VA_ARGS__)
 
 #define MOE_INFO(format, ...) \
-    moe::Logging::Log(moe::Logging::LogLevel::Info, __FILE__, __LINE__, __FUNCTION__, format, ##__VA_ARGS__)
+    MOE_LOG(moe::Logging::LogLevel::Info, format, ##__VA_ARGS__)
 
 #define MOE_WARN(format, ...) \
-    moe::Logging::Log(moe::Logging::LogLevel::Warn, __FILE__, __LINE__, __FUNCTION__, format, ##__VA_ARGS__)
+    MOE_LOG(moe::Logging::LogLevel::Warn, format, ##__VA_ARGS__)
 
 #define MOE_ERROR(format, ...) \
-    moe::Logging::Log(moe::Logging::LogLevel::Error, __FILE__, __LINE__, __FUNCTION__, format, ##__VA_ARGS__)
+    MOE_LOG(moe::Logging::LogLevel::Error, format, ##__VA_ARGS__)
 
 #define MOE_FATAL(format, ...) \
-    moe::Logging::Log(moe::Logging::LogLevel::Fatal, __FILE__, __LINE__, __FUNCTION__, format, ##__VA_ARGS__)
+    MOE_LOG(moe::Logging::LogLevel::Fatal, format, ##__VA_ARGS__)

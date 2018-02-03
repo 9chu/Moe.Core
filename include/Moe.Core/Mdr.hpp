@@ -179,14 +179,23 @@ namespace moe
             // clang: https://stackoverflow.com/questions/43819314/default-member-initializer-needed-within-definition-
             // of-enclosing-class-outside
             Reader()noexcept {}
-            Reader(const Reader& rhs)noexcept = default;
-            Reader(Reader&&)noexcept = default;
+            Reader(const Reader& rhs) = default;
+
+            Reader(Reader&& rhs)noexcept
+                : m_pStream(rhs.m_pStream), m_stForward(std::move(rhs.m_stForward)),
+                m_uMaxRecursiveDepth(rhs.m_uMaxRecursiveDepth), m_uDepth(rhs.m_uDepth)
+            {
+                rhs.m_pStream = nullptr;
+                rhs.m_uMaxRecursiveDepth = 16;
+                rhs.m_uDepth = 0;
+            }
+
             ~Reader() = default;
 
             explicit Reader(Stream* stream)noexcept
                 : m_pStream(stream) {}
 
-            Reader& operator=(const Reader&)noexcept = default;
+            Reader& operator=(const Reader&) = default;
 
         public:
             /**

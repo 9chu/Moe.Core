@@ -205,7 +205,7 @@ SharedMemory::SharedMemory(const char* name, size_t sz, AttachMode mode)
         break;
     default:
         m_bCreateMode = false;
-        m_iFd = ::shm_open(m_stPlatformName.c_str(), O_CREAT | O_RDWR | O_EXCL, S_IRUSR | S_IWUSR);
+        m_iFd = ::shm_open(m_stPlatformName.c_str(), O_RDWR | O_EXCL, S_IRUSR | S_IWUSR);
         if (m_iFd == -1)  // 打开失败的情况下会尝试创建
         {
             m_iFd = ::shm_open(m_stPlatformName.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
