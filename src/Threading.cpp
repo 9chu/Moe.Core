@@ -136,7 +136,7 @@ SharedMemory::SharedMemory(const char* name, size_t sz, AttachMode mode)
             if (!m_hHandle)
             {
                 auto err = GetLastError();
-                MOE_THROW(APIException, "Open shared memory \"{0}\" failed, err={1}", m_stName, err);
+                MOE_THROW(ApiException, "Open shared memory \"{0}\" failed, err={1}", m_stName, err);
             }
             m_bCreateMode = false;
             break;
@@ -146,14 +146,14 @@ SharedMemory::SharedMemory(const char* name, size_t sz, AttachMode mode)
             if (!m_hHandle)
             {
                 auto err = GetLastError();
-                MOE_THROW(APIException, "Create shared memory \"{0}\" failed, err={1}", m_stName, err);
+                MOE_THROW(ApiException, "Create shared memory \"{0}\" failed, err={1}", m_stName, err);
             }
             if (GetLastError() == ERROR_ALREADY_EXISTS)
             {
                 if (mode == AttachMode::CreateOnly)
                 {
                     ::CloseHandle(m_hHandle);
-                    MOE_THROW(APIException, "Shared memory \"{0}\" already exsists", m_stName);
+                    MOE_THROW(ApiException, "Shared memory \"{0}\" already exsists", m_stName);
                 }
                 m_bCreateMode = false;
             }
@@ -169,7 +169,7 @@ SharedMemory::SharedMemory(const char* name, size_t sz, AttachMode mode)
         auto err = GetLastError();
 
         ::CloseHandle(m_hHandle);
-        MOE_THROW(APIException, "Map shared memory \"{0}\" failed, err={1}", m_stName, err);
+        MOE_THROW(ApiException, "Map shared memory \"{0}\" failed, err={1}", m_stName, err);
     }
 #else
     m_stPlatformName = MakePlatformSpecificShmName(m_stName);
@@ -181,7 +181,7 @@ SharedMemory::SharedMemory(const char* name, size_t sz, AttachMode mode)
         if (m_iFd == -1)
         {
             auto err = errno;
-            MOE_THROW(APIException, "Open shared memory \"{0}\" failed, err={1}", m_stName, err);
+            MOE_THROW(ApiException, "Open shared memory \"{0}\" failed, err={1}", m_stName, err);
         }
         m_bCreateMode = false;
         break;
@@ -191,15 +191,15 @@ SharedMemory::SharedMemory(const char* name, size_t sz, AttachMode mode)
         {
             auto err = errno;
             if (err == EEXIST)
-                MOE_THROW(APIException, "Shared memory \"{0}\" already exsists", m_stName);
-            MOE_THROW(APIException, "Create shared memory \"{0}\" failed, err={1}", m_stName, err);
+                MOE_THROW(ApiException, "Shared memory \"{0}\" already exsists", m_stName);
+            MOE_THROW(ApiException, "Create shared memory \"{0}\" failed, err={1}", m_stName, err);
         }
         if (::ftruncate(m_iFd, m_uSize) == -1)
         {
             auto err = errno;
             ::close(m_iFd);
             ::shm_unlink(m_stPlatformName.c_str());
-            MOE_THROW(APIException, "Create shared memory \"{0}\" failed, err={1}", m_stName, err);
+            MOE_THROW(ApiException, "Create shared memory \"{0}\" failed, err={1}", m_stName, err);
         }
         m_bCreateMode = true;
         break;
@@ -212,14 +212,14 @@ SharedMemory::SharedMemory(const char* name, size_t sz, AttachMode mode)
             if (m_iFd == -1)
             {
                 auto err = errno;
-                MOE_THROW(APIException, "Create shared memory \"{0}\" failed, err={1}", m_stName, err);
+                MOE_THROW(ApiException, "Create shared memory \"{0}\" failed, err={1}", m_stName, err);
             }
             if (::ftruncate(m_iFd, m_uSize) == -1)
             {
                 auto err = errno;
                 ::close(m_iFd);
                 ::shm_unlink(m_stPlatformName.c_str());
-                MOE_THROW(APIException, "Create shared memory \"{0}\" failed, err={1}", m_stName, err);
+                MOE_THROW(ApiException, "Create shared memory \"{0}\" failed, err={1}", m_stName, err);
             }
             m_bCreateMode = true;
         }
@@ -236,7 +236,7 @@ SharedMemory::SharedMemory(const char* name, size_t sz, AttachMode mode)
             ::close(m_iFd);
             ::shm_unlink(m_stPlatformName.c_str());
         }
-        MOE_THROW(APIException, "Map shared memory \"{0}\" failed, err={1}", m_stName, err);
+        MOE_THROW(ApiException, "Map shared memory \"{0}\" failed, err={1}", m_stName, err);
     }
 #endif
 

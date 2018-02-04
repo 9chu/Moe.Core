@@ -251,7 +251,7 @@ namespace moe
      *
      * 通常用来指示平台或者第三方组件产生的异常。
      */
-    MOE_DEFINE_EXCEPTION(APIException);
+    MOE_DEFINE_EXCEPTION(ApiException);
 
     /**
      * @brief IO错误
