@@ -1039,6 +1039,43 @@ namespace moe
             Stream* m_pStream = nullptr;
         };
 
+        //////////////////////////////////////// <editor-fold desc="辅助函数">
+
+        /**
+         * @brief 读取结构体
+         * @tparam T 结构类型
+         * @param out 读取结果
+         * @param buf 缓冲区
+         * @param tag 标签
+         * @return 读取字节数
+         */
+        template <typename T>
+        static size_t ReadStruct(T& out, BytesView buf, TagType tag=0)
+        {
+            BytesViewStream stream(buf);
+            Mdr::Reader reader(&stream);
+            reader.Read(out, tag);
+            return stream.GetPosition();
+        }
+
+        /**
+         * @brief 写入结构体
+         * @tparam T 结构类型
+         * @param input 输入结构体
+         * @param buf 缓冲区
+         * @param tag 标签
+         * @return 写入字节数
+         */
+        template <typename T>
+        static size_t WriteStruct(const T& input, MutableBytesView buf, TagType tag=0)
+        {
+            BytesViewStream stream(buf);
+            Mdr::Writer writer(&stream);
+            writer.Write(input, tag);
+            return stream.GetPosition();
+        }
+
+        //////////////////////////////////////// </editor-fold>
         //////////////////////////////////////// <editor-fold desc="扩展&反射部分">
 
         /**
