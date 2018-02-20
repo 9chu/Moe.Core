@@ -7,8 +7,8 @@ set(CMAKE_CXX_STANDARD 11)
 if(MSVC)
     add_definitions(-D_WIN32_WINNT=0x0600 -D_GNU_SOURCE -D_CRT_SECURE_NO_WARNINGS)
 else()
-    set(CMAKE_CXX_FLAGS "-g -Wall -Wextra")
-    set(CMAKE_C_FLAGS "-g -Wall -Wextra")
+    set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-implicit-fallthrough")
+    set(CMAKE_C_FLAGS "-g -Wall -Wextra -Wno-implicit-fallthrough")
 endif()
 
 # 目标
