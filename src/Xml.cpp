@@ -6,6 +6,7 @@
 #include <Moe.Core/Parser.hpp>
 
 #include <stack>
+#include <climits>
 
 using namespace std;
 using namespace moe;
@@ -25,7 +26,11 @@ namespace
             return true;
         else if (ch == '_' || ch == ':')
             return true;
+#if CHAR_MIN < 0
         else if (ch < 0)
+#else
+        else if (ch > 127)
+#endif
             return true;
         return false;
     }
@@ -40,7 +45,11 @@ namespace
             return true;
         else if (ch == '_' || ch == ':' || ch == '.' || ch == '-')
             return true;
+#if CHAR_MIN < 0
         else if (ch < 0)
+#else
+        else if (ch > 127)
+#endif
             return true;
         return false;
     }

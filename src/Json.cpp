@@ -8,6 +8,7 @@
 
 #include <stack>
 #include <algorithm>
+#include <climits>
 
 using namespace std;
 using namespace moe;
@@ -51,7 +52,11 @@ namespace
                     str.append("\\t");
                     break;
                 default:
+#if CHAR_MIN < 0
                     if (c >= 0 && (!::isprint(c) || ::iscntrl(c)))
+#else
+                    if (!::isprint(c) || ::iscntrl(c))
+#endif
                     {
                         static const uint32_t kPreAllocate = 4u;
 
