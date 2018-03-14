@@ -180,3 +180,11 @@ namespace moe
 
 #define MOE_FATAL(format, ...) \
     MOE_LOG(moe::Logging::LogLevel::Fatal, format, ##__VA_ARGS__)
+
+#define MOE_EXCEPTION(ex) \
+    do { \
+        const auto& except = (ex); \
+        if (moe::Logging::LogLevel::Error >= moe::Logging::GetFilterMinLevel()) \
+            moe::Logging::Log(moe::Logging::LogLevel::Error, except.GetSourceFile(), except.GetLineNumber(), \
+            except.GetFunctionName(), "(Logged at {0}:{1}) {2}", __FUNCTION__, __LINE__, except.GetDescription()); \
+    } while (false)

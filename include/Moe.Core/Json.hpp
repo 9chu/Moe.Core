@@ -243,11 +243,11 @@ namespace moe
     private:
         union JsonValueStorage
         {
-            BoolType m_bBool;
-            NumberType m_dNumber;
-            StringType m_stString;
-            ArrayType m_stArray;
-            ObjectType m_stObject;
+            BoolType Bool;
+            NumberType Number;
+            StringType String;
+            ArrayType Array;
+            ObjectType Object;
 
             JsonValueStorage() {}
             ~JsonValueStorage() {}
@@ -303,7 +303,7 @@ namespace moe
     {
         if (m_iType != JsonValueTypes::Bool)
             MOE_THROW(InvalidCallException, "Bad access from {0}", m_iType);
-        return m_stValue.m_bBool;
+        return m_stValue.Bool;
     }
 
     template <>
@@ -311,7 +311,7 @@ namespace moe
     {
         if (m_iType != JsonValueTypes::Number)
             MOE_THROW(InvalidCallException, "Bad access from {0}", m_iType);
-        return m_stValue.m_dNumber;
+        return m_stValue.Number;
     }
 
     template <>
@@ -319,7 +319,7 @@ namespace moe
     {
         if (m_iType != JsonValueTypes::String)
             MOE_THROW(InvalidCallException, "Bad access from {0}", m_iType);
-        return m_stValue.m_stString;
+        return m_stValue.String;
     }
 
     template <>
@@ -327,7 +327,7 @@ namespace moe
     {
         if (m_iType != JsonValueTypes::Array)
             MOE_THROW(InvalidCallException, "Bad access from {0}", m_iType);
-        return m_stValue.m_stArray;
+        return m_stValue.Array;
     }
 
     template <>
@@ -335,7 +335,7 @@ namespace moe
     {
         if (m_iType != JsonValueTypes::Object)
             MOE_THROW(InvalidCallException, "Bad access from {0}", m_iType);
-        return m_stValue.m_stObject;
+        return m_stValue.Object;
     }
 
     template <>
@@ -343,7 +343,7 @@ namespace moe
     {
         if (m_iType != JsonValueTypes::Bool)
             MOE_THROW(InvalidCallException, "Bad access from {0}", m_iType);
-        return m_stValue.m_bBool;
+        return m_stValue.Bool;
     }
 
     template <>
@@ -351,7 +351,7 @@ namespace moe
     {
         if (m_iType != JsonValueTypes::Number)
             MOE_THROW(InvalidCallException, "Bad access from {0}", m_iType);
-        return m_stValue.m_dNumber;
+        return m_stValue.Number;
     }
 
     template <>
@@ -359,7 +359,7 @@ namespace moe
     {
         if (m_iType != JsonValueTypes::String)
             MOE_THROW(InvalidCallException, "Bad access from {0}", m_iType);
-        return m_stValue.m_stString;
+        return m_stValue.String;
     }
 
     template <>
@@ -367,7 +367,7 @@ namespace moe
     {
         if (m_iType != JsonValueTypes::Array)
             MOE_THROW(InvalidCallException, "Bad access from {0}", m_iType);
-        return m_stValue.m_stArray;
+        return m_stValue.Array;
     }
 
     template <>
@@ -375,7 +375,7 @@ namespace moe
     {
         if (m_iType != JsonValueTypes::Object)
             MOE_THROW(InvalidCallException, "Bad access from {0}", m_iType);
-        return m_stValue.m_stObject;
+        return m_stValue.Object;
     }
 
     //////////////////////////////////////// </editor-fold>

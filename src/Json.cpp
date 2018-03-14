@@ -87,7 +87,7 @@ JsonValue JsonValue::MakeObject(std::initializer_list<std::pair<std::string, Jso
 
     ret.Reset();
 
-    new(&ret.m_stValue.m_stObject) ObjectType();
+    new(&ret.m_stValue.Object) ObjectType();
     ret.m_iType = JsonValueTypes::Object;
 
     for (auto it = val.begin(); it != val.end(); ++it)
@@ -171,19 +171,19 @@ JsonValue::JsonValue(const JsonValue& rhs)
         case JsonValueTypes::Null:
             break;
         case JsonValueTypes::Bool:
-            m_stValue.m_bBool = rhs.m_stValue.m_bBool;
+            m_stValue.Bool = rhs.m_stValue.Bool;
             break;
         case JsonValueTypes::Number:
-            m_stValue.m_dNumber = rhs.m_stValue.m_dNumber;
+            m_stValue.Number = rhs.m_stValue.Number;
             break;
         case JsonValueTypes::String:
-            new(&m_stValue.m_stString) StringType(rhs.m_stValue.m_stString);
+            new(&m_stValue.String) StringType(rhs.m_stValue.String);
             break;
         case JsonValueTypes::Array:
-            new(&m_stValue.m_stArray) ArrayType(rhs.m_stValue.m_stArray);
+            new(&m_stValue.Array) ArrayType(rhs.m_stValue.Array);
             break;
         case JsonValueTypes::Object:
-            new(&m_stValue.m_stObject) ObjectType(rhs.m_stValue.m_stObject);
+            new(&m_stValue.Object) ObjectType(rhs.m_stValue.Object);
             break;
         default:
             assert(false);
@@ -199,26 +199,26 @@ JsonValue::JsonValue(JsonValue&& rhs)noexcept
         case JsonValueTypes::Null:
             break;
         case JsonValueTypes::Bool:
-            m_stValue.m_bBool = rhs.m_stValue.m_bBool;
+            m_stValue.Bool = rhs.m_stValue.Bool;
             break;
         case JsonValueTypes::Number:
-            m_stValue.m_dNumber = rhs.m_stValue.m_dNumber;
+            m_stValue.Number = rhs.m_stValue.Number;
             break;
         case JsonValueTypes::String:
-            new(&m_stValue.m_stString) StringType(std::move(rhs.m_stValue.m_stString));
+            new(&m_stValue.String) StringType(std::move(rhs.m_stValue.String));
             break;
         case JsonValueTypes::Array:
-            new(&m_stValue.m_stArray) ArrayType(std::move(rhs.m_stValue.m_stArray));
+            new(&m_stValue.Array) ArrayType(std::move(rhs.m_stValue.Array));
             break;
         case JsonValueTypes::Object:
-            new(&m_stValue.m_stObject) ObjectType(std::move(rhs.m_stValue.m_stObject));
+            new(&m_stValue.Object) ObjectType(std::move(rhs.m_stValue.Object));
             break;
         default:
             assert(false);
             break;
     }
 
-    rhs.m_iType = JsonValueTypes::Null;
+    rhs.Reset();
 }
 
 JsonValue::~JsonValue()
@@ -235,19 +235,19 @@ JsonValue& JsonValue::operator=(const JsonValue& rhs)
         case JsonValueTypes::Null:
             break;
         case JsonValueTypes::Bool:
-            m_stValue.m_bBool = rhs.m_stValue.m_bBool;
+            m_stValue.Bool = rhs.m_stValue.Bool;
             break;
         case JsonValueTypes::Number:
-            m_stValue.m_dNumber = rhs.m_stValue.m_dNumber;
+            m_stValue.Number = rhs.m_stValue.Number;
             break;
         case JsonValueTypes::String:
-            new(&m_stValue.m_stString) StringType(rhs.m_stValue.m_stString);
+            new(&m_stValue.String) StringType(rhs.m_stValue.String);
             break;
         case JsonValueTypes::Array:
-            new(&m_stValue.m_stArray) ArrayType(rhs.m_stValue.m_stArray);
+            new(&m_stValue.Array) ArrayType(rhs.m_stValue.Array);
             break;
         case JsonValueTypes::Object:
-            new(&m_stValue.m_stObject) ObjectType(rhs.m_stValue.m_stObject);
+            new(&m_stValue.Object) ObjectType(rhs.m_stValue.Object);
             break;
         default:
             assert(false);
@@ -267,19 +267,19 @@ JsonValue& JsonValue::operator=(JsonValue&& rhs)noexcept
         case JsonValueTypes::Null:
             break;
         case JsonValueTypes::Bool:
-            m_stValue.m_bBool = rhs.m_stValue.m_bBool;
+            m_stValue.Bool = rhs.m_stValue.Bool;
             break;
         case JsonValueTypes::Number:
-            m_stValue.m_dNumber = rhs.m_stValue.m_dNumber;
+            m_stValue.Number = rhs.m_stValue.Number;
             break;
         case JsonValueTypes::String:
-            new(&m_stValue.m_stString) StringType(std::move(rhs.m_stValue.m_stString));
+            new(&m_stValue.String) StringType(std::move(rhs.m_stValue.String));
             break;
         case JsonValueTypes::Array:
-            new(&m_stValue.m_stArray) ArrayType(std::move(rhs.m_stValue.m_stArray));
+            new(&m_stValue.Array) ArrayType(std::move(rhs.m_stValue.Array));
             break;
         case JsonValueTypes::Object:
-            new(&m_stValue.m_stObject) ObjectType(std::move(rhs.m_stValue.m_stObject));
+            new(&m_stValue.Object) ObjectType(std::move(rhs.m_stValue.Object));
             break;
         default:
             assert(false);
@@ -287,7 +287,7 @@ JsonValue& JsonValue::operator=(JsonValue&& rhs)noexcept
     }
 
     m_iType = rhs.m_iType;
-    rhs.m_iType = JsonValueTypes::Null;
+    rhs.Reset();
     return *this;
 }
 
@@ -298,22 +298,22 @@ bool JsonValue::operator==(std::nullptr_t)const noexcept
 
 bool JsonValue::operator==(BoolType rhs)const noexcept
 {
-    return m_iType == JsonValueTypes::Bool && m_stValue.m_bBool == rhs;
+    return m_iType == JsonValueTypes::Bool && m_stValue.Bool == rhs;
 }
 
 bool JsonValue::operator==(NumberType rhs)const noexcept
 {
-    return m_iType == JsonValueTypes::Number && m_stValue.m_dNumber == rhs;
+    return m_iType == JsonValueTypes::Number && m_stValue.Number == rhs;
 }
 
 bool JsonValue::operator==(const char* rhs)const noexcept
 {
-    return m_iType == JsonValueTypes::String && m_stValue.m_stString == rhs;
+    return m_iType == JsonValueTypes::String && m_stValue.String == rhs;
 }
 
 bool JsonValue::operator==(const StringType& rhs)const noexcept
 {
-    return m_iType == JsonValueTypes::String && m_stValue.m_stString == rhs;
+    return m_iType == JsonValueTypes::String && m_stValue.String == rhs;
 }
 
 bool JsonValue::operator==(const JsonValue& rhs)const noexcept
@@ -326,15 +326,15 @@ bool JsonValue::operator==(const JsonValue& rhs)const noexcept
         case JsonValueTypes::Null:
             return true;
         case JsonValueTypes::Bool:
-            return m_stValue.m_bBool == rhs.m_stValue.m_bBool;
+            return m_stValue.Bool == rhs.m_stValue.Bool;
         case JsonValueTypes::Number:
-            return m_stValue.m_dNumber == rhs.m_stValue.m_dNumber;
+            return m_stValue.Number == rhs.m_stValue.Number;
         case JsonValueTypes::String:
-            return m_stValue.m_stString == rhs.m_stValue.m_stString;
+            return m_stValue.String == rhs.m_stValue.String;
         case JsonValueTypes::Array:
-            return m_stValue.m_stArray == rhs.m_stValue.m_stArray;
+            return m_stValue.Array == rhs.m_stValue.Array;
         case JsonValueTypes::Object:
-            return m_stValue.m_stObject == rhs.m_stValue.m_stObject;
+            return m_stValue.Object == rhs.m_stValue.Object;
         default:
             assert(false);
             return false;
@@ -378,7 +378,7 @@ JsonValue::operator bool()const noexcept
         case JsonValueTypes::Null:
             return false;
         case JsonValueTypes::Bool:
-            return m_stValue.m_bBool;
+            return m_stValue.Bool;
         default:
             return true;
     }
@@ -389,13 +389,13 @@ void JsonValue::Reset()noexcept
     switch (m_iType)
     {
         case JsonValueTypes::String:
-            m_stValue.m_stString.~string();
+            m_stValue.String.~string();
             break;
         case JsonValueTypes::Array:
-            m_stValue.m_stArray.~vector();
+            m_stValue.Array.~vector();
             break;
         case JsonValueTypes::Object:
-            m_stValue.m_stObject.~map();
+            m_stValue.Object.~map();
             break;
         default:
             break;
@@ -413,7 +413,7 @@ void JsonValue::Set(BoolType val)noexcept
 {
     Reset();
 
-    m_stValue.m_bBool = val;
+    m_stValue.Bool = val;
     m_iType = JsonValueTypes::Bool;
 }
 
@@ -421,7 +421,7 @@ void JsonValue::Set(NumberType val)noexcept
 {
     Reset();
 
-    m_stValue.m_dNumber = val;
+    m_stValue.Number = val;
     m_iType = JsonValueTypes::Number;
 }
 
@@ -429,7 +429,7 @@ void JsonValue::Set(const StringType& val)
 {
     Reset();
 
-    new(&m_stValue.m_stString) StringType(val);
+    new(&m_stValue.String) StringType(val);
     m_iType = JsonValueTypes::String;
 }
 
@@ -437,7 +437,7 @@ void JsonValue::Set(const ArrayType& val)
 {
     Reset();
 
-    new(&m_stValue.m_stArray) ArrayType(val);
+    new(&m_stValue.Array) ArrayType(val);
     m_iType = JsonValueTypes::Array;
 }
 
@@ -445,7 +445,7 @@ void JsonValue::Set(const ObjectType& val)
 {
     Reset();
 
-    new(&m_stValue.m_stObject) ObjectType(val);
+    new(&m_stValue.Object) ObjectType(val);
     m_iType = JsonValueTypes::Object;
 }
 
@@ -453,7 +453,7 @@ void JsonValue::Set(StringType&& val)
 {
     Reset();
 
-    new(&m_stValue.m_stString) StringType(std::move(val));
+    new(&m_stValue.String) StringType(std::move(val));
     m_iType = JsonValueTypes::String;
 }
 
@@ -461,7 +461,7 @@ void JsonValue::Set(ArrayType&& val)
 {
     Reset();
 
-    new(&m_stValue.m_stArray) ArrayType(std::move(val));
+    new(&m_stValue.Array) ArrayType(std::move(val));
     m_iType = JsonValueTypes::Array;
 }
 
@@ -469,7 +469,7 @@ void JsonValue::Set(ObjectType&& val)
 {
     Reset();
 
-    new(&m_stValue.m_stObject) ObjectType(std::move(val));
+    new(&m_stValue.Object) ObjectType(std::move(val));
     m_iType = JsonValueTypes::Object;
 }
 
@@ -477,7 +477,7 @@ void JsonValue::Set(int val)noexcept
 {
     Reset();
 
-    m_stValue.m_dNumber = val;
+    m_stValue.Number = val;
     m_iType = JsonValueTypes::Number;
 }
 
@@ -485,7 +485,7 @@ void JsonValue::Set(const char* val)
 {
     Reset();
 
-    new(&m_stValue.m_stString) StringType(val);
+    new(&m_stValue.String) StringType(val);
     m_iType = JsonValueTypes::String;
 }
 
@@ -493,7 +493,7 @@ void JsonValue::Set(const ArrayView<char>& val)
 {
     Reset();
 
-    new(&m_stValue.m_stString) StringType(val.GetBuffer(), val.GetSize());
+    new(&m_stValue.String) StringType(val.GetBuffer(), val.GetSize());
     m_iType = JsonValueTypes::String;
 }
 
@@ -501,12 +501,12 @@ void JsonValue::Set(std::initializer_list<JsonValue> val)
 {
     Reset();
 
-    new(&m_stValue.m_stArray) ArrayType();
+    new(&m_stValue.Array) ArrayType();
     m_iType = JsonValueTypes::Array;
 
-    m_stValue.m_stArray.reserve(val.size());
+    m_stValue.Array.reserve(val.size());
     for (auto it = val.begin(); it != val.end(); ++it)
-        m_stValue.m_stArray.push_back(*it);
+        m_stValue.Array.push_back(*it);
 }
 
 size_t JsonValue::GetElementCount()const
@@ -514,9 +514,9 @@ size_t JsonValue::GetElementCount()const
     switch (m_iType)
     {
         case JsonValueTypes::Array:
-            return m_stValue.m_stArray.size();
+            return m_stValue.Array.size();
         case JsonValueTypes::Object:
-            return m_stValue.m_stObject.size();
+            return m_stValue.Object.size();
         default:
             MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
     }
@@ -527,7 +527,7 @@ bool JsonValue::HasElement(const char* key)const
     if (m_iType != JsonValueTypes::Object)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    return m_stValue.m_stObject.find(key) != m_stValue.m_stObject.end();
+    return m_stValue.Object.find(key) != m_stValue.Object.end();
 }
 
 bool JsonValue::HasElement(const std::string& key)const
@@ -535,27 +535,27 @@ bool JsonValue::HasElement(const std::string& key)const
     if (m_iType != JsonValueTypes::Object)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    return m_stValue.m_stObject.find(key) != m_stValue.m_stObject.end();
+    return m_stValue.Object.find(key) != m_stValue.Object.end();
 }
 
 JsonValue& JsonValue::GetElementByIndex(size_t index)
 {
     if (m_iType != JsonValueTypes::Array)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
-    if (index >= m_stValue.m_stArray.size())
+    if (index >= m_stValue.Array.size())
         MOE_THROW(OutOfRangeException, "Index {0} out of range", index);
 
-    return m_stValue.m_stArray[index];
+    return m_stValue.Array[index];
 }
 
 const JsonValue& JsonValue::GetElementByIndex(size_t index)const
 {
     if (m_iType != JsonValueTypes::Array)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
-    if (index >= m_stValue.m_stArray.size())
+    if (index >= m_stValue.Array.size())
         MOE_THROW(OutOfRangeException, "Index {0} out of range", index);
 
-    return m_stValue.m_stArray[index];
+    return m_stValue.Array[index];
 }
 
 JsonValue& JsonValue::GetElementByKey(const std::string& key)
@@ -563,8 +563,8 @@ JsonValue& JsonValue::GetElementByKey(const std::string& key)
     if (m_iType != JsonValueTypes::Object)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    auto it = m_stValue.m_stObject.find(key);
-    if (it == m_stValue.m_stObject.end())
+    auto it = m_stValue.Object.find(key);
+    if (it == m_stValue.Object.end())
         MOE_THROW(ObjectNotFoundException, "Key \"{0}\" not found", key);
     return it->second;
 }
@@ -574,8 +574,8 @@ const JsonValue& JsonValue::GetElementByKey(const std::string& key)const
     if (m_iType != JsonValueTypes::Object)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    auto it = m_stValue.m_stObject.find(key);
-    if (it == m_stValue.m_stObject.end())
+    auto it = m_stValue.Object.find(key);
+    if (it == m_stValue.Object.end())
         MOE_THROW(ObjectNotFoundException, "Key \"{0}\" not found", key);
     return it->second;
 }
@@ -585,8 +585,8 @@ JsonValue& JsonValue::GetElementByKey(const char* key)
     if (m_iType != JsonValueTypes::Object)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    auto it = m_stValue.m_stObject.find(key);
-    if (it == m_stValue.m_stObject.end())
+    auto it = m_stValue.Object.find(key);
+    if (it == m_stValue.Object.end())
         MOE_THROW(ObjectNotFoundException, "Key \"{0}\" not found", key);
     return it->second;
 }
@@ -596,8 +596,8 @@ const JsonValue& JsonValue::GetElementByKey(const char* key)const
     if (m_iType != JsonValueTypes::Object)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    auto it = m_stValue.m_stObject.find(key);
-    if (it == m_stValue.m_stObject.end())
+    auto it = m_stValue.Object.find(key);
+    if (it == m_stValue.Object.end())
         MOE_THROW(ObjectNotFoundException, "Key \"{0}\" not found", key);
     return it->second;
 }
@@ -607,7 +607,7 @@ void JsonValue::Append(const JsonValue& val)
     if (m_iType != JsonValueTypes::Array)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    m_stValue.m_stArray.push_back(val);
+    m_stValue.Array.push_back(val);
 }
 
 void JsonValue::Append(JsonValue&& val)
@@ -615,7 +615,7 @@ void JsonValue::Append(JsonValue&& val)
     if (m_iType != JsonValueTypes::Array)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    m_stValue.m_stArray.emplace_back(std::move(val));
+    m_stValue.Array.emplace_back(std::move(val));
 }
 
 void JsonValue::Append(const std::string& key, const JsonValue& val)
@@ -623,9 +623,9 @@ void JsonValue::Append(const std::string& key, const JsonValue& val)
     if (m_iType != JsonValueTypes::Object)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    auto it = m_stValue.m_stObject.find(key);
-    if (it == m_stValue.m_stObject.end())
-        m_stValue.m_stObject.emplace(key, val);
+    auto it = m_stValue.Object.find(key);
+    if (it == m_stValue.Object.end())
+        m_stValue.Object.emplace(key, val);
     else
         MOE_THROW(ObjectExistsException, "Key \"{0}\" exists", key);
 }
@@ -635,9 +635,9 @@ void JsonValue::Append(std::string&& key, JsonValue&& val)
     if (m_iType != JsonValueTypes::Object)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    auto it = m_stValue.m_stObject.find(key);
-    if (it == m_stValue.m_stObject.end())
-        m_stValue.m_stObject.emplace(std::move(key), std::move(val));
+    auto it = m_stValue.Object.find(key);
+    if (it == m_stValue.Object.end())
+        m_stValue.Object.emplace(std::move(key), std::move(val));
     else
         MOE_THROW(ObjectExistsException, "Key \"{0}\" exists", key);
 }
@@ -647,8 +647,8 @@ void JsonValue::Insert(size_t index, const JsonValue& val)
     if (m_iType != JsonValueTypes::Array)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    index = std::min(index, m_stValue.m_stArray.size());
-    m_stValue.m_stArray.insert(m_stValue.m_stArray.begin() + index, val);
+    index = std::min(index, m_stValue.Array.size());
+    m_stValue.Array.insert(m_stValue.Array.begin() + index, val);
 }
 
 void JsonValue::Insert(size_t index, JsonValue&& val)
@@ -656,8 +656,8 @@ void JsonValue::Insert(size_t index, JsonValue&& val)
     if (m_iType != JsonValueTypes::Array)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    index = std::min(index, m_stValue.m_stArray.size());
-    m_stValue.m_stArray.emplace(m_stValue.m_stArray.begin() + index, std::move(val));
+    index = std::min(index, m_stValue.Array.size());
+    m_stValue.Array.emplace(m_stValue.Array.begin() + index, std::move(val));
 }
 
 bool JsonValue::Remove(size_t index)
@@ -665,10 +665,10 @@ bool JsonValue::Remove(size_t index)
     if (m_iType != JsonValueTypes::Array)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    if (index >= m_stValue.m_stArray.size())
+    if (index >= m_stValue.Array.size())
         return false;
 
-    m_stValue.m_stArray.erase(m_stValue.m_stArray.begin() + index);
+    m_stValue.Array.erase(m_stValue.Array.begin() + index);
     return true;
 }
 
@@ -677,10 +677,10 @@ bool JsonValue::Remove(const char* key)
     if (m_iType != JsonValueTypes::Object)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    auto it = m_stValue.m_stObject.find(key);
-    if (it == m_stValue.m_stObject.end())
+    auto it = m_stValue.Object.find(key);
+    if (it == m_stValue.Object.end())
         return false;
-    m_stValue.m_stObject.erase(it);
+    m_stValue.Object.erase(it);
     return true;
 }
 
@@ -689,19 +689,19 @@ bool JsonValue::Remove(const std::string& key)
     if (m_iType != JsonValueTypes::Object)
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 
-    auto it = m_stValue.m_stObject.find(key);
-    if (it == m_stValue.m_stObject.end())
+    auto it = m_stValue.Object.find(key);
+    if (it == m_stValue.Object.end())
         return false;
-    m_stValue.m_stObject.erase(it);
+    m_stValue.Object.erase(it);
     return true;
 }
 
 void JsonValue::Clear()
 {
     if (m_iType == JsonValueTypes::Array)
-        m_stValue.m_stArray.clear();
+        m_stValue.Array.clear();
     else if (m_iType == JsonValueTypes::Object)
-        m_stValue.m_stObject.clear();
+        m_stValue.Object.clear();
     else
         MOE_THROW(InvalidCallException, "Bad operation on type {0}", m_iType);
 }
@@ -721,7 +721,7 @@ std::string& JsonValue::StringifyInline(std::string& str)const
             str.append("null");
             break;
         case JsonValueTypes::Bool:
-            m_stValue.m_bBool ? str.append("true") : str.append("false");
+            m_stValue.Bool ? str.append("true") : str.append("false");
             break;
         case JsonValueTypes::Number:
             {
@@ -729,23 +729,23 @@ std::string& JsonValue::StringifyInline(std::string& str)const
 
                 auto pos = str.length();
                 str.resize(pos + kPreAllocate);
-                auto count = Convert::ToShortestString(m_stValue.m_dNumber, &str[pos], kPreAllocate);
+                auto count = Convert::ToShortestString(m_stValue.Number, &str[pos], kPreAllocate);
                 str.resize(pos + count);
             }
             break;
         case JsonValueTypes::String:
-            SerializeString(str, m_stValue.m_stString);
+            SerializeString(str, m_stValue.String);
             break;
         case JsonValueTypes::Array:
-            str.reserve(str.length() + (m_stValue.m_stArray.size() << 2));
+            str.reserve(str.length() + (m_stValue.Array.size() << 2));
 
             str.push_back('[');
-            for (; i < m_stValue.m_stArray.size(); ++i)
+            for (; i < m_stValue.Array.size(); ++i)
             {
-                const auto& obj = m_stValue.m_stArray[i];
+                const auto& obj = m_stValue.Array[i];
                 obj.StringifyInline(str);
 
-                if (i + 1 < m_stValue.m_stArray.size())
+                if (i + 1 < m_stValue.Array.size())
                 {
                     str.push_back(',');
                     str.push_back(' ');
@@ -754,10 +754,10 @@ std::string& JsonValue::StringifyInline(std::string& str)const
             str.push_back(']');
             break;
         case JsonValueTypes::Object:
-            str.reserve(str.length() + (m_stValue.m_stObject.size() << 2));
+            str.reserve(str.length() + (m_stValue.Object.size() << 2));
 
             str.push_back('{');
-            for (auto it = m_stValue.m_stObject.begin(); it != m_stValue.m_stObject.end(); ++it)
+            for (auto it = m_stValue.Object.begin(); it != m_stValue.Object.end(); ++it)
             {
                 SerializeString(str, it->first);
                 str.push_back(':');
@@ -766,7 +766,7 @@ std::string& JsonValue::StringifyInline(std::string& str)const
                 const auto& obj = it->second;
                 obj.StringifyInline(str);
 
-                if (i + 1 < m_stValue.m_stObject.size())
+                if (i + 1 < m_stValue.Object.size())
                 {
                     str.push_back(',');
                     str.push_back(' ');
@@ -790,29 +790,29 @@ std::string& JsonValue::Stringify(std::string& str, uint32_t indent)const
     switch (m_iType)
     {
         case JsonValueTypes::Array:
-            str.reserve(str.length() + (m_stValue.m_stArray.size() << 2));
+            str.reserve(str.length() + (m_stValue.Array.size() << 2));
 
             str.push_back('[');
 
-            if (m_stValue.m_stArray.size() == 1)
+            if (m_stValue.Array.size() == 1)
             {
-                m_stValue.m_stArray[0].StringifyInline(str);
+                m_stValue.Array[0].StringifyInline(str);
             }
-            else if (m_stValue.m_stArray.size() > 1)
+            else if (m_stValue.Array.size() > 1)
             {
                 str.push_back('\n');
 
                 ++indent;
-                for (; i < m_stValue.m_stArray.size(); ++i)
+                for (; i < m_stValue.Array.size(); ++i)
                 {
                     str.reserve(str.length() + (indent << 1));
                     for (unsigned j = 0; j < (indent << 1); ++j)
                         str.push_back(' ');
 
-                    const auto& obj = m_stValue.m_stArray[i];
+                    const auto& obj = m_stValue.Array[i];
                     obj.Stringify(str, indent);
 
-                    if (i + 1 < m_stValue.m_stArray.size())
+                    if (i + 1 < m_stValue.Array.size())
                         str.push_back(',');
 
                     str.push_back('\n');
@@ -826,17 +826,17 @@ std::string& JsonValue::Stringify(std::string& str, uint32_t indent)const
             str.push_back(']');
             break;
         case JsonValueTypes::Object:
-            str.reserve(str.length() + (m_stValue.m_stObject.size() << 2));
+            str.reserve(str.length() + (m_stValue.Object.size() << 2));
 
             str.push_back('{');
 
-            if (m_stValue.m_stObject.size() > 0)
+            if (m_stValue.Object.size() > 0)
             {
                 str.push_back('\n');
 
                 ++indent;
 
-                for (auto it = m_stValue.m_stObject.begin(); it != m_stValue.m_stObject.end(); ++it)
+                for (auto it = m_stValue.Object.begin(); it != m_stValue.Object.end(); ++it)
                 {
                     str.reserve(str.length() + (indent << 1));
                     for (unsigned j = 0; j < (indent << 1); ++j)
@@ -849,7 +849,7 @@ std::string& JsonValue::Stringify(std::string& str, uint32_t indent)const
                     const auto& obj = it->second;
                     obj.Stringify(str, indent);
 
-                    if (i + 1 < m_stValue.m_stObject.size())
+                    if (i + 1 < m_stValue.Object.size())
                         str.push_back(',');
 
                     str.push_back('\n');
