@@ -76,32 +76,251 @@
 #define MOE_ASSERT_EXPR(CHECK, EXPR) ((CHECK) ? (EXPR) : ([]{assert(!#CHECK);}(), (EXPR)))
 #endif
 
+#define MOE_PP_ARG_OP_1(op, sep, arg     ) \
+    op(arg)
+#define MOE_PP_ARG_OP_2(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_1(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_3(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_2(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_4(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_3(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_5(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_4(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_6(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_5(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_7(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_6(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_8(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_7(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_9(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_8(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_10(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_9(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_11(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_10(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_12(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_11(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_13(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_12(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_14(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_13(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_15(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_14(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_16(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_15(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_16(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_15(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_17(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_16(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_18(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_17(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_19(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_18(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_20(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_19(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_21(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_20(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_22(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_21(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_23(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_22(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_24(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_23(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_25(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_24(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_26(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_25(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_27(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_26(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_28(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_27(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_29(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_28(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_30(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_29(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_31(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_30(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_32(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_31(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_33(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_32(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_34(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_33(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_35(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_34(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_36(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_35(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_37(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_36(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_38(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_37(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_39(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_38(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_40(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_39(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_41(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_40(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_42(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_41(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_43(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_42(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_44(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_43(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_45(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_44(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_46(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_45(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_47(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_46(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_48(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_47(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_49(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_48(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_50(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_49(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_51(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_50(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_52(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_51(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_53(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_52(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_54(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_53(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_55(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_54(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_56(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_55(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_57(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_56(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_58(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_57(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_59(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_58(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_60(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_59(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_61(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_60(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_62(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_61(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_63(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_62(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_64(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_63(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_65(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_64(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_66(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_65(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_67(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_66(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_68(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_67(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_69(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_68(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_70(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_69(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_71(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_70(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_72(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_71(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_73(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_72(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_74(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_73(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_75(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_74(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_76(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_75(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_77(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_76(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_78(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_77(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_79(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_78(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_80(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_79(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_81(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_80(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_82(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_81(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_83(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_82(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_84(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_83(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_85(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_84(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_86(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_85(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_87(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_86(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_88(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_87(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_89(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_88(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_90(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_89(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_91(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_90(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_92(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_91(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_93(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_92(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_94(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_93(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_95(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_94(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_96(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_95(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_97(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_96(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_98(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_97(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+#define MOE_PP_ARG_OP_99(op, sep, arg, ...) \
+    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_98(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
+
+#define MOE_PP_ARG_SEQ_() \
+    99,98,97,96,95,94,93,92,91,90, 89,88,87,86,85,84,83,82,81,80, \
+    79,78,77,76,75,74,73,72,71,70, 69,68,67,66,65,64,63,62,61,60, \
+    59,58,57,56,55,54,53,52,51,50, 49,48,47,46,45,44,43,42,41,40, \
+    39,38,37,36,35,34,33,32,31,30, 29,28,27,26,25,24,23,22,21,20, \
+    19,18,17,16,15,14,13,12,11,10,  9, 8, 7, 6, 5, 4, 3, 2, 1, 0
+
+#define MOE_PP_ARG_N_(_1, _2, _3, _4, _5, _6, _7, _8, _9,_10, _11,_12,_13,_14,_15,_16,_17,_18,_19,_20, \
+    _21,_22,_23,_24,_25,_26,_27,_28,_29,_30, _31,_32,_33,_34,_35,_36,_37,_38,_39,_40, \
+    _41,_42,_43,_44,_45,_46,_47,_48,_49,_50, _51,_52,_53,_54,_55,_56,_57,_58,_59,_60, \
+    _61,_62,_63,_64,_65,_66,_67,_68,_69,_70, _71,_72,_73,_74,_75,_76,_77,_78,_79,_80, \
+    _81,_82,_83,_84,_85,_86,_87,_88,_89,_90, _91,_92,_93,_94,_95,_96,_97,_98,_99, N, ...) N
+
+#define MOE_PP_EXPAND_(...) __VA_ARGS__
+#define MOE_PP_ARG_OP(...) MOE_PP_CONCAT(MOE_PP_ARG_OP_, MOE_PP_ARG_COUNT(__VA_ARGS__))
+#define MOE_PP_COMMA ,
+
 /**
- * @brief MAP宏
- * @see https://github.com/swansontec/map-macro
+ * @brief CONCAT宏
  */
-#define MOE_MAP(f, ...) MOE_MAP__EVAL(MOE_MAP__MAP1(f, __VA_ARGS__, ()()(), ()()(), ()()(), 0))
+#define MOE_PP_CONCAT(A, B) MOE_PP_CONCAT_(A, B)
+#define MOE_PP_CONCAT_(A, B) A##B
 
-#define MOE_MAP__EVAL0(...) __VA_ARGS__
-#define MOE_MAP__EVAL1(...) MOE_MAP__EVAL0(MOE_MAP__EVAL0(MOE_MAP__EVAL0(__VA_ARGS__)))
-#define MOE_MAP__EVAL2(...) MOE_MAP__EVAL1(MOE_MAP__EVAL1(MOE_MAP__EVAL1(__VA_ARGS__)))
-#define MOE_MAP__EVAL3(...) MOE_MAP__EVAL2(MOE_MAP__EVAL2(MOE_MAP__EVAL2(__VA_ARGS__)))
-//#define MOE_MAP__EVAL4(...) MOE_MAP__EVAL3(MOE_MAP__EVAL3(MOE_MAP__EVAL3(__VA_ARGS__)))
-//#define MOE_MAP__EVAL(...) MOE_MAP__EVAL4(MOE_MAP__EVAL4(MOE_MAP__EVAL4(__VA_ARGS__)))
-#define MOE_MAP__EVAL(...) MOE_MAP__EVAL3(MOE_MAP__EVAL3(MOE_MAP__EVAL3(__VA_ARGS__)))
+/**
+ * @brief ARG_COUNT宏
+ *
+ * 计算参数个数。
+ */
+#define MOE_PP_ARG_COUNT(...) MOE_PP_ARG_COUNT_(__VA_ARGS__, MOE_PP_ARG_SEQ_())
+#define MOE_PP_ARG_COUNT_(...) MOE_PP_EXPAND_(MOE_PP_ARG_N_(__VA_ARGS__))
 
-#define MOE_MAP__END(...)
-#define MOE_MAP__OUT
+/**
+ * @brief FOR_EACH宏
+ *
+ * MOE_PP_FOR_EACH(FOO, MOE_PP_COMMA, a, b) => FOO(a), FOO(b)
+ */
+#define MOE_PP_FOR_EACH(op, sep, arg, ...) MOE_PP_ARG_OP(arg, ##__VA_ARGS__)(op, sep, arg, ##__VA_ARGS__)
 
-#define MOE_MAP__GET_END2() 0, MOE_MAP__END
-#define MOE_MAP__GET_END1(...) MOE_MAP__GET_END2
-#define MOE_MAP__GET_END(...) MOE_MAP__GET_END1
-#define MOE_MAP__NEXT0(test, next, ...) next MOE_MAP__OUT
-#define MOE_MAP__NEXT1(test, next) MOE_MAP__NEXT0(test, next, 0)
-#define MOE_MAP__NEXT(test, next) MOE_MAP__NEXT1(MOE_MAP__GET_END test, next)
-
-#define MOE_MAP__MAP0(f, x, peek, ...) f(x) MOE_MAP__NEXT(peek, MOE_MAP__MAP1)(f, peek, __VA_ARGS__)
-#define MOE_MAP__MAP1(f, x, peek, ...) f(x) MOE_MAP__NEXT(peek, MOE_MAP__MAP0)(f, peek, __VA_ARGS__)
+/**
+ * @brief FOR_EACH_COMMA宏
+ *
+ * MOE_PP_FOR_EACH_COMMA(FOO, a, b) => FOO(a), FOO(b)
+ */
+#define MOE_PP_FOR_EACH_COMMA(op, arg, ...) MOE_PP_ARG_OP(arg, ##__VA_ARGS__)(op, MOE_PP_COMMA, arg, ##__VA_ARGS__)
 
 //////////////////////////////////////// </editor-fold>
 

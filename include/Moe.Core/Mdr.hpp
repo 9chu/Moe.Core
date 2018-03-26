@@ -25,27 +25,29 @@
  * 括号分量依次表示tag, type, name。
  * tag务必递增。
  */
-#define MOE_DR_FIELDS(...) \
-    MOE_MAP(MOE_DR__EXPAND_MEMBER, __VA_ARGS__) \
+#define MOE_DR_FIELDS(field, ...) \
+    MOE_PP_ARG_OP(field, ##__VA_ARGS__)(MOE_DR_EXPAND_MEMBER_, MOE_DR_SEP_, field, ##__VA_ARGS__); \
     void ReadFrom(moe::Mdr::Reader* reader) { \
-        MOE_MAP(MOE_DR__EXPAND_READ, __VA_ARGS__) \
+        MOE_PP_ARG_OP(field, ##__VA_ARGS__)(MOE_DR_EXPAND_READ_, MOE_DR_SEP_, field, ##__VA_ARGS__); \
     } \
     void WriteTo(moe::Mdr::Writer* writer)const { \
-        MOE_MAP(MOE_DR__EXPAND_WRITE, __VA_ARGS__) \
+        MOE_PP_ARG_OP(field, ##__VA_ARGS__)(MOE_DR_EXPAND_WRITE_, MOE_DR_SEP_, field, ##__VA_ARGS__); \
     }
 
-#define MOE_DR__GET_TAG(tag, type, name) tag
-#define MOE_DR__GET_TYPE(tag, type, name) type
-#define MOE_DR__GET_NAME(tag, type, name) name
+#define MOE_DR_SEP_ ;
 
-#define MOE_DR__EXPAND_MEMBER(field) \
-    MOE_DR__GET_TYPE field MOE_DR__GET_NAME field;
+#define MOE_DR_GET_TAG_(tag, type, name) tag
+#define MOE_DR_GET_TYPE_(tag, type, name) type
+#define MOE_DR_GET_NAME_(tag, type, name) name
 
-#define MOE_DR__EXPAND_READ(field) \
-    reader->Read(MOE_DR__GET_NAME field, MOE_DR__GET_TAG field);
+#define MOE_DR_EXPAND_MEMBER_(field) \
+    MOE_DR_GET_TYPE_ field MOE_DR_GET_NAME_ field;
 
-#define MOE_DR__EXPAND_WRITE(field) \
-    writer->Write(MOE_DR__GET_NAME field, MOE_DR__GET_TAG field);
+#define MOE_DR_EXPAND_READ_(field) \
+    reader->Read(MOE_DR_GET_NAME_ field, MOE_DR_GET_TAG_ field);
+
+#define MOE_DR_EXPAND_WRITE_(field) \
+    writer->Write(MOE_DR_GET_NAME_ field, MOE_DR_GET_TAG_ field);
 
 namespace moe
 {
