@@ -50,6 +50,18 @@ namespace moe
         }
 
         /**
+         * @brief 检查字符是否属于ASCII码中的8进制数字
+         * @tparam TChar 字符类型
+         * @param c 待检测字符
+         * @return 是否属于八进制
+        */
+        template <typename TChar = char>
+        constexpr bool IsOctDigit(TChar c)
+        {
+            return (c >= '0' && c <= '7');
+        }
+
+        /**
          * @brief 检查字符是否属于ASCII码中的16进制数字
          * @tparam TChar 字符类型
          * @param c 待检测字符
