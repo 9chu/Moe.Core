@@ -308,7 +308,7 @@ NOT_COMBINABLE:
                 ++i1;
                 continue;
             }
-            auto mask = (1 << kUnicodeCompShift) - 1;
+            const auto mask = (1 << kUnicodeCompShift) - 1;
             auto index = f * kUnicodeNfcLastCount + l;
             auto index1 = kUnicodeCompDataIndex1[index >> kUnicodeCompShift];
             ch = kUnicodeCompDataIndex2[(index1 << kUnicodeCompShift) + (index & mask)];
