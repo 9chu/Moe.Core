@@ -32,7 +32,7 @@ namespace moe
          * @return 是否属于空白符
          */
         template <typename TChar = char>
-        constexpr bool IsWhitespace(TChar c)
+        constexpr bool IsWhitespace(TChar c)noexcept
         {
             return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
         }
@@ -44,7 +44,7 @@ namespace moe
          * @return 是否属于数字
          */
         template <typename TChar = char>
-        constexpr bool IsDigit(TChar c)
+        constexpr bool IsDigit(TChar c)noexcept
         {
             return c >= '0' && c <= '9';
         }
@@ -56,7 +56,7 @@ namespace moe
          * @return 是否属于八进制
         */
         template <typename TChar = char>
-        constexpr bool IsOctDigit(TChar c)
+        constexpr bool IsOctDigit(TChar c)noexcept
         {
             return (c >= '0' && c <= '7');
         }
@@ -68,7 +68,7 @@ namespace moe
          * @return 是否属于十六进制
          */
         template <typename TChar = char>
-        constexpr bool IsHexDigit(TChar c)
+        constexpr bool IsHexDigit(TChar c)noexcept
         {
             return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
         }
@@ -79,25 +79,10 @@ namespace moe
          * @return 是否属于字母
          */
         template <typename TChar = char>
-        constexpr bool IsAlphabet(TChar c)
+        constexpr bool IsAlphabet(TChar c)noexcept
         {
             return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
         }
-
-        /**
-         * @brief 检查字符是否属于Unicode中的空白符
-         * @param c 被检测字符
-         * @return 是否属于空白符
-         */
-        bool IsUnicodeWhitespace(char32_t c);
-
-        /**
-         * @brief 计算Unicode字符宽度
-         * @see https://github.com/termux/wcwidth
-         * @param c 字符
-         * @return 若c为'\0'则返回0，否则返回字符宽度。若为不可打印字符则返回-1。
-         */
-        int GetUnicodeWidth(char32_t c);
 
         //////////////////////////////////////// </editor-fold>
 
@@ -110,7 +95,7 @@ namespace moe
          * @return 输出大写字符或者原始字符
          */
         template <typename TChar = char>
-        constexpr TChar ToUpper(TChar c)
+        constexpr TChar ToUpper(TChar c)noexcept
         {
             return (c >= 'a' && c <= 'z') ? (c - 'a' + 'A') : c;
         }
@@ -122,7 +107,7 @@ namespace moe
          * @return 输出小写字符或者原始字符
          */
         template <typename TChar = char>
-        constexpr TChar ToLower(TChar c)
+        constexpr TChar ToLower(TChar c)noexcept
         {
             return (c >= 'A' && c <= 'Z') ? (c - 'A' + 'a') : c;
         }
@@ -134,7 +119,7 @@ namespace moe
          * @return 转换结果
          */
         template <typename TChar = char>
-        std::basic_string<TChar>& ToUpperInPlace(std::basic_string<TChar>& str)
+        std::basic_string<TChar>& ToUpperInPlace(std::basic_string<TChar>& str)noexcept
         {
             auto it = str.begin();
             while (it != str.end())
@@ -172,7 +157,7 @@ namespace moe
          * @return 转换结果
          */
         template <typename TChar = char>
-        std::basic_string<TChar>& ToLowerInPlace(std::basic_string<TChar>& str)
+        std::basic_string<TChar>& ToLowerInPlace(std::basic_string<TChar>& str)noexcept
         {
             auto it = str.begin();
             while (it != str.end())
@@ -256,8 +241,6 @@ namespace moe
          * @brief 原地剔除字符串开头
          * @tparam TChar 字符类型
          * @param[in,out] str 字符串
-         *
-         * 该方法使用Unicode空白字符作为剔除字符集。
          */
         template <typename TChar = char>
         std::basic_string<TChar>& TrimLeftInPlace(std::basic_string<TChar>& str)
@@ -268,7 +251,7 @@ namespace moe
             auto it = str.begin();
             while (it != str.end())
             {
-                if (!IsUnicodeWhitespace(*it))
+                if (!IsWhitespace(*it))
                     break;
                 ++it;
             }
@@ -276,6 +259,15 @@ namespace moe
             str.erase(str.begin(), it);
             return str;
         }
+
+        /**
+         * @brief 原地剔除字符串开头
+         * @param[in,out] str 字符串
+         *
+         * 该方法使用Unicode空白字符作为剔除字符集。
+         */
+        template <>
+        std::basic_string<char32_t>& TrimLeftInPlace<char32_t>(std::basic_string<char32_t>& str);
 
         /**
          * @brief 剔除字符串开头
@@ -360,7 +352,7 @@ namespace moe
             auto it = str.end();
             do
             {
-                if (!IsUnicodeWhitespace(*(it - 1)))
+                if (!IsWhitespace(*(it - 1)))
                     break;
                 --it;
             } while (it != str.begin());
@@ -368,6 +360,15 @@ namespace moe
             str.erase(it, str.end());
             return str;
         }
+
+        /**
+         * @brief 原地剔除字符串末尾
+         * @param[in,out] str 字符串
+         *
+         * 该方法使用Unicode空白字符作为剔除字符集。
+         */
+        template <>
+        std::basic_string<char32_t>& TrimRightInPlace<char32_t>(std::basic_string<char32_t>& str);
 
         /**
          * @brief 剔除字符串末尾
@@ -463,6 +464,49 @@ namespace moe
         //////////////////////////////////////// </editor-fold>
 
         //////////////////////////////////////// <editor-fold desc="其他字符串辅助函数">
+
+        /**
+         * @brief 十六进制字符转十进制输出
+         * @tparam TChar 字符类型
+         * @param[out] out 输出结果
+         * @param c 字符
+         * @return 是否为有效的十六进制字符
+         */
+        template <typename T = unsigned, typename TChar = char>
+        bool HexDigitToNumber(T& out, TChar c)noexcept
+        {
+            if ('a' <= c && c <= 'f')
+            {
+                out = static_cast<T>(c - 'a' + 10);
+                return true;
+            }
+            else if ('A' <= c && c <= 'F')
+            {
+                out = static_cast<T>(c - 'A' + 10);
+                return true;
+            }
+            else if ('0' <= c && c <= '9')
+            {
+                out = static_cast<T>(c - '0');
+                return true;
+            }
+            out = static_cast<T>(0);
+            return false;
+        }
+
+        /**
+         * @brief 十六进制字符转十进制输出
+         * @tparam TChar 字符类型
+         * @param c 字符
+         * @return 代表的十进制结果
+         */
+        template <typename TChar = char>
+        unsigned HexDigitToNumber(TChar c)noexcept
+        {
+            unsigned out = 0;
+            HexDigitToNumber<unsigned, TChar>(out, c);
+            return out;
+        }
 
         /**
          * @brief 字符串拼接
@@ -823,19 +867,19 @@ namespace moe
             template <typename TChar>
             struct StringConstant
             {
-                static inline const TChar* GetTrue()
+                static inline const TChar* GetTrue()noexcept
                 {
                     static const TChar kTrue[] = { 't', 'r', 'u', 'e', '\0' };
                     return kTrue;
                 }
 
-                static inline const TChar* GetFalse()
+                static inline const TChar* GetFalse()noexcept
                 {
                     static const TChar kFalse[] = { 'f', 'a', 'l', 's', 'e', '\0' };
                     return kFalse;
                 }
 
-                static inline const TChar* GetNull()
+                static inline const TChar* GetNull()noexcept
                 {
                     static const TChar kNull[] = { 'n', 'u', 'l', 'l', '\0' };
                     return kNull;

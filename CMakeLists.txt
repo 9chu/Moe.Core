@@ -26,7 +26,7 @@ if(MOE_ENABLE_TEST)
     find_package(GTest REQUIRED)
     find_package(Threads REQUIRED)
 
-    file(GLOB_RECURSE MOE_CORE_TEST_SRC test/*.cpp)
+    file(GLOB_RECURSE MOE_CORE_TEST_SRC tests/*.cpp)
 
     include_directories(${GTEST_INCLUDE_DIRS})
 

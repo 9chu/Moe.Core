@@ -964,16 +964,8 @@ namespace
                                 for (int i = 0; i < 4; ++i)
                                 {
                                     int hex = 0;
-
-                                    if ('0' <= c && c <= '9')
-                                        hex = c - '0' + 0;
-                                    else if ('a' <= c && c <= 'f')
-                                        hex = c - 'a' + 10;
-                                    else if ('A' <= c && c <= 'F')
-                                        hex = c - 'A' + 10;
-                                    else
+                                    if (!StringUtils::HexDigitToNumber(hex, c))
                                         ThrowError("Unexpected hex character {0}", PrintChar(c));
-
                                     u32 = (u32 << 4) + hex;
                                     Next();
                                 }

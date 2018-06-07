@@ -232,3 +232,6 @@ Mkfile.old
 dkms.conf
 ### SVN template
 .svn/
+
+### Temporary files
+tools/tmp/

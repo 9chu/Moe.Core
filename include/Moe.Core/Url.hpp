@@ -6,6 +6,7 @@
 #pragma once
 #include <array>
 #include <string>
+#include <vector>
 
 namespace moe
 {
@@ -13,8 +14,9 @@ namespace moe
      * @brief URL编解码类
      * @see https://url.spec.whatwg.org
      */
-    struct Url
+    class Url
     {
+    public:
         /**
          * @brief Host解析类
          */
@@ -24,7 +26,7 @@ namespace moe
             /**
              * @brief Host值类型
              */
-            enum class ValueTypes
+            enum class HostTypes
             {
                 None,
                 Domain,
@@ -41,7 +43,7 @@ namespace moe
         public:
             Host();
             Host(const Host& rhs);
-            Host(Host&& rhs);
+            Host(Host&& rhs)noexcept;
             ~Host();
 
             Host& operator=(const Host& rhs);
@@ -56,7 +58,7 @@ namespace moe
             /**
              * @brief 获取地址类型
              */
-            ValueTypes GetType()const noexcept;
+            HostTypes GetType()const noexcept;
 
             /**
              * @brief 获取或设置域名
@@ -89,10 +91,38 @@ namespace moe
              */
             void Reset();
 
+            /**
+             * @brief 解析Host
+             * @param text 输入文本
+             * @param special 是否是特殊Host
+             * @return 是否成功解析，若否，将保留对象原始数据。
+             *
+             * 当设置为special = true的时候才会进行IPV4和域名的解析，否则以透传形式给出。
+             */
+            bool Parse(const std::string& text, bool special=true);
+
+            /**
+             * @brief 解析Host
+             * @param text 输入文本
+             * @param length 文本长度
+             * @param special 是否是特殊Host
+             * @return 是否成功解析，若否，将保留对象原始数据。
+             *
+             * 当设置为special = true的时候才会进行IPV4和域名的解析，否则以透传形式给出。
+             */
+            bool Parse(const char* text, bool special=true);
+            bool Parse(const char* text, size_t length, bool special=true);
+
+            /**
+             * @brief 序列化Host
+             */
+            std::string ToString()const;
+
         private:
-            bool ParseIpv4Part(const char* start, const char* end);
-            bool ParseIpv6Part(const char* start, const char* end);
-            void ParseOpaqueHost();
+            bool Parse(const char* start, const char* end, bool special);
+            bool ParseIpv4(const char* start, const char* end)noexcept;
+            bool ParseIpv6(const char* start, const char* end)noexcept;
+            bool ParseOpaque(const char* start, const char* end);
 
         private:
             union ValueStorage
@@ -106,8 +136,36 @@ namespace moe
                 ~ValueStorage() {}
             };
 
-            ValueTypes m_iType = ValueTypes::None;
+            HostTypes m_iType = HostTypes::None;
             ValueStorage m_stValue;
         };
+
+        enum {
+            FLAGS_FAILED = 0x01,
+            FLAGS_CANNOT_BE_BASE = 0x02,
+            FLAGS_INVALID_PARSE_STATE = 0x04,
+            FLAGS_TERMINATED = 0x08,
+            FLAGS_SPECIAL = 0x10,
+            FLAGS_HAS_USERNAME = 0x20,
+            FLAGS_HAS_PASSWORD = 0x40,
+            FLAGS_HAS_HOST = 0x80,
+            FLAGS_HAS_PATH = 0x100,
+            FLAGS_HAS_QUERY = 0x200,
+            FLAGS_HAS_FRAGMENT = 0x400,
+        };
+
+    public:
+
+
+    private:
+        uint32_t m_uFlags = 0;
+        std::string m_stScheme;
+        std::string m_stUsername;
+        std::string m_stPassword;
+        std::string m_stHost;
+        uint16_t m_uPort = 0;
+        std::string m_stQuery;
+        std::string m_stFragment;
+        std::vector<std::string> m_stPath;
     };
 }

@@ -8,13 +8,173 @@
 #include <Moe.Core/StringUtils.hpp>
 
 #include <cassert>
+#include <cmath>
 
 using namespace std;
 using namespace moe;
 
+static const char* kHexTable[256] = {
+    "%00", "%01", "%02", "%03", "%04", "%05", "%06", "%07",
+    "%08", "%09", "%0A", "%0B", "%0C", "%0D", "%0E", "%0F",
+    "%10", "%11", "%12", "%13", "%14", "%15", "%16", "%17",
+    "%18", "%19", "%1A", "%1B", "%1C", "%1D", "%1E", "%1F",
+    "%20", "%21", "%22", "%23", "%24", "%25", "%26", "%27",
+    "%28", "%29", "%2A", "%2B", "%2C", "%2D", "%2E", "%2F",
+    "%30", "%31", "%32", "%33", "%34", "%35", "%36", "%37",
+    "%38", "%39", "%3A", "%3B", "%3C", "%3D", "%3E", "%3F",
+    "%40", "%41", "%42", "%43", "%44", "%45", "%46", "%47",
+    "%48", "%49", "%4A", "%4B", "%4C", "%4D", "%4E", "%4F",
+    "%50", "%51", "%52", "%53", "%54", "%55", "%56", "%57",
+    "%58", "%59", "%5A", "%5B", "%5C", "%5D", "%5E", "%5F",
+    "%60", "%61", "%62", "%63", "%64", "%65", "%66", "%67",
+    "%68", "%69", "%6A", "%6B", "%6C", "%6D", "%6E", "%6F",
+    "%70", "%71", "%72", "%73", "%74", "%75", "%76", "%77",
+    "%78", "%79", "%7A", "%7B", "%7C", "%7D", "%7E", "%7F",
+    "%80", "%81", "%82", "%83", "%84", "%85", "%86", "%87",
+    "%88", "%89", "%8A", "%8B", "%8C", "%8D", "%8E", "%8F",
+    "%90", "%91", "%92", "%93", "%94", "%95", "%96", "%97",
+    "%98", "%99", "%9A", "%9B", "%9C", "%9D", "%9E", "%9F",
+    "%A0", "%A1", "%A2", "%A3", "%A4", "%A5", "%A6", "%A7",
+    "%A8", "%A9", "%AA", "%AB", "%AC", "%AD", "%AE", "%AF",
+    "%B0", "%B1", "%B2", "%B3", "%B4", "%B5", "%B6", "%B7",
+    "%B8", "%B9", "%BA", "%BB", "%BC", "%BD", "%BE", "%BF",
+    "%C0", "%C1", "%C2", "%C3", "%C4", "%C5", "%C6", "%C7",
+    "%C8", "%C9", "%CA", "%CB", "%CC", "%CD", "%CE", "%CF",
+    "%D0", "%D1", "%D2", "%D3", "%D4", "%D5", "%D6", "%D7",
+    "%D8", "%D9", "%DA", "%DB", "%DC", "%DD", "%DE", "%DF",
+    "%E0", "%E1", "%E2", "%E3", "%E4", "%E5", "%E6", "%E7",
+    "%E8", "%E9", "%EA", "%EB", "%EC", "%ED", "%EE", "%EF",
+    "%F0", "%F1", "%F2", "%F3", "%F4", "%F5", "%F6", "%F7",
+    "%F8", "%F9", "%FA", "%FB", "%FC", "%FD", "%FE", "%FF",
+};
+
+static const uint8_t kC0ControlEncodeSet[32] = {
+    // 00     01      02      03      04      05      06      07
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // 08     09      0A      0B      0C      0D      0E      0F
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // 10     11      12      13      14      15      16      17
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // 18     19      1A      1B      1C      1D      1E      1F
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // 20     21      22      23      24      25      26      27
+    0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u,
+    // 28     29      2A      2B      2C      2D      2E      2F
+    0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u,
+    // 30     31      32      33      34      35      36      37
+    0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u,
+    // 38     39      3A      3B      3C      3D      3E      3F
+    0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u,
+    // 40     41      42      43      44      45      46      47
+    0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u,
+    // 48     49      4A      4B      4C      4D      4E      4F
+    0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u,
+    // 50     51      52      53      54      55      56      57
+    0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u,
+    // 58     59      5A      5B      5C      5D      5E      5F
+    0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u,
+    // 60     61      62      63      64      65      66      67
+    0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u,
+    // 68     69      6A      6B      6C      6D      6E      6F
+    0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u,
+    // 70     71      72      73      74      75      76      77
+    0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u,
+    // 78     79      7A      7B      7C      7D      7E      7F
+    0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x00u | 0x80u,
+    // 80     81      82      83      84      85      86      87
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // 88     89      8A      8B      8C      8D      8E      8F
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // 90     91      92      93      94      95      96      97
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // 98     99      9A      9B      9C      9D      9E      9F
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // A0     A1      A2      A3      A4      A5      A6      A7
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // A8     A9      AA      AB      AC      AD      AE      AF
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // B0     B1      B2      B3      B4      B5      B6      B7
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // B8     B9      BA      BB      BC      BD      BE      BF
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // C0     C1      C2      C3      C4      C5      C6      C7
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // C8     C9      CA      CB      CC      CD      CE      CF
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // D0     D1      D2      D3      D4      D5      D6      D7
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // D8     D9      DA      DB      DC      DD      DE      DF
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // E0     E1      E2      E3      E4      E5      E6      E7
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // E8     E9      EA      EB      EC      ED      EE      EF
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // F0     F1      F2      F3      F4      F5      F6      F7
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+    // F8     F9      FA      FB      FC      FD      FE      FF
+    0x01u | 0x02u | 0x04u | 0x08u | 0x10u | 0x20u | 0x40u | 0x80u,
+};
+
 namespace
 {
-    bool ParseIpv4Number(uint32_t& result, const char* start, const char* end)
+    /**
+     * @brief 检查字符是否允许出现在Host中
+     */
+    bool IsForbiddenHostChar(char ch)noexcept
+    {
+        return ch == '\0' || ch == '\t' || ch == '\n' || ch == '\r' || ch == ' ' || ch == '#' || ch == '%' ||
+               ch == '/' || ch == ':' || ch == '?' || ch == '@' || ch == '[' || ch == '\\' || ch == ']';
+    }
+
+    /**
+     * @brief 解码UTF-8字符
+     */
+    std::string PercentDecode(const char* start, const char* end)
+    {
+        std::string ret;
+        if (start >= end || start == nullptr)
+            return ret;
+
+        ret.reserve(end - start);
+        while (start < end)
+        {
+            char ch = *start;
+            size_t remaining = end - start - 1;
+            unsigned a = 0, b = 0;
+            if (remaining >= 2 && ch == '%' && StringUtils::HexDigitToNumber(a, start[1]) &&
+                StringUtils::HexDigitToNumber(b, start[2]))
+            {
+                ret.push_back(static_cast<char>(a * 16 + b));
+                start += 3;
+            }
+            else
+            {
+                ret.push_back(ch);
+                ++start;
+            }
+        }
+
+        return ret;
+    }
+
+    /**
+     * @brief 向字符串中追加一个字符或者是转义后的序列
+     * @param out 结果串
+     * @param ch 字符
+     * @param charset 转义序列
+     */
+    void AppendOrEscape(std::string& out, char ch, const uint8_t charset[])
+    {
+        if (!!(charset[ch >> 3] & (1 << (ch & 7))))  // 位图查询
+            out.append(kHexTable[static_cast<uint8_t>(ch)]);
+        else
+            out.push_back(ch);
+    }
+
+    /**
+     * @brief 解析IPV4中的数字（十进制、十六进制、八进制）
+     */
+    bool ParseIpv4Number(uint32_t& result, const char* start, const char* end)noexcept
     {
         uint64_t temp = 0;
         unsigned radix = 10;
@@ -81,18 +241,18 @@ Url::Host::Host(const Host& rhs)
 {
     switch (m_iType)
     {
-        case ValueTypes::None:
+        case HostTypes::None:
             break;
-        case ValueTypes::Domain:
+        case HostTypes::Domain:
             new(&m_stValue.Domain) string(rhs.m_stValue.Domain);
             break;
-        case ValueTypes::Ipv4:
+        case HostTypes::Ipv4:
             m_stValue.Ipv4 = rhs.m_stValue.Ipv4;
             break;
-        case ValueTypes::Ipv6:
+        case HostTypes::Ipv6:
             new(&m_stValue.Ipv6) Ipv6AddressType(rhs.m_stValue.Ipv6);
             break;
-        case ValueTypes::Opaque:
+        case HostTypes::Opaque:
             new(&m_stValue.Opaque) string(rhs.m_stValue.Opaque);
             break;
         default:
@@ -101,23 +261,23 @@ Url::Host::Host(const Host& rhs)
     }
 }
 
-Url::Host::Host(Host&& rhs)
+Url::Host::Host(Host&& rhs)noexcept
     : m_iType(rhs.m_iType)
 {
     switch (m_iType)
     {
-        case ValueTypes::None:
+        case HostTypes::None:
             break;
-        case ValueTypes::Domain:
+        case HostTypes::Domain:
             new(&m_stValue.Domain) string(std::move(rhs.m_stValue.Domain));
             break;
-        case ValueTypes::Ipv4:
+        case HostTypes::Ipv4:
             m_stValue.Ipv4 = rhs.m_stValue.Ipv4;
             break;
-        case ValueTypes::Ipv6:
+        case HostTypes::Ipv6:
             new(&m_stValue.Ipv6) Ipv6AddressType(rhs.m_stValue.Ipv6);
             break;
-        case ValueTypes::Opaque:
+        case HostTypes::Opaque:
             new(&m_stValue.Opaque) string(std::move(rhs.m_stValue.Opaque));
             break;
         default:
@@ -139,18 +299,18 @@ Url::Host& Url::Host::operator=(const Host& rhs)
 
     switch (m_iType)
     {
-        case ValueTypes::None:
+        case HostTypes::None:
             break;
-        case ValueTypes::Domain:
+        case HostTypes::Domain:
             new(&m_stValue.Domain) string(rhs.m_stValue.Domain);
             break;
-        case ValueTypes::Ipv4:
+        case HostTypes::Ipv4:
             m_stValue.Ipv4 = rhs.m_stValue.Ipv4;
             break;
-        case ValueTypes::Ipv6:
+        case HostTypes::Ipv6:
             new(&m_stValue.Ipv6) Ipv6AddressType(rhs.m_stValue.Ipv6);
             break;
-        case ValueTypes::Opaque:
+        case HostTypes::Opaque:
             new(&m_stValue.Opaque) string(rhs.m_stValue.Opaque);
             break;
         default:
@@ -168,18 +328,18 @@ Url::Host& Url::Host::operator=(Host&& rhs)noexcept
 
     switch (m_iType)
     {
-        case ValueTypes::None:
+        case HostTypes::None:
             break;
-        case ValueTypes::Domain:
+        case HostTypes::Domain:
             new(&m_stValue.Domain) string(std::move(rhs.m_stValue.Domain));
             break;
-        case ValueTypes::Ipv4:
+        case HostTypes::Ipv4:
             m_stValue.Ipv4 = rhs.m_stValue.Ipv4;
             break;
-        case ValueTypes::Ipv6:
+        case HostTypes::Ipv6:
             new(&m_stValue.Ipv6) Ipv6AddressType(rhs.m_stValue.Ipv6);
             break;
-        case ValueTypes::Opaque:
+        case HostTypes::Opaque:
             new(&m_stValue.Opaque) string(std::move(rhs.m_stValue.Opaque));
             break;
         default:
@@ -199,15 +359,15 @@ bool Url::Host::operator==(const Host& rhs)const noexcept
 
     switch (m_iType)
     {
-        case ValueTypes::None:
+        case HostTypes::None:
             return true;
-        case ValueTypes::Domain:
+        case HostTypes::Domain:
             return m_stValue.Domain == rhs.m_stValue.Domain;
-        case ValueTypes::Ipv4:
+        case HostTypes::Ipv4:
             return m_stValue.Ipv4 == rhs.m_stValue.Ipv4;
-        case ValueTypes::Ipv6:
+        case HostTypes::Ipv6:
             return m_stValue.Ipv6 == rhs.m_stValue.Ipv6;
-        case ValueTypes::Opaque:
+        case HostTypes::Opaque:
             return m_stValue.Opaque == rhs.m_stValue.Opaque;
         default:
             return false;
@@ -221,10 +381,10 @@ bool Url::Host::operator!=(const Host& rhs)const noexcept
 
 Url::Host::operator bool()const noexcept
 {
-    return m_iType != ValueTypes::None;
+    return m_iType != HostTypes::None;
 }
 
-Url::Host::ValueTypes Url::Host::GetType()const noexcept
+Url::Host::HostTypes Url::Host::GetType()const noexcept
 {
     return m_iType;
 }
@@ -232,7 +392,7 @@ Url::Host::ValueTypes Url::Host::GetType()const noexcept
 const std::string& Url::Host::GetDomain()const noexcept
 {
     static const string kEmpty;
-    return m_iType == ValueTypes::Domain ? m_stValue.Domain : kEmpty;
+    return m_iType == HostTypes::Domain ? m_stValue.Domain : kEmpty;
 }
 
 void Url::Host::SetDomain(const std::string& value)
@@ -240,7 +400,7 @@ void Url::Host::SetDomain(const std::string& value)
     Reset();
 
     new(&m_stValue.Domain) string(value);
-    m_iType = ValueTypes::Domain;
+    m_iType = HostTypes::Domain;
 }
 
 void Url::Host::SetDomain(std::string&& value)noexcept
@@ -248,40 +408,40 @@ void Url::Host::SetDomain(std::string&& value)noexcept
     Reset();
 
     new(&m_stValue.Domain) string(std::move(value));
-    m_iType = ValueTypes::Domain;
+    m_iType = HostTypes::Domain;
 }
 
 uint32_t Url::Host::GetIpv4()const noexcept
 {
-    return m_iType == ValueTypes::Ipv4 ? m_stValue.Ipv4 : 0u;
+    return m_iType == HostTypes::Ipv4 ? m_stValue.Ipv4 : 0u;
 }
 
 void Url::Host::SetIpv4(uint32_t value)noexcept
 {
     Reset();
 
-    m_iType = ValueTypes::Ipv4;
+    m_iType = HostTypes::Ipv4;
     m_stValue.Ipv4 = value;
 }
 
 const Url::Host::Ipv6AddressType& Url::Host::GetIpv6()const noexcept
 {
     static const Ipv6AddressType kEmpty = {};
-    return m_iType == ValueTypes::Ipv6 ? m_stValue.Ipv6 : kEmpty;
+    return m_iType == HostTypes::Ipv6 ? m_stValue.Ipv6 : kEmpty;
 }
 
 void Url::Host::SetIpv6(const Ipv6AddressType& value)noexcept
 {
     Reset();
 
-    m_iType = ValueTypes::Ipv6;
+    m_iType = HostTypes::Ipv6;
     m_stValue.Ipv6 = value;
 }
 
 const std::string& Url::Host::GetOpaque()const noexcept
 {
     static const string kEmpty;
-    return m_iType == ValueTypes::Opaque ? m_stValue.Opaque : kEmpty;
+    return m_iType == HostTypes::Opaque ? m_stValue.Opaque : kEmpty;
 }
 
 void Url::Host::SetOpaque(const std::string& value)
@@ -289,7 +449,7 @@ void Url::Host::SetOpaque(const std::string& value)
     Reset();
 
     new(&m_stValue.Opaque) string(value);
-    m_iType = ValueTypes::Opaque;
+    m_iType = HostTypes::Opaque;
 }
 
 void Url::Host::SetOpaque(std::string&& value)noexcept
@@ -297,32 +457,168 @@ void Url::Host::SetOpaque(std::string&& value)noexcept
     Reset();
 
     new(&m_stValue.Opaque) string(std::move(value));
-    m_iType = ValueTypes::Opaque;
+    m_iType = HostTypes::Opaque;
 }
 
 void Url::Host::Reset()
 {
     switch (m_iType)
     {
-        case ValueTypes::Domain:
+        case HostTypes::Domain:
             m_stValue.Domain.~string();
             break;
-        case ValueTypes::Ipv4:
+        case HostTypes::Ipv4:
             break;
-        case ValueTypes::Ipv6:
+        case HostTypes::Ipv6:
             m_stValue.Ipv6.~Ipv6AddressType();
             break;
-        case ValueTypes::Opaque:
+        case HostTypes::Opaque:
             m_stValue.Opaque.~string();
             break;
         default:
             break;
     }
 
-    m_iType = ValueTypes::None;
+    m_iType = HostTypes::None;
 }
 
-bool Url::Host::ParseIpv4Part(const char* start, const char* end)
+bool Url::Host::Parse(const std::string& text, bool special)
+{
+    return Parse(text.c_str(), text.c_str() + text.length(), special);
+}
+
+bool Url::Host::Parse(const char* text, bool special)
+{
+    return Parse(text, text + std::strlen(text), special);
+}
+
+bool Url::Host::Parse(const char* text, size_t length, bool special)
+{
+    return Parse(text, text + length, special);
+}
+
+std::string Url::Host::ToString()const
+{
+    std::string ret;
+    switch (m_iType)
+    {
+        case HostTypes::Domain:
+            return m_stValue.Domain;
+        case HostTypes::Opaque:
+            return m_stValue.Opaque;
+        case HostTypes::Ipv4:
+            ret.reserve(15);
+            for (uint32_t value = m_stValue.Ipv4, n = 0; n < 4; n++)
+            {
+                char buf[4];
+                Convert::ToDecimalString(static_cast<uint8_t>(value % 256), buf);
+
+                ret.insert(0, buf);
+                if (n < 3)
+                    ret.insert(0, 1, '.');
+                value /= 256;
+            }
+            break;
+        case HostTypes::Ipv6:
+            ret.reserve(41);
+            ret.push_back('[');
+            {
+                uint32_t start = 0;
+                uint32_t compress = 0;
+
+                // 找到最长的0的部分
+                uint32_t cur = 0xFFFFFFFFu, count = 0, longest = 0;
+                while (start < 8)
+                {
+                    if (m_stValue.Ipv6[start] == 0)
+                    {
+                        if (cur == 0xFFFFFFFFu)
+                            cur = start;
+                        ++count;
+                    }
+                    else
+                    {
+                        if (count > longest)
+                        {
+                            longest = count;
+                            compress = cur;
+                        }
+                        count = 0;
+                        cur = 0xFFFFFFFFu;
+                    }
+                    ++start;
+                }
+                if (count > longest)
+                    compress = cur;
+
+                // 序列化过程
+                bool ignore0 = false;
+                for (unsigned n = 0; n < 8; ++n)
+                {
+                    auto piece = m_stValue.Ipv6[n];
+                    if (ignore0 && piece == 0)
+                        continue;
+                    else if (ignore0)
+                        ignore0 = false;
+                    if (compress == n)
+                    {
+                        ret.append(n == 0 ? "::" : ":");
+                        ignore0 = true;
+                        continue;
+                    }
+
+                    char buf[5];
+                    Convert::ToHexStringLower(piece, buf);
+                    ret.append(buf);
+                    if (n < 7)
+                        ret.push_back(':');
+                }
+            }
+            ret.push_back(']');
+            break;
+        default:
+            break;
+    }
+    return ret;
+}
+
+bool Url::Host::Parse(const char* start, const char* end, bool special)
+{
+    if (start >= end || start == nullptr)
+        return false;
+
+    if (*start == '[')
+    {
+        if (*(end - 1) != ']')
+            return false;
+        return ParseIpv6(start + 1, end - 1);
+    }
+    if (!special)
+        return ParseOpaque(start, end);
+
+    auto decoded = PercentDecode(start, end);
+
+    // FIXME: IDNA toASCII转换，由于需要Unicode数据库，暂时不实现
+    // DomainToAscii(decoded);
+
+    // 检查字符合法性
+    for (size_t n = 0; n < decoded.size(); ++n)
+    {
+        char ch = decoded[n];
+        if (IsForbiddenHostChar(ch))
+            return false;
+    }
+
+    // 检查是否是IPV4地址
+    if (ParseIpv4(decoded.c_str(), decoded.c_str() + decoded.length()))
+        return true;
+
+    // 不是IPV6或者IPV4，那么就是域名
+    SetDomain(std::move(decoded));
+    return true;
+}
+
+bool Url::Host::ParseIpv4(const char* start, const char* end)noexcept
 {
     auto mark = start;
     unsigned parts = 0;
@@ -353,7 +649,7 @@ bool Url::Host::ParseIpv4Part(const char* start, const char* end)
         }
         ++start;
     }
-    assert(parts >= 0);
+    assert(parts > 0);
 
     if (tooBigParts > 1 || (tooBigParts == 1 && numbers[parts - 1] <= 255) ||
         numbers[parts - 1] >= std::pow(256, static_cast<double>(5 - parts)))
@@ -374,11 +670,11 @@ bool Url::Host::ParseIpv4Part(const char* start, const char* end)
     return true;
 }
 
-bool Url::Host::ParseIpv6Part(const char* start, const char* end)
+bool Url::Host::ParseIpv6(const char* start, const char* end)noexcept
 {
     char ch = start < end ? *start : '\0';
     unsigned current = 0;  // 指示当前解析的部分
-    uint32_t compress = 0xFFFFFFFF;  // 指示压缩可扩充的位置
+    uint32_t compress = 0xFFFFFFFFu;  // 指示压缩可扩充的位置
 
     Ipv6AddressType address;
     address.fill(0);
@@ -402,8 +698,8 @@ bool Url::Host::ParseIpv6Part(const char* start, const char* end)
         // 压缩的case 'fe80::xxxxx'
         if (ch == ':')
         {
-            if (compress != 0xFFFFFFFF)
-                return;  // 不可能同时存在两个压缩部分
+            if (compress != 0xFFFFFFFFu)
+                return false;  // 不可能同时存在两个压缩部分
             ++start;
             ch = start < end ? *start : '\0';
             address[current++] = 0;
@@ -415,15 +711,7 @@ bool Url::Host::ParseIpv6Part(const char* start, const char* end)
         unsigned len = 0;
         while (len < 4 && StringUtils::IsHexDigit(ch))
         {
-            if (ch >= '0' && ch <= '9')
-                value = value * 16 + (ch - '0');
-            else if (ch >= 'a' && ch <= 'f')
-                value = value * 16 + (ch - 'a' + 10);
-            else
-            {
-                assert(ch >= 'A' && ch <= 'F');
-                value = value * 16 + (ch - 'A' + 10);
-            }
+            value = value * 16 + StringUtils::HexDigitToNumber(ch);
 
             ++start;
             ch = start < end ? *start : '\0';
@@ -472,7 +760,7 @@ bool Url::Host::ParseIpv6Part(const char* start, const char* end)
                             ++start;
                             ch = start < end ? *start : '\0';
                         }
-                        address[current] = address[current] * 0x100 + value;
+                        address[current] = static_cast<uint16_t>(address[current] * 0x100 + value);
                         ++numbers;
                         if (numbers == 2 || numbers == 4)
                             ++current;
@@ -496,7 +784,7 @@ bool Url::Host::ParseIpv6Part(const char* start, const char* end)
         ++current;
     }
 
-    if (compress != 0xFFFFFFFF)
+    if (compress != 0xFFFFFFFFu)
     {
         auto swaps = current - compress;
         current = address.max_size() - 1;
@@ -508,14 +796,26 @@ bool Url::Host::ParseIpv6Part(const char* start, const char* end)
             --swaps;
         }
     }
-    else if (compress == 0xFFFFFFFF && current != address.max_size())
+    else if (current != address.max_size())  // 没有压缩，则必然读取了所有的部分
         return false;
 
     SetIpv6(address);
     return true;
 }
 
-void Url::Host::ParseOpaqueHost()
+bool Url::Host::ParseOpaque(const char* start, const char* end)
 {
+    std::string output;
+    output.reserve((end - start) * 3);  // 最坏情况下所有字符都需要转义
 
+    while (start < end)
+    {
+        char ch = *(start++);
+        if (ch != '%' && IsForbiddenHostChar(ch))
+            return false;
+        AppendOrEscape(output, ch, kC0ControlEncodeSet);
+    }
+
+    SetOpaque(std::move(output));
+    return true;
 }
