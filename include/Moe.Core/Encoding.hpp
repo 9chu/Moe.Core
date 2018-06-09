@@ -1,9 +1,11 @@
 /**
  * @file
+ * @author chu
  * @date 2017/5/28
  */
 #pragma once
 #include "Exception.hpp"
+#include "ArrayView.hpp"
 
 namespace moe
 {
@@ -158,32 +160,29 @@ namespace moe
 
         /**
          * @brief 执行编码转换
+         * @throw InvalidEncodingException 当转换无效时抛出
          * @tparam DestEncoding 目标编码
          * @tparam SrcEncoding 原始编码
          * @tparam TDestChar 目标字符类型
          * @tparam TSrcChar 原始字符类型
          * @tparam DestContainer 目的容器
-         * @tparam SrcContainer 原始容器
-         * @throw InvalidEncoding 无效转换
-         * @param src 原始字符串
+         * @param[out] out 转换输出
+         * @param src 原始输入
          * @param replacer 非法字符替换字符, 若为0则在错误时抛出异常
-         * @return 目标字符串
          */
         template <typename DestEncoding, typename SrcEncoding, typename TDestChar = typename DestEncoding::CharType,
-            typename TSrcChar = typename SrcEncoding::CharType, typename DestContainer = std::basic_string<TDestChar>,
-            typename SrcContainer = std::basic_string<TSrcChar>>
-        DestContainer Convert(const SrcContainer& src, char32_t replacer=0xFFFD)
+            typename TSrcChar = typename SrcEncoding::CharType, typename DestContainer = std::basic_string<TDestChar>>
+        DestContainer& Convert(DestContainer& out, ArrayView<TSrcChar> src, char32_t replacer=0xFFFD)
         {
             static_assert(DestEncoding::kMaxCodePointSize > 0,
                 "Invalid kMaxCodePointSize, which must bigger than zero.");
-            static_assert(sizeof(typename SrcContainer::value_type) ==
-                sizeof(typename SrcEncoding::CharType), "Type size mismatched.");
+            static_assert(sizeof(TSrcChar) == sizeof(typename SrcEncoding::CharType), "Type size mismatched.");
             static_assert(sizeof(typename DestContainer::value_type) ==
                 sizeof(typename DestEncoding::CharType), "Type size mismatched.");
 
             // 预分配空间
-            DestContainer ret;
-            ret.reserve(src.size());
+            out.clear();
+            out.reserve(src.GetSize() > 10 ? src.GetSize() / 2 : src.GetSize());
 
             typename SrcEncoding::Decoder decoder;
             typename DestEncoding::Encoder encoder;
@@ -193,16 +192,18 @@ namespace moe
             char32_t decoderOutput = 0;
 
             // 保存编码器的输出
-            TDestChar destOutput[DestEncoding::kMaxCodePointSize] = { 0 };
+            typename DestEncoding::CharType destOutput[DestEncoding::kMaxCodePointSize] = { 0 };
             uint32_t destOutputCount = 0;
 
-            for (auto it = src.begin(); it != src.end(); ++it)
+            for (size_t i = 0; i < src.GetSize(); ++i)
             {
-                switch (lastDecoderResult = decoder(static_cast<TSrcChar>(*it), decoderOutput))
+                auto ch = src[i];
+
+                switch (lastDecoderResult = decoder(static_cast<typename SrcEncoding::CharType>(ch), decoderOutput))
                 {
                     case EncodingResult::Reject:  // 将错误的序列进行替换
                         if (replacer == 0)
-                            MOE_THROW(InvalidEncodingException, "Bad input character near {0}", it - src.begin());
+                            MOE_THROW(InvalidEncodingException, "Bad input character near {0}", i);
                         decoderOutput = replacer;
                         lastDecoderResult = EncodingResult::Accept;
                     case EncodingResult::Accept:
@@ -211,24 +212,26 @@ namespace moe
                             case EncodingResult::Reject:
                             case EncodingResult::Incomplete:
                                 if (replacer == 0)
-                                {
-                                    MOE_THROW(InvalidEncodingException, "Cannot encode character near {0}",
-                                        it - src.begin());
-                                }
+                                    MOE_THROW(InvalidEncodingException, "Cannot encode character near {0}", i);
 
                                 // 试图使用replacer进行编码
                                 switch (encoder(replacer, destOutput, destOutputCount))
                                 {
                                     case EncodingResult::Reject:
                                     case EncodingResult::Incomplete:  // 若替换为替换字符依旧无法编码,则抛出异常
-                                        MOE_THROW(InvalidEncodingException, "Cannot encode character near {0}",
-                                            it - src.begin());
+                                        MOE_THROW(InvalidEncodingException, "Cannot encode character near {0}", i);
                                     case EncodingResult::Accept:
+                                        break;
+                                    default:
+                                        assert(false);
                                         break;
                                 }
                             case EncodingResult::Accept:
-                                for (uint32_t i = 0; i < destOutputCount; ++i)
-                                    ret.push_back(static_cast<TDestChar>(destOutput[i]));
+                                for (uint32_t j = 0; j < destOutputCount; ++j)
+                                    out.push_back(static_cast<TDestChar>(destOutput[j]));
+                                break;
+                            default:
+                                assert(false);
                                 break;
                         }
                         break;
@@ -250,13 +253,87 @@ namespace moe
                         MOE_THROW(InvalidEncodingException, "Cannot encode character");
                     case EncodingResult::Accept:
                         break;
+                    default:
+                        assert(false);
+                        break;
                 }
 
-                for (uint32_t i = 0; i < destOutputCount; ++i)
-                    ret.push_back(static_cast<TDestChar>(destOutput[i]));
+                for (uint32_t j = 0; j < destOutputCount; ++j)
+                    out.push_back(static_cast<TDestChar>(destOutput[j]));
             }
 
-            return ret;
+            return out;
+        }
+
+        /**
+         * @brief 执行编码转换
+         * @throw InvalidEncodingException 当转换无效时抛出
+         * @tparam DestEncoding 目标编码
+         * @tparam SrcEncoding 原始编码
+         * @tparam TDestChar 目标字符类型
+         * @tparam TSrcChar 原始字符类型
+         * @tparam DestContainer 目的容器
+         * @tparam SrcContainer 原始容器
+         * @param src 原始字符串
+         * @param replacer 非法字符替换字符, 若为0则在错误时抛出异常
+         * @return 目标转换输出
+         */
+        template <typename DestEncoding, typename SrcEncoding, typename TDestChar = typename DestEncoding::CharType,
+            typename TSrcChar = typename SrcEncoding::CharType, typename DestContainer = std::basic_string<TDestChar>,
+            typename SrcContainer = std::basic_string<TSrcChar>>
+        DestContainer Convert(const SrcContainer& src, char32_t replacer=0xFFFD)
+        {
+            DestContainer out;
+            Convert<DestEncoding, SrcEncoding, TDestChar, TSrcChar, DestContainer>(out,
+                ArrayView<typename SrcContainer::value_type>(src.c_str(), src.length()), replacer);
+            return out;
+        }
+
+        /**
+         * @brief 执行编码转换
+         * @throw InvalidEncodingException 当转换无效时抛出
+         * @tparam DestEncoding 目标编码
+         * @tparam SrcEncoding 原始编码
+         * @tparam TDestChar 目标字符类型
+         * @tparam TSrcChar 原始字符类型
+         * @tparam DestContainer 目的容器
+         * @tparam SrcContainer 原始容器
+         * @param src 原始字符串
+         * @param replacer 非法字符替换字符, 若为0则在错误时抛出异常
+         * @return 目标转换输出
+         */
+        template <typename DestEncoding, typename SrcEncoding, typename TDestChar = typename DestEncoding::CharType,
+            typename TSrcChar = typename SrcEncoding::CharType, typename DestContainer = std::basic_string<TDestChar>,
+            typename SrcContainer = std::basic_string<TSrcChar>>
+        DestContainer Convert(ArrayView<TSrcChar> src, char32_t replacer=0xFFFD)
+        {
+            DestContainer out;
+            Convert<DestEncoding, SrcEncoding, TDestChar, TSrcChar, DestContainer>(out, src, replacer);
+            return out;
+        }
+
+        /**
+         * @brief 执行编码转换
+         * @throw InvalidEncodingException 当转换无效时抛出
+         * @tparam DestEncoding 目标编码
+         * @tparam SrcEncoding 原始编码
+         * @tparam TDestChar 目标字符类型
+         * @tparam TSrcChar 原始字符类型
+         * @tparam DestContainer 目的容器
+         * @tparam SrcContainer 原始容器
+         * @param src 原始字符串
+         * @param replacer 非法字符替换字符, 若为0则在错误时抛出异常
+         * @return 目标转换输出
+         */
+        template <typename DestEncoding, typename SrcEncoding, typename TDestChar = typename DestEncoding::CharType,
+            typename TSrcChar = typename SrcEncoding::CharType, typename DestContainer = std::basic_string<TDestChar>,
+            typename SrcContainer = std::basic_string<TSrcChar>>
+        DestContainer Convert(const TSrcChar* src, char32_t replacer=0xFFFD)
+        {
+            DestContainer out;
+            Convert<DestEncoding, SrcEncoding, TDestChar, TSrcChar, DestContainer>(out,
+                ArrayView<TSrcChar>(src, std::char_traits<TSrcChar>::length(src)), replacer);
+            return out;
         }
 
         /**
@@ -290,7 +367,7 @@ namespace moe
             char32_t decoderOutput = 0;
 
             // 保存编码器的输出
-            TDestChar destOutput[DestEncoding::kMaxCodePointSize] = { 0 };
+            typename DestEncoding::CharType destOutput[DestEncoding::kMaxCodePointSize] = { 0 };
             uint32_t destOutputCount = 0;
 
             size_t encodedCount = 0;
@@ -300,7 +377,7 @@ namespace moe
                 if (ch == '\0')
                     break;
 
-                switch (lastDecoderResult = decoder(ch, decoderOutput))
+                switch (lastDecoderResult = decoder(static_cast<typename SrcEncoding::CharType>(ch), decoderOutput))
                 {
                     case EncodingResult::Reject:  // 将错误的序列进行替换
                         if (replacer == 0)
@@ -330,6 +407,9 @@ namespace moe
                                 for (uint32_t j = 0; j < destOutputCount; ++j)
                                     dest[encodedCount++] = destOutput[j];
                                 break;
+                            default:
+                                assert(false);
+                                break;
                         }
                         break;
                     default:
@@ -348,6 +428,9 @@ namespace moe
                         case EncodingResult::Incomplete:
                             return encodedCount;
                         case EncodingResult::Accept:
+                            break;
+                        default:
+                            assert(false);
                             break;
                     }
 

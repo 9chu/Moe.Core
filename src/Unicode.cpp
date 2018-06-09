@@ -82,7 +82,7 @@ static void GetDecompositionRecord(unsigned& index, unsigned& count, unsigned& p
 {
     index = 0;
 
-    if (static_cast<unsigned>(ch) < kUnicodeCodePointCount)
+    if (static_cast<uint32_t>(ch) < kUnicodeCodePointCount)
     {
         if (!oldVersion || GetChangeRecord_3_2_0(ch).CategoryChanged != 0)  // 保证老版本里面也有这个字符
         {
@@ -220,11 +220,11 @@ static unsigned FindNfcIndex(char32_t ch, const NfcCharReindex* nfc)
     for (unsigned index = 0; nfc[index].Start != 0; ++index)
     {
         unsigned start = nfc[index].Start;
-        if (static_cast<unsigned>(ch) < start)
+        if (static_cast<uint32_t>(ch) < start)
             return static_cast<unsigned>(-1);
-        if (static_cast<unsigned>(ch) <= start + nfc[index].Count)
+        if (static_cast<uint32_t>(ch) <= start + nfc[index].Count)
         {
-            unsigned delta = static_cast<unsigned>(ch) - start;
+            uint32_t delta = static_cast<uint32_t>(ch) - start;
             return nfc[index].Index + delta;
         }
     }
@@ -594,7 +594,7 @@ size_t Unicode::Decomposition(std::string& out, char32_t ch)
     unsigned index = 0;
     const auto mask = (1u << kUnicodeDecompDataShift) - 1;
 
-    if (static_cast<unsigned>(ch) < kUnicodeCodePointCount)
+    if (static_cast<uint32_t>(ch) < kUnicodeCodePointCount)
     {
         index = kUnicodeDecompDataIndex1[ch >> kUnicodeDecompDataShift];
         index = kUnicodeDecompDataIndex2[(index << kUnicodeDecompDataShift) + (ch & mask)];
@@ -627,6 +627,7 @@ size_t Unicode::Decomposition(std::string& out, char32_t ch)
 
 void Unicode::Normalize(std::u32string& out, ArrayView<char32_t> input, Unicode::NormalizationFormType form)
 {
+    assert(out.data() != input.GetBuffer());
     ::Normalize(out, input, form, false);
 }
 
@@ -697,5 +698,6 @@ size_t Unicode::Ucd_3_2_0::Decomposition(std::string& out, char32_t ch)
 
 void Unicode::Ucd_3_2_0::Normalize(std::u32string& out, ArrayView<char32_t> input, Unicode::NormalizationFormType form)
 {
+    assert(out.data() != input.GetBuffer());
     ::Normalize(out, input, form, true);
 }

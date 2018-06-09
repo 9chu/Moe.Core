@@ -1,5 +1,6 @@
 /**
  * @file
+ * @author chu
  * @date 2017/5/28
  */
 #include <Moe.Core/Encoding.hpp>
