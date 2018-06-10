@@ -39,7 +39,7 @@ static const UnicodeDatabaseRecord& GetUnicodeDatabaseRecord(char32_t ch)noexcep
     const auto mask = (1u << kUnicodeDatabaseRecordsIndexShift) - 1;
     if (static_cast<uint32_t>(ch) < kUnicodeCodePointCount)
     {
-        index = kUnicodeDatabaseRecordsIndex1[(ch >> kUnicodeDatabaseRecordsIndexShift)];
+        index = kUnicodeDatabaseRecordsIndex1[ch >> kUnicodeDatabaseRecordsIndexShift];
         index = kUnicodeDatabaseRecordsIndex2[(index << kUnicodeDatabaseRecordsIndexShift) + (ch & mask)];
     }
     return kUnicodeDatabaseRecords[index];
@@ -51,7 +51,7 @@ static const UnicodeTypeRecord& GetUnicodeTypeRecord(char32_t ch)noexcept
     const auto mask = (1u << kUnicodeTypeRecordsIndexShift) - 1;
     if (static_cast<uint32_t>(ch) < kUnicodeCodePointCount)
     {
-        index = kUnicodeTypeRecordsIndex1[(ch >> kUnicodeTypeRecordsIndexShift)];
+        index = kUnicodeTypeRecordsIndex1[ch >> kUnicodeTypeRecordsIndexShift];
         index = kUnicodeTypeRecordsIndex2[(index << kUnicodeTypeRecordsIndexShift) + (ch & mask)];
     }
     return kUnicodeTypeRecords[index];

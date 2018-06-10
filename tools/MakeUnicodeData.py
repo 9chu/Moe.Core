@@ -394,7 +394,7 @@ def makeunicodedata(unicode, fp, trace):
         print("};", file=fp)
         Array("kUnicodeChangeRecordsIndex1_%s" % cversion, index1).dump(fp, trace)
         Array("kUnicodeChangeRecordsIndex2_%s" % cversion, index2).dump(fp, trace)
-        print("static const ChangeRecord& GetChangeRecord_%s(char32_t n)" % cversion, file=fp)
+        print("static const ChangeRecord& GetChangeRecord_%s(char32_t n)noexcept" % cversion, file=fp)
         print("{", file=fp)
         print("    int index = 0;", file=fp)
         print("    if (static_cast<uint32_t>(n) < kUnicodeCodePointCount)", file=fp)
@@ -407,7 +407,7 @@ def makeunicodedata(unicode, fp, trace):
         print("}", file=fp)
 
         print(file=fp)
-        print("static char32_t Normalization_%s(char32_t n)" % cversion, file=fp)
+        print("static char32_t Normalization_%s(char32_t n)noexcept" % cversion, file=fp)
         print("{", file=fp)
         print("    switch(n)", file=fp)
         print("    {", file=fp)

@@ -11,6 +11,10 @@
 
 namespace moe
 {
+    /**
+     * @brief IDNA支持
+     * @ref https://www.unicode.org/reports/tr46/
+     */
     namespace Idna
     {
         /**

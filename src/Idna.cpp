@@ -5,6 +5,7 @@
  * @see http://ietf.org/rfc/rfc3492.txt
  * @see https://github.com/bestiejs/punycode.js/blob/master/punycode.js
  * @see https://github.com/jcranmer/idna-uts46
+ * @see https://github.com/kjd/idna
  */
 #include <Moe.Core/Idna.hpp>
 
@@ -68,7 +69,7 @@ void Idna::PunycodeEncode(u32string& out, ArrayView<char32_t> input)
         if (IsPunycodeBasicCodepoint(input[i]))
             out.push_back(input[i]);
         else if (input[i] < kPunycodeInitialN)  // 当char32_t为signed类型时
-            MOE_THROW(BadFormatException, "Invalid punycode input near position {0}", i);
+            MOE_THROW(BadFormatException, "Invalid punycode input near position {0}: {1}", i, StringUtils::Repr(out));
     }
 
     size_t h = out.length();  // 已处理的码点数量
@@ -90,7 +91,7 @@ void Idna::PunycodeEncode(u32string& out, ArrayView<char32_t> input)
         }
 
         if (m - n > (numeric_limits<uint32_t>::max() - delta) / (h + 1))
-            MOE_THROW(BadFormatException, "Punycode overflowed");
+            MOE_THROW(BadFormatException, "Punycode overflowed: {0}", StringUtils::Repr(out));
         delta += (m - n) * (h + 1);
         n = m;
 
@@ -99,7 +100,7 @@ void Idna::PunycodeEncode(u32string& out, ArrayView<char32_t> input)
             if (input[i] < n)
             {
                 if (++delta == 0)
-                    MOE_THROW(BadFormatException, "Punycode overflowed");
+                    MOE_THROW(BadFormatException, "Punycode overflowed: {0}", StringUtils::Repr(out));
             }
 
             if (input[i] == n)
@@ -142,7 +143,10 @@ void Idna::PunycodeDecode(u32string& out, ArrayView<char32_t> input)
     for (size_t i = 0; i < b; ++i)
     {
         if (!IsPunycodeBasicCodepoint(input[i]))
-            MOE_THROW(BadFormatException, "Invalid punycode character near position {0}", i);
+        {
+            MOE_THROW(BadFormatException, "Invalid punycode character near position {0}: {1}", i,
+                StringUtils::Repr(out));
+        }
         out.push_back(input[i]);
     }
 
@@ -155,18 +159,18 @@ void Idna::PunycodeDecode(u32string& out, ArrayView<char32_t> input)
         for (uint32_t w = 1, k = kPunycodeBase; ; k += kPunycodeBase)
         {
             if (in >= input.GetSize())
-                MOE_THROW(BadFormatException, "Invalid input punycode");
+                MOE_THROW(BadFormatException, "Invalid input punycode: {0}", StringUtils::Repr(out));
             auto digit = PunycodeDecodeDigit(static_cast<uint32_t>(input[in++]));
             if (digit >= kPunycodeBase)
-                MOE_THROW(BadFormatException, "Invalid input punycode");
+                MOE_THROW(BadFormatException, "Invalid input punycode: {0}", StringUtils::Repr(out));
             if (digit > (numeric_limits<uint32_t>::max() - i) / w)
-                MOE_THROW(BadFormatException, "Punycode overflowed");
+                MOE_THROW(BadFormatException, "Punycode overflowed: {0}", StringUtils::Repr(out));
             i += digit * w;
             uint32_t t = k <= bias ? kPunycodeTmin : (k >= bias + kPunycodeTmax ? kPunycodeTmax : k - bias);
             if (digit < t)
                 break;
             if (w > numeric_limits<uint32_t>::max() / (kPunycodeBase - t))
-                MOE_THROW(BadFormatException, "Punycode overflowed");
+                MOE_THROW(BadFormatException, "Punycode overflowed: {0}", StringUtils::Repr(out));
             w *= (kPunycodeBase - t);
         }
 
@@ -174,7 +178,7 @@ void Idna::PunycodeDecode(u32string& out, ArrayView<char32_t> input)
         bias = PunycodeAdapt(i - oldi, outlen, oldi == 0);
 
         if (i / outlen > numeric_limits<uint32_t>::max() - n)
-            MOE_THROW(BadFormatException, "Punycode overflowed");
+            MOE_THROW(BadFormatException, "Punycode overflowed: {0}", StringUtils::Repr(out));
         n += i / outlen;
         i %= outlen;
 
@@ -183,3 +187,82 @@ void Idna::PunycodeDecode(u32string& out, ArrayView<char32_t> input)
 }
 
 //////////////////////////////////////////////////////////////////////////////// IDNA
+
+enum {
+    IDNA_STATUS_VALID = 0,
+    IDNA_STATUS_IGNORED = 1,
+    IDNA_STATUS_MAPPED = 2,
+    IDNA_STATUS_DEVIATION = 3,
+    IDNA_STATUS_DISALLOWED = 4,
+    IDNA_STATUS_DISALLOWED_STD3_VALID = 5,
+    IDNA_STATUS_DISALLOWED_STD3_MAPPED = 6,
+    IDNA_2008_STATUS_NV8 = 1 << 4,
+    IDNA_2008_STATUS_XV8 = 2 << 4,
+    IDNA_EXTRA_MAPPING = 1 << 7,
+};
+
+struct IdnaRecord
+{
+    uint8_t Flags;
+    uint32_t Mapping;
+};
+
+#include "IdnaData.inl"
+
+static const IdnaRecord& GetIdnaRecord(char32_t ch)
+{
+    unsigned index = 0;
+    const auto mask = (1u << kIdnaRecordsIndexShift) - 1;
+    if (static_cast<uint32_t>(ch) < kIdnaRecordsCount)
+    {
+        index = kIdnaRecordsIndex1[ch >> kIdnaRecordsIndexShift];
+        index = kIdnaRecordsIndex2[(index << kIdnaRecordsIndexShift) + (ch & mask)];
+    }
+    return kIdnaRecords[index];
+}
+
+static ArrayView<char32_t> GetIdnaMapping(const IdnaRecord& record)
+{
+    if (record.Flags & IDNA_EXTRA_MAPPING)
+    {
+        auto index = record.Mapping & 0xFFFF;
+        auto count = (record.Mapping >> 16) & 0xFFFF;
+        return ArrayView<char32_t>(&kIdnaMappingData[index], count);
+    }
+    else if (record.Mapping == 1)
+    {
+        static_assert(sizeof(IdnaRecord::Mapping) == sizeof(char32_t), "Bad condition");
+        return ArrayView<char32_t>(reinterpret_cast<const char32_t*>(&record.Mapping), 1);
+    }
+    return ArrayView<char32_t>();
+}
+
+static void Uts46Remap(u32string& out, ArrayView<char32_t> domain, bool useStd3Rules, bool transitional)
+{
+    out.clear();
+    out.reserve(domain.GetSize());
+    for (size_t i = 0; i < domain.GetSize(); ++i)
+    {
+        char32_t ch = domain[i];
+        const auto& record = GetIdnaRecord(ch);
+        if ((record.Flags & IDNA_STATUS_VALID) || ((record.Flags & IDNA_STATUS_DEVIATION) && !transitional) ||
+            ((record.Flags & IDNA_STATUS_DISALLOWED_STD3_VALID) && !useStd3Rules))
+        {
+            out.push_back(ch);
+        }
+        else if ((record.Flags & IDNA_STATUS_MAPPED) || ((record.Flags & IDNA_STATUS_DEVIATION) && transitional) ||
+            ((record.Flags & IDNA_STATUS_DISALLOWED_STD3_MAPPED) && !useStd3Rules))
+        {
+            ArrayView<char32_t> mapped = GetIdnaMapping(record);
+
+            if (!mapped.IsEmpty())
+                out.append(mapped.GetBuffer(), mapped.GetSize());
+            else
+                assert(false);
+        }
+        else if (!(record.Flags & IDNA_STATUS_IGNORED))
+            MOE_THROW(BadFormatException, "Invalid codepoint near position {0}: {1}", i, StringUtils::Repr(domain));
+    }
+}
+
+

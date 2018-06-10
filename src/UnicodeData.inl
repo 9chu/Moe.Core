@@ -7447,7 +7447,7 @@ static const uint8_t kUnicodeChangeRecordsIndex2_3_2_0[] = {
     9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-static const ChangeRecord& GetChangeRecord_3_2_0(char32_t n)
+static const ChangeRecord& GetChangeRecord_3_2_0(char32_t n)noexcept
 {
     int index = 0;
     if (static_cast<uint32_t>(n) < kUnicodeCodePointCount)
@@ -7458,7 +7458,7 @@ static const ChangeRecord& GetChangeRecord_3_2_0(char32_t n)
     return kUnicodeChangeRecords_3_2_0[index];
 }
 
-static char32_t Normalization_3_2_0(char32_t n)
+static char32_t Normalization_3_2_0(char32_t n)noexcept
 {
     switch(n)
     {

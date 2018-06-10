@@ -715,6 +715,109 @@ namespace moe
                 flags);
         }
 
+        namespace details
+        {
+            template <typename TChar = char>
+            class SplitByCharsIterator :
+                public std::iterator<std::input_iterator_tag, std::basic_string<TChar>>
+            {
+            public:
+                SplitByCharsIterator()noexcept = default;
+                SplitByCharsIterator(const SplitByCharsIterator&)noexcept = default;
+
+                SplitByCharsIterator(ArrayView<TChar> source, ArrayView<TChar> deliminators)noexcept
+                    : m_stSource(source), m_stDeliminators(deliminators)
+                {
+                    // 找到第一段的位置
+                    m_stCurrent = ArrayView<TChar>(source.GetBuffer(), LengthUntilDeliminators(source));
+                }
+
+                ArrayView<char32_t> operator*()const noexcept
+                {
+                    return m_stCurrent;
+                }
+
+                SplitByCharsIterator& operator++()noexcept
+                {
+                    assert(m_stCurrent.GetBuffer() != nullptr);
+                    auto next = m_stCurrent.GetBuffer() + m_stCurrent.GetSize();
+                    auto end = m_stSource.GetBuffer() + m_stSource.GetSize();
+                    if (next >= end)  // 已经是最后一个了
+                        m_stCurrent = ArrayView<TChar>();
+                    else
+                    {
+                        ++next;  // 这里必然有一个分隔符，跳过去
+                        m_stCurrent = ArrayView<TChar>(next, LengthUntilDeliminators(ArrayView<TChar>(next,
+                            end - next)));
+                    }
+                    return *this;
+                }
+
+                SplitByCharsIterator operator++(int)noexcept
+                {
+                    SplitByCharsIterator tmp(*this);
+                    ++*this;
+                    return tmp;
+                }
+
+                bool operator==(const SplitByCharsIterator& rhs)const noexcept
+                {
+                    return m_stCurrent == rhs.m_stCurrent;
+                }
+
+                bool operator!=(const SplitByCharsIterator& rhs)const noexcept
+                {
+                    return !(*this == rhs);
+                }
+
+            private:
+                size_t LengthUntilDeliminators(ArrayView<TChar> source)const noexcept
+                {
+                    for (size_t i = 0; i < source.GetSize(); ++i)
+                    {
+                        for (size_t j = 0; j < m_stDeliminators.GetSize(); ++j)
+                        {
+                            if (source[i] == m_stDeliminators[j])
+                                return i;
+                        }
+                    }
+                    return source.GetSize();
+                }
+
+            private:
+                ArrayView<TChar> m_stSource;  // 源
+                ArrayView<TChar> m_stDeliminators;  // 分隔符
+                ArrayView<TChar> m_stCurrent;  // 当前分割位置
+            };
+        }
+
+        /**
+         * @brief 构造基于字符集分割的迭代器
+         * @tparam TChar 字符类型
+         * @param source 被分割文本
+         * @param deliminators 分隔符字符集
+         * @return 迭代器
+         */
+        template <typename TChar = char>
+        inline details::SplitByCharsIterator<TChar> SplitByCharsBegin(const TChar* source,
+            const TChar* deliminators)noexcept
+        {
+            using Iter = details::SplitByCharsIterator<TChar>;
+            return Iter(ArrayView<TChar>(source, std::char_traits<TChar>::length(source)),
+                ArrayView<TChar>(deliminators, std::char_traits<TChar>::length(deliminators)));
+        }
+
+        /**
+         * @brief 构造基于字符集分割的迭代器（终止迭代器）
+         * @tparam TChar 字符类型
+         * @return 终止迭代器
+         */
+        template <typename TChar = char>
+        inline details::SplitByCharsIterator<TChar> SplitByCharsEnd()noexcept
+        {
+            return details::SplitByCharsIterator<TChar>();
+        }
+
         /**
          * @brief 全文本替换
          * @tparam TChar 字符类型
@@ -856,6 +959,34 @@ namespace moe
             std::basic_string<TChar> ret;
             BufferToHexLower(ret, buffer.GetBuffer(), buffer.GetSize());
             return ret;
+        }
+
+        /**
+         * @brief 将字符串转换为可打印字符串
+         * @param input 输入unicode字符串
+         * @return 转换后的可打印字符串
+         */
+        std::string Repr(ArrayView<char> input);
+        std::string Repr(ArrayView<char32_t> input);
+
+        inline std::string Repr(const char* input)
+        {
+            return Repr(ArrayView<char>(input, std::char_traits<char>::length(input)));
+        }
+
+        inline std::string Repr(const char32_t* input)
+        {
+            return Repr(ArrayView<char32_t>(input, std::char_traits<char32_t>::length(input)));
+        }
+
+        inline std::string Repr(const std::string& input)
+        {
+            return Repr(ArrayView<char>(input.c_str(), input.length()));
+        }
+
+        inline std::string Repr(const std::u32string& input)
+        {
+            return Repr(ArrayView<char32_t>(input.c_str(), input.length()));
         }
 
         //////////////////////////////////////// </editor-fold>
