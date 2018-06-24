@@ -3,11 +3,15 @@
  * @author chu
  * @date 2018/6/7
  * @see http://ietf.org/rfc/rfc3492.txt
+ * @see https://tools.ietf.org/html/rfc5892#appendix-A
  * @see https://github.com/bestiejs/punycode.js/blob/master/punycode.js
  * @see https://github.com/jcranmer/idna-uts46
  * @see https://github.com/kjd/idna
  */
 #include <Moe.Core/Idna.hpp>
+#include <Moe.Core/Unicode.hpp>
+
+#include <algorithm>
 
 using namespace std;
 using namespace moe;
@@ -190,14 +194,18 @@ void Idna::PunycodeDecode(u32string& out, ArrayView<char32_t> input)
 
 enum {
     IDNA_STATUS_VALID = 0,
-    IDNA_STATUS_IGNORED = 1,
-    IDNA_STATUS_MAPPED = 2,
-    IDNA_STATUS_DEVIATION = 3,
-    IDNA_STATUS_DISALLOWED = 4,
-    IDNA_STATUS_DISALLOWED_STD3_VALID = 5,
-    IDNA_STATUS_DISALLOWED_STD3_MAPPED = 6,
-    IDNA_2008_STATUS_NV8 = 1 << 4,
-    IDNA_2008_STATUS_XV8 = 2 << 4,
+    IDNA_STATUS_VALID_NV8 = 1,
+    IDNA_STATUS_VALID_XV8 = 2,
+    IDNA_STATUS_DISALLOWED = 3,
+    IDNA_STATUS_IGNORED = 4,
+    IDNA_STATUS_MAPPED = 5,
+    IDNA_STATUS_DEVIATION = 6,
+    IDNA_STATUS_DISALLOWED_STD3_VALID = 7,
+    IDNA_STATUS_DISALLOWED_STD3_MAPPED = 8,
+    IDNA_STATUS_MASK = 15,
+    IDNA_PVALID = 1 << 4,
+    IDNA_CONTEXT_J = 2 << 4,
+    IDNA_CONTEXT_O = 3 << 4,
     IDNA_EXTRA_MAPPING = 1 << 7,
 };
 
@@ -209,7 +217,10 @@ struct IdnaRecord
 
 #include "IdnaData.inl"
 
-static const IdnaRecord& GetIdnaRecord(char32_t ch)
+static const char32_t kDeliminators[] = { '.' };
+static const char32_t kPunycodePrefix[] = { 'x', 'n', '-', '-', '\0' };
+
+static const IdnaRecord& GetIdnaRecord(char32_t ch)noexcept
 {
     unsigned index = 0;
     const auto mask = (1u << kIdnaRecordsIndexShift) - 1;
@@ -221,7 +232,7 @@ static const IdnaRecord& GetIdnaRecord(char32_t ch)
     return kIdnaRecords[index];
 }
 
-static ArrayView<char32_t> GetIdnaMapping(const IdnaRecord& record)
+static ArrayView<char32_t> GetIdnaMapping(const IdnaRecord& record)noexcept
 {
     if (record.Flags & IDNA_EXTRA_MAPPING)
     {
@@ -237,21 +248,205 @@ static ArrayView<char32_t> GetIdnaMapping(const IdnaRecord& record)
     return ArrayView<char32_t>();
 }
 
+static bool IsPureAscii(ArrayView<char32_t> input)noexcept
+{
+    for (size_t i = 0; i < input.GetSize(); ++i)
+    {
+        if (static_cast<uint32_t>(input[i]) >= 0x80)
+            return false;
+    }
+    return true;
+}
+
+static void CheckBidi(ArrayView<char32_t> input, bool checkLtr=false)
+{
+    bool bidiLabel = false;
+    for (size_t i = 0; i < input.GetSize(); ++i)
+    {
+        auto direction = Unicode::GetBidirectional(input[i]);
+        if (!direction || direction[0] == '\0')
+            MOE_THROW(BadFormatException, "Unknown directionality at position {0}: {1}", i, StringUtils::Repr(input));
+        if (::strcmp(direction, "R") == 0 || ::strcmp(direction, "AL") == 0 || ::strcmp(direction, "AN") == 0)
+        {
+            bidiLabel = true;
+            break;
+        }
+    }
+    if (!bidiLabel && !checkLtr)
+        return;
+
+    // Bidi rule 1
+    bool rtl = false;
+    if (input.GetSize() > 0)
+    {
+        auto direction = Unicode::GetBidirectional(input[0]);
+        if (::strcmp(direction, "R") == 0 || ::strcmp(direction, "AL") == 0)
+            rtl = true;
+        else if (::strcmp(direction, "L") != 0)
+        {
+            MOE_THROW(BadFormatException, "First codepoint in label must be directionality L, R or AL: {0}",
+                StringUtils::Repr(input));
+        }
+    }
+
+    bool validEnding = false;
+    const char* numberType = nullptr;
+    for (size_t i = 1; i < input.GetSize(); ++i)
+    {
+        auto direction = Unicode::GetBidirectional(input[i]);
+        if (rtl)
+        {
+            // Bidi rule 2
+            if (!(::strcmp(direction, "R") == 0 || ::strcmp(direction, "AL") == 0 || ::strcmp(direction, "AN") == 0 ||
+                ::strcmp(direction, "EN") == 0 || ::strcmp(direction, "ES") == 0 || ::strcmp(direction, "CS") == 0 ||
+                ::strcmp(direction, "ET") == 0 || ::strcmp(direction, "ON") == 0 || ::strcmp(direction, "BN") == 0 ||
+                ::strcmp(direction, "NSM") == 0))
+            {
+                MOE_THROW(BadFormatException, "Invalid direction for codepoint at position {0}: {1}", i,
+                    StringUtils::Repr(input));
+            }
+
+            // Bidi rule 3
+            if (::strcmp(direction, "R") == 0 || ::strcmp(direction, "AL") == 0 || ::strcmp(direction, "EN") ||
+                ::strcmp(direction, "AN") == 0)
+            {
+                validEnding = true;
+            }
+            else if (::strcmp(direction, "NSM") != 0)
+                validEnding = false;
+
+            // Bidi rule 4
+            if (::strcmp(direction, "AN") == 0 || ::strcmp(direction, "EN") == 0)
+            {
+                if (!numberType)
+                    numberType = direction;
+                else if (direction != numberType)
+                {
+                    MOE_THROW(BadFormatException, "Can not mix numeral types in a right-to-left label: {0}",
+                        StringUtils::Repr(input));
+                }
+            }
+        }
+        else
+        {
+            // Bidi rule 5
+            if (!(::strcmp(direction, "L") == 0 || ::strcmp(direction, "EN") == 0 || ::strcmp(direction, "ES") == 0 ||
+                ::strcmp(direction, "CS") == 0 || ::strcmp(direction, "ET") == 0 || ::strcmp(direction, "ON") == 0 ||
+                ::strcmp(direction, "BN") == 0 || ::strcmp(direction, "NSM") == 0))
+            {
+                MOE_THROW(BadFormatException, "Invalid direction for codepoint at position {0}: {1}", i,
+                    StringUtils::Repr(input));
+            }
+
+            // Bidi rule 6
+            if (::strcmp(direction, "L") == 0 || ::strcmp(direction, "EN") == 0)
+                validEnding = true;
+            else if (::strcmp(direction, "NSM") != 0)
+                validEnding = false;
+        }
+    }
+
+    if (!validEnding)
+    {
+        MOE_THROW(BadFormatException, "Label ends with illegal codepoint directionality: {0}",
+            StringUtils::Repr(input));
+    }
+}
+
+static void Validate(ArrayView<char32_t> input, bool checkHyphens, bool checkBidi, bool checkJoiners, bool transitional)
+{
+    // Step1 检查NFC
+    if (!Unicode::IsNormalized(input, Unicode::NormalizationFormType::NFC))
+        MOE_THROW(BadFormatException, "Label must be in Normalization Form C: {0}", StringUtils::Repr(input));
+
+    // Step2&3 检查Hyphens
+    if (checkHyphens)
+    {
+        if (input.GetSize() >= 4 && input[2] == '-' && input[3] == '-')
+        {
+            MOE_THROW(BadFormatException, "Label has disallowed hyphens in 3rd and 4th position: {0}",
+                StringUtils::Repr(input));
+        }
+        if (input.GetSize() > 0 && (input.First() == '-' || input.Last() == '-'))
+            MOE_THROW(BadFormatException, "Label must not start or end with a hyphen: {0}", StringUtils::Repr(input));
+    }
+
+    // Step4 不能包含'.'
+    for (size_t i = 0; i < input.GetSize(); ++i)
+    {
+        if (input[i] == '.')
+        {
+            MOE_THROW(BadFormatException, "Label cannot contains a U+002E (.) FULL STOP: {0}",
+                StringUtils::Repr(input));
+        }
+    }
+
+    // Step5 不能以General_Category=Mark打头
+    if (input.GetSize() > 0)
+    {
+        auto category = Unicode::GetCategory(input.First());
+        if (category && category[0] == 'M')
+        {
+            MOE_THROW(BadFormatException, "Label begins with an illegal combining character: {0}",
+                StringUtils::Repr(input));
+        }
+    }
+
+    // Step6 每一个码点必须符合映射关系
+    for (size_t i = 0; i < input.GetSize(); ++i)
+    {
+        char32_t ch = input[i];
+        const auto& record = GetIdnaRecord(ch);
+        if (transitional)
+        {
+            auto status = record.Flags & IDNA_STATUS_MASK;
+            if (!(status == IDNA_STATUS_VALID || status == IDNA_STATUS_VALID_NV8 || status == IDNA_STATUS_VALID_XV8))
+            {
+                MOE_THROW(BadFormatException, "Label contains bad codepoint at position {0}: {1}", i,
+                    StringUtils::Repr(input));
+            }
+        }
+        else
+        {
+            auto status = record.Flags & IDNA_STATUS_MASK;
+            if (!(status == IDNA_STATUS_VALID || status == IDNA_STATUS_VALID_NV8 || status == IDNA_STATUS_VALID_XV8 ||
+                status == IDNA_STATUS_DEVIATION))
+            {
+                MOE_THROW(BadFormatException, "Label contains bad codepoint at position {0}: {1}", i,
+                    StringUtils::Repr(input));
+            }
+        }
+    }
+
+    // Step7 CheckJoiners
+    if (checkJoiners)
+    {
+        // TODO: Not implement yet
+    }
+
+    // Step8 CheckBidi
+    if (checkBidi)
+        CheckBidi(input);
+}
+
 static void Uts46Remap(u32string& out, ArrayView<char32_t> domain, bool useStd3Rules, bool transitional)
 {
     out.clear();
     out.reserve(domain.GetSize());
+
     for (size_t i = 0; i < domain.GetSize(); ++i)
     {
         char32_t ch = domain[i];
         const auto& record = GetIdnaRecord(ch);
-        if ((record.Flags & IDNA_STATUS_VALID) || ((record.Flags & IDNA_STATUS_DEVIATION) && !transitional) ||
-            ((record.Flags & IDNA_STATUS_DISALLOWED_STD3_VALID) && !useStd3Rules))
+        auto status = record.Flags & IDNA_STATUS_MASK;
+        if ((status == IDNA_STATUS_VALID || status == IDNA_STATUS_VALID_NV8 || status == IDNA_STATUS_VALID_XV8) ||
+            ((status == IDNA_STATUS_DEVIATION) && !transitional) ||
+            ((status == IDNA_STATUS_DISALLOWED_STD3_VALID) && !useStd3Rules))
         {
             out.push_back(ch);
         }
-        else if ((record.Flags & IDNA_STATUS_MAPPED) || ((record.Flags & IDNA_STATUS_DEVIATION) && transitional) ||
-            ((record.Flags & IDNA_STATUS_DISALLOWED_STD3_MAPPED) && !useStd3Rules))
+        else if ((status == IDNA_STATUS_MAPPED) || ((status == IDNA_STATUS_DEVIATION) && transitional) ||
+            ((status == IDNA_STATUS_DISALLOWED_STD3_MAPPED) && !useStd3Rules))
         {
             ArrayView<char32_t> mapped = GetIdnaMapping(record);
 
@@ -260,9 +455,115 @@ static void Uts46Remap(u32string& out, ArrayView<char32_t> domain, bool useStd3R
             else
                 assert(false);
         }
-        else if (!(record.Flags & IDNA_STATUS_IGNORED))
+        else if (!(status == IDNA_STATUS_IGNORED))
             MOE_THROW(BadFormatException, "Invalid codepoint near position {0}: {1}", i, StringUtils::Repr(domain));
     }
 }
 
+static void Process(std::u32string& out, ArrayView<char32_t> input, bool useStd3rules, bool checkHyphens,
+    bool checkBidi, bool checkJoiners, bool transitional)
+{
+    out.clear();
+    out.reserve(input.GetSize());
 
+    // Step1 进行字符串映射
+    u32string tmp;
+    Uts46Remap(tmp, input, useStd3rules, transitional);
+
+    // Step2 进行Normalize
+    u32string buffer;
+    Unicode::Normalize(buffer, tmp, Unicode::NormalizationFormType::NFC);
+
+    // Step3 按照'.'进行分割
+    auto i = 0;
+    auto cnt = std::count(buffer.begin(), buffer.end(), kDeliminators[0]);
+    auto it = StringUtils::SplitByCharsBegin(ToArrayView<char32_t>(buffer), ArrayView<char32_t>(kDeliminators, 1));
+    while (it != StringUtils::SplitByCharsEnd<char32_t>())
+    {
+        auto label = *it;
+
+        if (i != 0 && !(i >= cnt && label.GetSize() == 0))  // 尾随的小数点要去掉
+            out.push_back('.');
+
+        // Step4 转换或者校验
+        if (label.GetSize() >= 4 && char_traits<char32_t>::compare(label.GetBuffer(), U"xn--", 4) == 0)
+        {
+            Idna::PunycodeDecode(tmp, ArrayView<char32_t>(label.GetBuffer() + 4, label.GetSize() - 4));
+            Validate(ToArrayView<char32_t>(tmp), checkHyphens, checkBidi, checkJoiners, transitional);
+            out.append(tmp);
+        }
+        else
+        {
+            Validate(label, checkHyphens, checkBidi, checkJoiners, transitional);
+            out.append(label.GetBuffer(), label.GetSize());
+        }
+
+        ++i;
+        ++it;
+    }
+}
+
+void Idna::ToAscii(std::u32string& out, ArrayView<char32_t> domainName, bool checkHyphens, bool checkBidi,
+    bool checkJoiners, bool useStd3Rules, bool transitionalProcessing, bool verifyDnsLength)
+{
+    out.clear();
+    out.reserve(domainName.GetSize());
+
+    u32string tmp;
+    Process(tmp, domainName, useStd3Rules, checkHyphens, checkBidi, checkJoiners, transitionalProcessing);
+
+    auto i = 0;
+    auto cnt = verifyDnsLength ? std::count(tmp.begin(), tmp.end(), kDeliminators[0]) : 0;
+    auto totalLength = 0;
+    auto it = StringUtils::SplitByCharsBegin(ToArrayView<char32_t>(tmp), ArrayView<char32_t>(kDeliminators, 1));
+    while (it != StringUtils::SplitByCharsEnd<char32_t>())
+    {
+        auto label = *it;
+
+        if (i != 0)
+            out.push_back('.');
+
+        if (IsPureAscii(label))
+        {
+            if (verifyDnsLength)
+            {
+                auto len = label.GetSize();
+                if (len > 63 || len < 1)
+                    MOE_THROW(BadFormatException, "Bad label length: {0}", StringUtils::Repr(label));
+                if (i + 1 < cnt)
+                    totalLength += len;
+            }
+
+            out.append(label.GetBuffer(), label.GetSize());
+        }
+        else
+        {
+            u32string punycode;
+            PunycodeEncode(punycode, label);
+
+            if (verifyDnsLength)
+            {
+                auto len = punycode.length() + 4;
+                if (len > 63 || len < 1)
+                    MOE_THROW(BadFormatException, "Label is too long or empty: {0}", StringUtils::Repr(label));
+                if (i + 1 <= cnt)
+                    totalLength += len;
+            }
+
+            out.append(kPunycodePrefix);
+            out.append(punycode);
+        }
+
+        ++i;
+        ++it;
+    }
+
+    if (verifyDnsLength && (totalLength > 253 || totalLength < 1))
+        MOE_THROW(BadFormatException, "Domain is too long or empty: {0}", StringUtils::Repr(domainName));
+}
+
+void Idna::ToUnicode(std::u32string& out, ArrayView<char32_t> domainName, bool checkHyphens, bool checkBidi,
+    bool checkJoiners, bool useStd3Rules, bool transitionalProcessing)
+{
+    Process(out, domainName, useStd3Rules, checkHyphens, checkBidi, checkJoiners, transitionalProcessing);
+}

@@ -625,6 +625,38 @@ size_t Unicode::Decomposition(std::string& out, char32_t ch)
     return count;
 }
 
+bool Unicode::IsNormalized(ArrayView<char32_t> input, Unicode::NormalizationFormType form)
+{
+    u32string tmp;
+
+    switch (form)
+    {
+        case Unicode::NormalizationFormType::NFC:
+            if (::IsNormalized(input, true, false, false))
+                return true;
+            NormalizeNfcOrNfkc(tmp, input, false, false);
+            return tmp.compare(0, input.GetSize(), input.GetBuffer()) == 0;
+        case Unicode::NormalizationFormType::NFKC:
+            if (::IsNormalized(input, true, true, false))
+                return true;
+            NormalizeNfcOrNfkc(tmp, input, true, false);
+            return tmp.compare(0, input.GetSize(), input.GetBuffer()) == 0;
+        case Unicode::NormalizationFormType::NFD:
+            if (::IsNormalized(input, false, false, false))
+                return true;
+            NormalizeNfdOrNfkd(tmp, input, false, false);
+            return tmp.compare(0, input.GetSize(), input.GetBuffer()) == 0;
+        case Unicode::NormalizationFormType::NFKD:
+            if (::IsNormalized(input, false, true, false))
+                return true;
+            NormalizeNfdOrNfkd(tmp, input, true, false);
+            return tmp.compare(0, input.GetSize(), input.GetBuffer()) == 0;
+        default:
+            assert(false);
+            return false;
+    }
+}
+
 void Unicode::Normalize(std::u32string& out, ArrayView<char32_t> input, Unicode::NormalizationFormType form)
 {
     assert(out.data() != input.GetBuffer());

@@ -799,12 +799,19 @@ namespace moe
          * @return 迭代器
          */
         template <typename TChar = char>
-        inline details::SplitByCharsIterator<TChar> SplitByCharsBegin(const TChar* source,
+        constexpr details::SplitByCharsIterator<TChar> SplitByCharsBegin(const TChar* source,
             const TChar* deliminators)noexcept
         {
-            using Iter = details::SplitByCharsIterator<TChar>;
-            return Iter(ArrayView<TChar>(source, std::char_traits<TChar>::length(source)),
+            return details::SplitByCharsIterator<TChar>(
+                ArrayView<TChar>(source, std::char_traits<TChar>::length(source)),
                 ArrayView<TChar>(deliminators, std::char_traits<TChar>::length(deliminators)));
+        }
+
+        template <typename TChar = char>
+        constexpr details::SplitByCharsIterator<TChar> SplitByCharsBegin(ArrayView<TChar> source,
+            ArrayView<TChar> deliminators)noexcept
+        {
+            return details::SplitByCharsIterator<TChar>(source, deliminators);
         }
 
         /**
@@ -813,7 +820,7 @@ namespace moe
          * @return 终止迭代器
          */
         template <typename TChar = char>
-        inline details::SplitByCharsIterator<TChar> SplitByCharsEnd()noexcept
+        constexpr details::SplitByCharsIterator<TChar> SplitByCharsEnd()noexcept
         {
             return details::SplitByCharsIterator<TChar>();
         }

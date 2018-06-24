@@ -36,6 +36,16 @@ namespace moe
             return m_pBuffer[index];
         }
 
+        bool operator==(const ArrayView& rhs)const noexcept
+        {
+            return m_pBuffer == rhs.m_pBuffer && m_uSize == rhs.m_uSize;
+        }
+
+        bool operator!=(const ArrayView& rhs)const noexcept
+        {
+            return m_pBuffer != rhs.m_pBuffer || m_uSize != rhs.m_uSize;
+        }
+
     public:
         /**
          * @brief 获取缓冲区大小
@@ -171,5 +181,11 @@ namespace moe
     inline MutableBytesView StringToBytesView(std::string& data)noexcept
     {
         return MutableBytesView(reinterpret_cast<const uint8_t*>(data.data()), data.size());
+    }
+
+    template <typename T, typename P>
+    inline ArrayView<T> ToArrayView(const P& container)noexcept
+    {
+        return ArrayView<T>(container.data(), container.size());
     }
 }

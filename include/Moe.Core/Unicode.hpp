@@ -236,6 +236,16 @@ namespace moe
         }
 
         /**
+         * @brief 检查是否已经是规格化文本
+         * @param input 输入串
+         * @param form 规格化形式
+         * @return 是否已经规格化
+         *
+         * 方法会进行一次快速规格化判断，倘若无法得出可信结果，则依旧会进行一次规格化转换操作而后再进行比较。
+         */
+        bool IsNormalized(ArrayView<char32_t> input, Unicode::NormalizationFormType form);
+
+        /**
          * @brief Unicode规格化
          * @param[out] out 输出结果
          * @param input 输入字符串
@@ -256,7 +266,7 @@ namespace moe
         /**
          * @brief Unicode 3.2.0版本
          *
-         * 用于支持IDNA等标准。
+         * 用于一些特殊场景。
          */
         namespace Ucd_3_2_0
         {
