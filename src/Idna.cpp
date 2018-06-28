@@ -206,6 +206,7 @@ enum {
     IDNA_PVALID = 1 << 4,
     IDNA_CONTEXT_J = 2 << 4,
     IDNA_CONTEXT_O = 3 << 4,
+    IDNA_JOINER_CHECK_MASK = 3 << 4,
     IDNA_EXTRA_MAPPING = 1 << 7,
 };
 
@@ -219,6 +220,8 @@ struct IdnaRecord
 
 static const char32_t kDeliminators[] = { '.' };
 static const char32_t kPunycodePrefix[] = { 'x', 'n', '-', '-', '\0' };
+
+static const uint32_t kViramaCombiningClass = 9;
 
 static const IdnaRecord& GetIdnaRecord(char32_t ch)noexcept
 {
@@ -240,7 +243,7 @@ static ArrayView<char32_t> GetIdnaMapping(const IdnaRecord& record)noexcept
         auto count = (record.Mapping >> 16) & 0xFFFF;
         return ArrayView<char32_t>(&kIdnaMappingData[index], count);
     }
-    else if (record.Mapping == 1)
+    else if (record.Mapping != 0)
     {
         static_assert(sizeof(IdnaRecord::Mapping) == sizeof(char32_t), "Bad condition");
         return ArrayView<char32_t>(reinterpret_cast<const char32_t*>(&record.Mapping), 1);
@@ -291,7 +294,7 @@ static void CheckBidi(ArrayView<char32_t> input, bool checkLtr=false)
 
     bool validEnding = false;
     const char* numberType = nullptr;
-    for (size_t i = 1; i < input.GetSize(); ++i)
+    for (size_t i = 0; i < input.GetSize(); ++i)
     {
         auto direction = Unicode::GetBidirectional(input[i]);
         if (rtl)
@@ -307,7 +310,7 @@ static void CheckBidi(ArrayView<char32_t> input, bool checkLtr=false)
             }
 
             // Bidi rule 3
-            if (::strcmp(direction, "R") == 0 || ::strcmp(direction, "AL") == 0 || ::strcmp(direction, "EN") ||
+            if (::strcmp(direction, "R") == 0 || ::strcmp(direction, "AL") == 0 || ::strcmp(direction, "EN") == 0 ||
                 ::strcmp(direction, "AN") == 0)
             {
                 validEnding = true;
@@ -353,7 +356,113 @@ static void CheckBidi(ArrayView<char32_t> input, bool checkLtr=false)
     }
 }
 
-static void Validate(ArrayView<char32_t> input, bool checkHyphens, bool checkBidi, bool checkJoiners, bool transitional)
+static bool ValidateContextJ(ArrayView<char32_t> input, size_t pos)
+{
+    auto ch = input[pos];
+    if (ch == 0x200C)
+    {
+        if (pos > 0)
+        {
+            if (Unicode::GetCombining(input[pos - 1]) == kViramaCombiningClass)
+                return true;
+        }
+
+        bool ok = false;
+        size_t i = pos;
+        while (i-- > 0)
+        {
+            auto joiningType = GetJoiningType(input[i]);
+            if (joiningType == 'T')
+                continue;
+            else if (joiningType == 'L' || joiningType == 'D')
+            {
+                ok = true;
+                break;
+            }
+        }
+
+        if (!ok)
+            return false;
+
+        for (i = pos + 1; i < input.GetSize(); ++i)
+        {
+            auto joiningType = GetJoiningType(input[i]);
+            if (joiningType == 'T')
+                continue;
+            else if (joiningType == 'R' || joiningType == 'D')
+                return true;
+        }
+    }
+    else if (ch == 0x200D)
+    {
+        if (pos > 0)
+            return Unicode::GetCombining(input[pos - 1]) == kViramaCombiningClass;
+    }
+    return false;
+}
+
+static bool ValidateContextO(ArrayView<char32_t> input, size_t pos)
+{
+    auto ch = input[pos];
+    if (ch == 0x00B7)
+    {
+        if (0 < pos && pos < input.GetSize() - 1)
+        {
+            if (input[pos - 1] == 0x006C && input[pos + 1] == 0x006C)
+                return true;
+        }
+        return false;
+    }
+    else if (ch == 0x0375)
+    {
+        if (pos < input.GetSize() - 1 && input.GetSize() > 1)
+            return IsInGreekScript(input[pos + 1]);
+        return false;
+    }
+    else if (ch == 0x05F3 || ch == 0x05F4)
+    {
+        if (pos > 0)
+            return IsInHebrewScript(input[pos - 1]);
+        return false;
+    }
+    else if (ch == 0x30FB)
+    {
+        for (size_t i = 0; i < input.GetSize(); ++i)
+        {
+            ch = input[i];
+            if (ch == 0x30FB)
+                continue;
+            else if (IsInHiraganaScript(ch) || IsInKatakanaScript(ch) || IsInHanScript(ch))
+                return true;
+        }
+        return false;
+    }
+    else if (0x0660 <= ch && ch <= 0x0669)
+    {
+        for (size_t i = 0; i < input.GetSize(); ++i)
+        {
+            ch = input[i];
+            if (0x06F0 <= ch && ch <= 0x06F9)
+                return false;
+        }
+        return true;
+    }
+    else if (0x06F0 <= ch && ch <= 0x06F9)
+    {
+        for (size_t i = 0; i < input.GetSize(); ++i)
+        {
+            ch = input[i];
+            if (0x0660 <= ch && ch <= 0x0669)
+                return false;
+        }
+        return true;
+    }
+    assert(false);
+    return false;
+}
+
+static void Validate(ArrayView<char32_t> input, bool useStd3Rules, bool checkHyphens, bool checkBidi, bool checkJoiners,
+    bool transitional)
 {
     // Step1 检查NFC
     if (!Unicode::IsNormalized(input, Unicode::NormalizationFormType::NFC))
@@ -397,31 +506,45 @@ static void Validate(ArrayView<char32_t> input, bool checkHyphens, bool checkBid
     {
         char32_t ch = input[i];
         const auto& record = GetIdnaRecord(ch);
-        if (transitional)
+
+        auto status = record.Flags & IDNA_STATUS_MASK;
+        if ((status == IDNA_STATUS_VALID || status == IDNA_STATUS_VALID_NV8 || status == IDNA_STATUS_VALID_XV8) ||
+            ((status == IDNA_STATUS_DEVIATION) && !transitional) ||
+            ((status == IDNA_STATUS_DISALLOWED_STD3_VALID) && !useStd3Rules))
         {
-            auto status = record.Flags & IDNA_STATUS_MASK;
-            if (!(status == IDNA_STATUS_VALID || status == IDNA_STATUS_VALID_NV8 || status == IDNA_STATUS_VALID_XV8))
-            {
-                MOE_THROW(BadFormatException, "Label contains bad codepoint at position {0}: {1}", i,
-                    StringUtils::Repr(input));
-            }
+            continue;
         }
-        else
-        {
-            auto status = record.Flags & IDNA_STATUS_MASK;
-            if (!(status == IDNA_STATUS_VALID || status == IDNA_STATUS_VALID_NV8 || status == IDNA_STATUS_VALID_XV8 ||
-                status == IDNA_STATUS_DEVIATION))
-            {
-                MOE_THROW(BadFormatException, "Label contains bad codepoint at position {0}: {1}", i,
-                    StringUtils::Repr(input));
-            }
-        }
+
+        MOE_THROW(BadFormatException, "Label contains bad codepoint at position {0}: {1}", i, StringUtils::Repr(input));
     }
 
     // Step7 CheckJoiners
     if (checkJoiners)
     {
-        // TODO: Not implement yet
+        for (size_t i = 0; i < input.GetSize(); ++i)
+        {
+            char32_t ch = input[i];
+            const auto& record = GetIdnaRecord(ch);
+
+            if ((record.Flags & IDNA_JOINER_CHECK_MASK) == IDNA_PVALID)
+                continue;
+            else if ((record.Flags & IDNA_JOINER_CHECK_MASK) == IDNA_CONTEXT_J)
+            {
+                if (!ValidateContextJ(input, i))
+                {
+                    MOE_THROW(BadFormatException, "Joiner {0:H} not allowed at position {1}: {2}", ch, i,
+                        StringUtils::Repr(input));
+                }
+            }
+            else if ((record.Flags & IDNA_JOINER_CHECK_MASK) == IDNA_CONTEXT_O)
+            {
+                if (!ValidateContextO(input, i))
+                {
+                    MOE_THROW(BadFormatException, "Codepoint not allowed at position {0}: {1}", i,
+                        StringUtils::Repr(input));
+                }
+            }
+        }
     }
 
     // Step8 CheckBidi
@@ -489,12 +612,12 @@ static void Process(std::u32string& out, ArrayView<char32_t> input, bool useStd3
         if (label.GetSize() >= 4 && char_traits<char32_t>::compare(label.GetBuffer(), U"xn--", 4) == 0)
         {
             Idna::PunycodeDecode(tmp, ArrayView<char32_t>(label.GetBuffer() + 4, label.GetSize() - 4));
-            Validate(ToArrayView<char32_t>(tmp), checkHyphens, checkBidi, checkJoiners, transitional);
+            Validate(ToArrayView<char32_t>(tmp), useStd3rules, checkHyphens, checkBidi, checkJoiners, transitional);
             out.append(tmp);
         }
         else
         {
-            Validate(label, checkHyphens, checkBidi, checkJoiners, transitional);
+            Validate(label, useStd3rules, checkHyphens, checkBidi, checkJoiners, transitional);
             out.append(label.GetBuffer(), label.GetSize());
         }
 
@@ -530,7 +653,7 @@ void Idna::ToAscii(std::u32string& out, ArrayView<char32_t> domainName, bool che
                 auto len = label.GetSize();
                 if (len > 63 || len < 1)
                     MOE_THROW(BadFormatException, "Bad label length: {0}", StringUtils::Repr(label));
-                if (i + 1 < cnt)
+                if (i + 1 <= cnt)
                     totalLength += len;
             }
 
