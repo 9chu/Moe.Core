@@ -6,6 +6,8 @@
 #include <Moe.Core/Url.hpp>
 #include <Moe.Core/Exception.hpp>
 #include <Moe.Core/StringUtils.hpp>
+#include <Moe.Core/Encoding.hpp>
+#include <Moe.Core/Idna.hpp>
 
 #include <cassert>
 #include <cmath>
@@ -482,19 +484,19 @@ void Url::Host::Reset()
     m_iType = HostTypes::None;
 }
 
-bool Url::Host::Parse(const std::string& text, bool special)
+bool Url::Host::Parse(const std::string& text, bool special, bool unicode)
 {
-    return Parse(text.c_str(), text.c_str() + text.length(), special);
+    return Parse(text.c_str(), text.c_str() + text.length(), special, unicode);
 }
 
-bool Url::Host::Parse(const char* text, bool special)
+bool Url::Host::Parse(const char* text, bool special, bool unicode)
 {
-    return Parse(text, text + std::strlen(text), special);
+    return Parse(text, text + std::strlen(text), special, unicode);
 }
 
-bool Url::Host::Parse(const char* text, size_t length, bool special)
+bool Url::Host::Parse(const char* text, size_t length, bool special, bool unicode)
 {
-    return Parse(text, text + length, special);
+    return Parse(text, text + length, special, unicode);
 }
 
 std::string Url::Host::ToString()const
@@ -582,7 +584,46 @@ std::string Url::Host::ToString()const
     return ret;
 }
 
-bool Url::Host::Parse(const char* start, const char* end, bool special)
+bool Url::Host::IsAsciiFastPath(const std::string& domain)noexcept
+{
+    static const char kDeliminators[] = { '.' };
+    static const char kPunycodePrefix[] = { 'x', 'n', '-', '-', '\0' };
+
+    // 按dot对domain进行分割
+    auto it = StringUtils::SplitByCharsBegin<char>(ToArrayView<char>(domain), ArrayView<char>(kDeliminators, 1));
+    while (it != StringUtils::SplitByCharsEnd<char>())
+    {
+        auto label = *it;
+
+        if (label.GetSize() >= sizeof(kPunycodePrefix) - 1 &&
+            ::strncmp(kPunycodePrefix, label.GetBuffer(), sizeof(kPunycodePrefix) - 1) == 0)
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < label.GetSize(); ++i)
+        {
+            auto ch = label[i];
+
+            if (ch <= 0x002C)
+                return false;
+            else if (ch == 0x002F)
+                return false;
+            else if (0x003A <= ch && ch <= 0x0040)
+                return false;
+            else if (0x005B <= ch && ch <= 0x0060)
+                return false;
+            else if (0x007B <= ch)
+                return false;
+        }
+
+        ++it;
+    }
+
+    return true;
+}
+
+bool Url::Host::Parse(const char* start, const char* end, bool special, bool unicode)
 {
     if (start >= end || start == nullptr)
         return false;
@@ -598,8 +639,27 @@ bool Url::Host::Parse(const char* start, const char* end, bool special)
 
     auto decoded = PercentDecode(start, end);
 
-    // FIXME: IDNA toASCII转换，由于需要Unicode数据库，暂时不实现
-    // DomainToAscii(decoded);
+    u32string temp, temp2;
+    auto isFastPath = IsAsciiFastPath(decoded);
+    if (!isFastPath)
+    {
+        temp.reserve(decoded.length());
+        temp2.reserve(decoded.length());
+
+        // Punycode ToAscii
+        Encoding::Convert<Encoding::UTF32, Encoding::UTF8>(temp, ArrayView<char>(decoded.data(), decoded.length()));
+        Idna::ToAscii(temp2, ArrayView<char32_t>(temp.data(), temp.length()), false, true, true, true, false, true);
+        Encoding::Convert<Encoding::UTF8, Encoding::UTF32>(decoded, ArrayView<char32_t>(temp2.data(), temp2.length()));
+    }
+    else
+    {
+        for (size_t i = 0; i < decoded.length(); ++i)
+        {
+            auto ch = decoded[i];
+            if ('A' <= ch && ch <= 'Z')
+                decoded[i] = ch - 'A' + 'a';
+        }
+    }
 
     // 检查字符合法性
     for (size_t n = 0; n < decoded.size(); ++n)
@@ -612,6 +672,14 @@ bool Url::Host::Parse(const char* start, const char* end, bool special)
     // 检查是否是IPV4地址
     if (ParseIpv4(decoded.c_str(), decoded.c_str() + decoded.length()))
         return true;
+
+    if (!isFastPath && unicode)
+    {
+        // Punycode ToUnicode
+        Encoding::Convert<Encoding::UTF32, Encoding::UTF8>(temp, ArrayView<char>(decoded.data(), decoded.length()));
+        Idna::ToUnicode(temp2, ArrayView<char32_t>(temp.data(), temp.length()), false, true, true, false, false);
+        Encoding::Convert<Encoding::UTF8, Encoding::UTF32>(decoded, ArrayView<char32_t>(temp2.data(), temp2.length()));
+    }
 
     // 不是IPV6或者IPV4，那么就是域名
     SetDomain(std::move(decoded));

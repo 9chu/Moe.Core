@@ -732,7 +732,7 @@ namespace moe
                     m_stCurrent = ArrayView<TChar>(source.GetBuffer(), LengthUntilDeliminators(source));
                 }
 
-                ArrayView<char32_t> operator*()const noexcept
+                ArrayView<TChar> operator*()const noexcept
                 {
                     return m_stCurrent;
                 }

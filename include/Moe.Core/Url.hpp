@@ -95,23 +95,25 @@ namespace moe
              * @brief 解析Host
              * @param text 输入文本
              * @param special 是否是特殊Host
+             * @param unicode 是否进行Unicode/IDNA字符转换
              * @return 是否成功解析，若否，将保留对象原始数据。
              *
              * 当设置为special = true的时候才会进行IPV4和域名的解析，否则以透传形式给出。
              */
-            bool Parse(const std::string& text, bool special=true);
+            bool Parse(const std::string& text, bool special=true, bool unicode=false);
 
             /**
              * @brief 解析Host
              * @param text 输入文本
              * @param length 文本长度
              * @param special 是否是特殊Host
+             * @param unicode 是否进行Unicode/IDNA字符转换
              * @return 是否成功解析，若否，将保留对象原始数据。
              *
              * 当设置为special = true的时候才会进行IPV4和域名的解析，否则以透传形式给出。
              */
-            bool Parse(const char* text, bool special=true);
-            bool Parse(const char* text, size_t length, bool special=true);
+            bool Parse(const char* text, bool special=true, bool unicode=false);
+            bool Parse(const char* text, size_t length, bool special=true, bool unicode=false);
 
             /**
              * @brief 序列化Host
@@ -119,7 +121,8 @@ namespace moe
             std::string ToString()const;
 
         private:
-            bool Parse(const char* start, const char* end, bool special);
+            static bool IsAsciiFastPath(const std::string& domain)noexcept;
+            bool Parse(const char* start, const char* end, bool special, bool unicode);
             bool ParseIpv4(const char* start, const char* end)noexcept;
             bool ParseIpv6(const char* start, const char* end)noexcept;
             bool ParseOpaque(const char* start, const char* end);
