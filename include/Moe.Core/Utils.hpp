@@ -327,6 +327,18 @@
 namespace moe
 {
     /**
+     * @brief 获取一个空对象的引用
+     * @tparam T 类型
+     * @return 引用
+     */
+    template <typename T>
+    const T& EmptyRefOf()noexcept
+    {
+        static const T kEmptyInstance = {};
+        return kEmptyInstance;
+    }
+
+    /**
      * @brief 计算数组大小
      * @note 该方法用于计算一维数组的大小
      * @tparam T 数组类型

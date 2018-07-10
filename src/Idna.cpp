@@ -532,7 +532,7 @@ static void Validate(ArrayView<char32_t> input, bool useStd3Rules, bool checkHyp
             {
                 if (!ValidateContextJ(input, i))
                 {
-                    MOE_THROW(BadFormatException, "Joiner {0:H} not allowed at position {1}: {2}", ch, i,
+                    MOE_THROW(BadFormatException, "Joiner 0x{0:H} not allowed at position {1}: {2}", ch, i,
                         StringUtils::Repr(input));
                 }
             }

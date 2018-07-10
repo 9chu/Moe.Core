@@ -14,7 +14,7 @@ using namespace details;
 
 //////////////////////////////////////////////////////////////////////////////// MPQHash
 
-static const uint32_t s_arrMPQCryptTable[0x500] = {
+static const uint32_t kMPQCryptTable[0x500] = {
     0x55C636E2u, 0x02BE0170u, 0x584B71D4u, 0x2984F00Eu, 0xB682C809u, 0x91CF876Bu, 0x775A9C24u, 0x597D5CA5u,
     0x5A1AFEB2u, 0xD3E9CE0Du, 0x32CDCDF8u, 0xB18201CDu, 0x3CCE05CEu, 0xA55D13BEu, 0xBB0AFE71u, 0x9376AB33u,
     0x848F645Eu, 0x87E45A45u, 0x45B86017u, 0x5E656CA8u, 0x1B851A95u, 0x2542DBD7u, 0xAB4DF9E4u, 0x5976AE9Bu,
@@ -179,7 +179,7 @@ static const uint32_t s_arrMPQCryptTable[0x500] = {
 
 const uint32_t* Hasher::GetMPQCryptTable()noexcept
 {
-    return s_arrMPQCryptTable;
+    return kMPQCryptTable;
 }
 
 //////////////////////////////////////////////////////////////////////////////// MD5

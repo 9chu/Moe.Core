@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "ArrayView.hpp"
+
 namespace moe
 {
     /**
@@ -143,29 +145,167 @@ namespace moe
             ValueStorage m_stValue;
         };
 
-        enum {
-            FLAGS_FAILED = 0x01,
+        enum URL_FLAGS
+        {
+            FLAGS_SPECIAL = 0x01,
             FLAGS_CANNOT_BE_BASE = 0x02,
-            FLAGS_INVALID_PARSE_STATE = 0x04,
-            FLAGS_TERMINATED = 0x08,
-            FLAGS_SPECIAL = 0x10,
-            FLAGS_HAS_USERNAME = 0x20,
-            FLAGS_HAS_PASSWORD = 0x40,
-            FLAGS_HAS_HOST = 0x80,
-            FLAGS_HAS_PATH = 0x100,
-            FLAGS_HAS_QUERY = 0x200,
-            FLAGS_HAS_FRAGMENT = 0x400,
+            FLAGS_HAS_USERNAME = 0x04,
+            FLAGS_HAS_PASSWORD = 0x08,
+            FLAGS_HAS_HOST = 0x10,
+            FLAGS_HAS_PORT = 0x20,
+            FLAGS_HAS_PATH = 0x40,
+            FLAGS_HAS_QUERY = 0x80,
+            FLAGS_HAS_FRAGMENT = 0x100,
         };
 
-    public:
 
+    public:
+        Url() = default;
+
+        /**
+         * @brief 构造URL对象
+         * @param url URL字符串
+         * @param base 基URL字符串
+         */
+        Url(ArrayView<char> url, ArrayView<char> base=ArrayView<char>());
+
+        Url(const std::string& url)
+            : Url(ArrayView<char>(url.data(), url.length()), ArrayView<char>())
+        {}
+
+        Url(const char* url, const char* base=nullptr)
+            : Url(ArrayView<char>(url, std::char_traits<char>::length(url)),
+                base ? ArrayView<char>(base, std::char_traits<char>::length(base)) : ArrayView<char>())
+        {}
+
+        Url(const Url& rhs) = default;
+        Url(Url&& rhs)noexcept = default;
+        ~Url() = default;
+
+        Url& operator=(const Url& rhs) = default;
+        Url& operator=(Url&& rhs)noexcept = default;
+
+        bool operator==(const Url& rhs)const noexcept;
+        bool operator!=(const Url& rhs)const noexcept;
+
+    public:
+        bool IsSpecial()const noexcept { return (m_uFlags & FLAGS_SPECIAL) != 0; }
+        bool IsCannotBeBase()const noexcept { return (m_uFlags & FLAGS_CANNOT_BE_BASE) != 0; }
+
+        const std::string& GetScheme()const noexcept { return m_stScheme; }
+        void SetScheme(ArrayView<char> value);
+        void SetScheme(const char* value) { SetScheme(ArrayView<char>(value, std::strlen(value))); }
+        void SetScheme(const std::string& value) { SetScheme(ArrayView<char>(value.data(), value.length())); }
+
+        bool HasUsername()const noexcept;
+        const std::string& GetUsername()const noexcept;
+        void SetUsername(ArrayView<char> value);
+        void SetUsername(const char* value) { SetUsername(ArrayView<char>(value, std::strlen(value))); }
+        void SetUsername(const std::string& value) { SetUsername(ArrayView<char>(value.data(), value.length())); }
+
+        bool HasPassword()const noexcept;
+        const std::string& GetPassword()const noexcept;
+        void SetPassword(ArrayView<char> value);
+        void SetPassword(const char* value) { SetPassword(ArrayView<char>(value, std::strlen(value))); }
+        void SetPassword(const std::string& value) { SetPassword(ArrayView<char>(value.data(), value.length())); }
+
+        bool HasHost()const noexcept;
+        const Host& GetHost()const noexcept;
+        void SetHost(const Host& host);
+        void SetHost(Host&& host);
+        void SetHost(ArrayView<char> value);
+        void SetHost(const char* value) { SetHost(ArrayView<char>(value, std::strlen(value))); }
+        void SetHost(const std::string& value) { SetHost(ArrayView<char>(value.data(), value.length())); }
+
+        bool HasPort()const noexcept;
+        uint16_t GetPort()const noexcept;
+        void SetPort(uint16_t value);
+
+        bool HasPath()const noexcept;
+        std::string GetPath()const noexcept;
+        void SetPath(ArrayView<char> value);
+        void SetPath(const char* value) { SetPath(ArrayView<char>(value, std::strlen(value))); }
+        void SetPath(const std::string& value) { SetPath(ArrayView<char>(value.data(), value.length())); }
+
+        bool HasQuery()const noexcept;
+        const std::string& GetQuery()const noexcept;
+        void SetQuery(ArrayView<char> value);
+        void SetQuery(const char* value) { SetQuery(ArrayView<char>(value, std::strlen(value))); }
+        void SetQuery(const std::string& value) { SetQuery(ArrayView<char>(value.data(), value.length())); }
+
+        bool HasFragment()const noexcept;
+        const std::string& GetFragment()const noexcept;
+        void SetFragment(ArrayView<char> value);
+        void SetFragment(const char* value) { SetFragment(ArrayView<char>(value, std::strlen(value))); }
+        void SetFragment(const std::string& value) { SetFragment(ArrayView<char>(value.data(), value.length())); }
+
+        /**
+         * @brief 解析URL
+         * @exception BadFormatException 当格式错误时抛出该异常
+         * @param src 被解析URL
+         * @param base 基URL
+         * @param trimWhitespace 解析时是否自动剔除首尾空白
+         */
+        void Parse(ArrayView<char> src, Url* base=nullptr, bool trimWhitespace=true);
+
+        void Parse(const char* src, Url* base=nullptr, bool trimWhitespace=true)
+        {
+            Parse(ArrayView<char>(src, std::char_traits<char>::length(src)), base, trimWhitespace);
+        }
+
+        void Parse(const std::string& src, Url* base=nullptr, bool trimWhitespace=true)
+        {
+            Parse(ArrayView<char>(src.data(), src.length()), base, trimWhitespace);
+        }
+
+        /**
+         * @brief 清空结构体
+         */
+        void Reset()noexcept;
+
+        /**
+         * @brief 序列化Url
+         * @param excludeFragmentFlag 不包含分片
+         */
+        std::string ToString(bool excludeFragmentFlag=false)const;
+
+    private:
+        enum URL_PARSE_STATES
+        {
+            PARSE_STATE_UNKNOWN = 0,
+            PARSE_STATE_SCHEME_START,
+            PARSE_STATE_SCHEME,
+            PARSE_STATE_NO_SCHEME,
+            PARSE_STATE_SPECIAL_RELATIVE_OR_AUTHORITY,
+            PARSE_STATE_PATH_OR_AUTHORITY,
+            PARSE_STATE_RELATIVE,
+            PARSE_STATE_RELATIVE_SLASH,
+            PARSE_STATE_SPECIAL_AUTHORITY_SLASHES,
+            PARSE_STATE_SPECIAL_AUTHORITY_IGNORE_SLASHES,
+            PARSE_STATE_AUTHORITY,
+            PARSE_STATE_HOST,
+            PARSE_STATE_HOSTNAME,
+            PARSE_STATE_PORT,
+            PARSE_STATE_FILE,
+            PARSE_STATE_FILE_SLASH,
+            PARSE_STATE_FILE_HOST,
+            PARSE_STATE_PATH_START,
+            PARSE_STATE_PATH,
+            PARSE_STATE_CANNOT_BE_BASE,
+            PARSE_STATE_QUERY,
+            PARSE_STATE_FRAGMENT,
+        };
+
+        void NormalizePort()noexcept;
+        void ShortenUrlPath()noexcept;
+        void Parse(ArrayView<char> input, Url* base, URL_PARSE_STATES stateOverride, bool trimWhitespace);
 
     private:
         uint32_t m_uFlags = 0;
         std::string m_stScheme;
         std::string m_stUsername;
         std::string m_stPassword;
-        std::string m_stHost;
+        Host m_stHost;
         uint16_t m_uPort = 0;
         std::string m_stQuery;
         std::string m_stFragment;
