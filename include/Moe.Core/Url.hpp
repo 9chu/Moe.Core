@@ -7,6 +7,7 @@
 #include <array>
 #include <string>
 #include <vector>
+#include <cstring>
 
 #include "ArrayView.hpp"
 
@@ -95,27 +96,27 @@ namespace moe
 
             /**
              * @brief 解析Host
+             * @exception BadFormatException 解析失败
              * @param text 输入文本
              * @param special 是否是特殊Host
              * @param unicode 是否进行Unicode/IDNA字符转换
-             * @return 是否成功解析，若否，将保留对象原始数据。
              *
              * 当设置为special = true的时候才会进行IPV4和域名的解析，否则以透传形式给出。
              */
-            bool Parse(const std::string& text, bool special=true, bool unicode=false);
+            void Parse(const std::string& text, bool special=true, bool unicode=false);
 
             /**
              * @brief 解析Host
+             * @exception BadFormatException 解析失败
              * @param text 输入文本
              * @param length 文本长度
              * @param special 是否是特殊Host
              * @param unicode 是否进行Unicode/IDNA字符转换
-             * @return 是否成功解析，若否，将保留对象原始数据。
              *
              * 当设置为special = true的时候才会进行IPV4和域名的解析，否则以透传形式给出。
              */
-            bool Parse(const char* text, bool special=true, bool unicode=false);
-            bool Parse(const char* text, size_t length, bool special=true, bool unicode=false);
+            void Parse(const char* text, bool special=true, bool unicode=false);
+            void Parse(const char* text, size_t length, bool special=true, bool unicode=false);
 
             /**
              * @brief 序列化Host
@@ -124,10 +125,10 @@ namespace moe
 
         private:
             static bool IsAsciiFastPath(const std::string& domain)noexcept;
-            bool Parse(const char* start, const char* end, bool special, bool unicode);
-            bool ParseIpv4(const char* start, const char* end)noexcept;
+            void Parse(const char* start, const char* end, bool special, bool unicode);
+            bool ParseIpv4(const char* start, const char* end);
             bool ParseIpv6(const char* start, const char* end)noexcept;
-            bool ParseOpaque(const char* start, const char* end);
+            void ParseOpaque(const char* start, const char* end);
 
         private:
             union ValueStorage
@@ -222,7 +223,7 @@ namespace moe
         void SetPort(uint16_t value);
 
         bool HasPath()const noexcept;
-        std::string GetPath()const noexcept;
+        const std::vector<std::string>& GetPath()const noexcept;
         void SetPath(ArrayView<char> value);
         void SetPath(const char* value) { SetPath(ArrayView<char>(value, std::strlen(value))); }
         void SetPath(const std::string& value) { SetPath(ArrayView<char>(value.data(), value.length())); }
@@ -238,6 +239,30 @@ namespace moe
         void SetFragment(ArrayView<char> value);
         void SetFragment(const char* value) { SetFragment(ArrayView<char>(value, std::strlen(value))); }
         void SetFragment(const std::string& value) { SetFragment(ArrayView<char>(value.data(), value.length())); }
+
+        /**
+         * @brief 若不存在Port则返回空串，否则返回Port
+         */
+        std::string GetPortStandard()const;
+
+        /**
+         * @brief 遵循标准的做法，返回字符串构成的路径
+         */
+        std::string GetPathStandard()const;
+
+        /**
+         * @brief 遵循标准的做法，始终返回"?xxx"
+         *
+         * 当且仅当不包含Query时返回空串。
+         */
+        std::string GetQueryStandard()const;
+
+        /**
+         * @brief 遵循标准的做法，始终返回"#xxx"
+         *
+         * 当且仅当不包含Fragment时返回空串。
+         */
+        std::string GetFragmentStandard()const;
 
         /**
          * @brief 解析URL

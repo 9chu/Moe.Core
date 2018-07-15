@@ -435,8 +435,9 @@ namespace
      */
     void AppendOrEscape(std::string& out, char ch, const uint8_t charset[])
     {
-        if (!!(charset[ch >> 3] & (1 << (ch & 7))))  // 位图查询
-            out.append(kHexTable[static_cast<uint8_t>(ch)]);
+        auto v = static_cast<uint8_t>(ch);
+        if (!!(charset[v >> 3] & (1 << (v & 7))))  // 位图查询
+            out.append(kHexTable[v]);
         else
             out.push_back(ch);
     }
@@ -444,9 +445,8 @@ namespace
     /**
      * @brief 解析IPV4中的数字（十进制、十六进制、八进制）
      */
-    bool ParseIpv4Number(uint32_t& result, const char* start, const char* end)noexcept
+    bool ParseIpv4Number(uint64_t& result, const char* start, const char* end)noexcept
     {
-        uint64_t temp = 0;
         unsigned radix = 10;
         if (end - start >= 2)
         {
@@ -462,7 +462,7 @@ namespace
             }
         }
 
-        temp = result = 0;
+        result = 0;
         if (start >= end)
             return true;
 
@@ -474,28 +474,29 @@ namespace
             {
                 if (radix != 16)
                     return false;
-                temp = temp * 16 + (ch - 'a') + 10;
+                if (result != numeric_limits<uint64_t>::max())
+                    result = result * 16 + (ch - 'a') + 10;
             }
             else if (ch >= 'A' && ch <= 'F')
             {
                 if (radix != 16)
                     return false;
-                temp = temp * 16 + (ch - 'A') + 10;
+                if (result != numeric_limits<uint64_t>::max())
+                    result = result * 16 + (ch - 'A') + 10;
             }
             else if (ch >= '0' && ch <= '9')
             {
                 if ((ch == '8' || ch == '9') && radix == 8)
                     return false;
-                temp = temp * radix + (ch - '0');
+                if (result != numeric_limits<uint64_t>::max())
+                    result = result * radix + (ch - '0');
             }
             else
                 return false;
 
-            if (temp > numeric_limits<uint32_t>::max())
-                return false;
+            if (result > numeric_limits<uint32_t>::max())
+                result = numeric_limits<uint64_t>::max();
         }
-
-        result = static_cast<uint32_t>(temp);
         return true;
     }
 }
@@ -567,7 +568,7 @@ Url::Host& Url::Host::operator=(const Host& rhs)
 {
     Reset();
 
-    switch (m_iType)
+    switch (rhs.m_iType)
     {
         case HostTypes::None:
             break;
@@ -596,7 +597,7 @@ Url::Host& Url::Host::operator=(Host&& rhs)noexcept
 {
     Reset();
 
-    switch (m_iType)
+    switch (rhs.m_iType)
     {
         case HostTypes::None:
             break;
@@ -749,19 +750,19 @@ void Url::Host::Reset()
     m_iType = HostTypes::None;
 }
 
-bool Url::Host::Parse(const std::string& text, bool special, bool unicode)
+void Url::Host::Parse(const std::string& text, bool special, bool unicode)
 {
-    return Parse(text.c_str(), text.c_str() + text.length(), special, unicode);
+    Parse(text.c_str(), text.c_str() + text.length(), special, unicode);
 }
 
-bool Url::Host::Parse(const char* text, bool special, bool unicode)
+void Url::Host::Parse(const char* text, bool special, bool unicode)
 {
-    return Parse(text, text + std::strlen(text), special, unicode);
+    Parse(text, text + std::strlen(text), special, unicode);
 }
 
-bool Url::Host::Parse(const char* text, size_t length, bool special, bool unicode)
+void Url::Host::Parse(const char* text, size_t length, bool special, bool unicode)
 {
-    return Parse(text, text + length, special, unicode);
+    Parse(text, text + length, special, unicode);
 }
 
 std::string Url::Host::ToString()const
@@ -791,7 +792,7 @@ std::string Url::Host::ToString()const
             ret.push_back('[');
             {
                 uint32_t start = 0;
-                uint32_t compress = 0;
+                uint32_t compress = 0xFFFFFFFFu;
 
                 // 找到最长的0的部分
                 uint32_t cur = 0xFFFFFFFFu, count = 0, longest = 0;
@@ -805,7 +806,7 @@ std::string Url::Host::ToString()const
                     }
                     else
                     {
-                        if (count > longest)
+                        if (count > longest && count > 1)
                         {
                             longest = count;
                             compress = cur;
@@ -815,7 +816,7 @@ std::string Url::Host::ToString()const
                     }
                     ++start;
                 }
-                if (count > longest)
+                if (count > longest && count > 1)
                     compress = cur;
 
                 // 序列化过程
@@ -888,19 +889,31 @@ bool Url::Host::IsAsciiFastPath(const std::string& domain)noexcept
     return true;
 }
 
-bool Url::Host::Parse(const char* start, const char* end, bool special, bool unicode)
+void Url::Host::Parse(const char* start, const char* end, bool special, bool unicode)
 {
     if (start >= end || start == nullptr)
-        return false;
+    {
+        if (start)
+        {
+            SetDomain(string());
+            return;
+        }
+        MOE_THROW(BadArgumentException, "Invalid argument");
+    }
 
     if (*start == '[')
     {
         if (*(end - 1) != ']')
-            return false;
-        return ParseIpv6(start + 1, end - 1);
+            MOE_THROW(BadFormatException, "Expected ']' but found {0}", *(end - 1));
+        if (!ParseIpv6(start + 1, end - 1))
+            MOE_THROW(BadFormatException, "Bad Ipv6 address: {0}", string(start + 1, end - 1));
+        return;
     }
     if (!special)
-        return ParseOpaque(start, end);
+    {
+        ParseOpaque(start, end);
+        return;
+    }
 
     auto decoded = PercentDecode(start, end);
 
@@ -931,12 +944,12 @@ bool Url::Host::Parse(const char* start, const char* end, bool special, bool uni
     {
         char ch = decoded[n];
         if (IsForbiddenHostChar(ch))
-            return false;
+            MOE_THROW(BadFormatException, "Forbidden host character {0}", ch);
     }
 
     // 检查是否是IPV4地址
     if (ParseIpv4(decoded.c_str(), decoded.c_str() + decoded.length()))
-        return true;
+        return;
 
     if (!isFastPath && unicode)
     {
@@ -948,15 +961,15 @@ bool Url::Host::Parse(const char* start, const char* end, bool special, bool uni
 
     // 不是IPV6或者IPV4，那么就是域名
     SetDomain(std::move(decoded));
-    return true;
 }
 
-bool Url::Host::ParseIpv4(const char* start, const char* end)noexcept
+bool Url::Host::ParseIpv4(const char* start, const char* end)
 {
+    auto input = start;
     auto mark = start;
     unsigned parts = 0;
     unsigned tooBigParts = 0;
-    uint32_t numbers[4] = { 0, 0, 0, 0 };
+    uint64_t numbers[4] = { 0, 0, 0, 0 };
 
     while (start <= end)
     {
@@ -969,7 +982,7 @@ bool Url::Host::ParseIpv4(const char* start, const char* end)noexcept
                 return false;  // 无效的空的点分部分
 
             // 解析[mark, start)部分的数字
-            uint32_t n = 0;
+            uint64_t n = 0;
             if (!ParseIpv4Number(n, mark, start))
                 return false;
             if (n > 255)
@@ -989,17 +1002,17 @@ bool Url::Host::ParseIpv4(const char* start, const char* end)noexcept
     {
         // 规范要求每个点分部分不能超过255，但是最后一个元素例外
         // 此外，整个IPV4的解析结果也要保证不能溢出
-        return false;
+        MOE_THROW(BadFormatException, "Bad Ipv4 string: {0}", string(input, end));
     }
 
     // 计算IPV4值
-    uint32_t val = numbers[parts - 1];
+    auto val = numbers[parts - 1];
     for (unsigned n = 0; n < parts - 1; ++n)
     {
         double b = 3 - n;
         val += numbers[n] * std::pow(256, b);
     }
-    SetIpv4(val);
+    SetIpv4(static_cast<uint32_t>(val));
     return true;
 }
 
@@ -1136,7 +1149,7 @@ bool Url::Host::ParseIpv6(const char* start, const char* end)noexcept
     return true;
 }
 
-bool Url::Host::ParseOpaque(const char* start, const char* end)
+void Url::Host::ParseOpaque(const char* start, const char* end)
 {
     string output;
     output.reserve((end - start) * 3);  // 最坏情况下所有字符都需要转义
@@ -1145,12 +1158,11 @@ bool Url::Host::ParseOpaque(const char* start, const char* end)
     {
         char ch = *(start++);
         if (ch != '%' && IsForbiddenHostChar(ch))
-            return false;
+            MOE_THROW(BadFormatException, "Forbidden host character {0}", ch);
         AppendOrEscape(output, ch, kC0ControlEncodeSet);
     }
 
     SetOpaque(std::move(output));
-    return true;
 }
 
 //////////////////////////////////////////////////////////////////////////////// Url
@@ -1446,20 +1458,11 @@ bool Url::HasPath()const noexcept
     return (m_uFlags & FLAGS_HAS_PATH) != 0;
 }
 
-std::string Url::GetPath()const noexcept
+const std::vector<std::string>& Url::GetPath()const noexcept
 {
     if (m_stPath.empty())
-        return EmptyRefOf<string>();
-    if (IsCannotBeBase())
-        return m_stPath[0];
-
-    string ret;
-    for (const auto& str : m_stPath)
-    {
-        ret.push_back('/');
-        ret.append(str);
-    }
-    return ret;
+        return EmptyRefOf<vector<string>>();
+    return m_stPath;
 }
 
 void Url::SetPath(ArrayView<char> value)
@@ -1515,6 +1518,47 @@ void Url::SetFragment(ArrayView<char> value)
             value = value.Slice(1, value.GetSize());
         Parse(value, nullptr, PARSE_STATE_FRAGMENT, false);
     }
+}
+
+std::string Url::GetPortStandard()const
+{
+    if (HasPort())
+        return StringUtils::ToString(m_uPort);
+    return EmptyRefOf<string>();
+}
+
+std::string Url::GetPathStandard()const
+{
+    if (m_stPath.empty())
+        return EmptyRefOf<string>();
+    if (IsCannotBeBase())
+        return m_stPath[0];
+
+    string ret;
+    for (const auto& str : m_stPath)
+    {
+        ret.push_back('/');
+        ret.append(str);
+    }
+    return ret;
+}
+
+std::string Url::GetQueryStandard()const
+{
+    string ret = GetQuery();
+    if (ret.empty())
+        return ret;
+    ret.insert(0, 1, '?');
+    return ret;
+}
+
+std::string Url::GetFragmentStandard()const
+{
+    string ret = GetFragment();
+    if (ret.empty())
+        return ret;
+    ret.insert(0, 1, '#');
+    return ret;
 }
 
 void Url::Parse(ArrayView<char> src, Url* base, bool trimWhitespace)
@@ -1870,6 +1914,11 @@ void Url::Parse(ArrayView<char> input, Url* base, URL_PARSE_STATES stateOverride
                             m_uFlags |= FLAGS_HAS_HOST;
                             m_stHost = base->m_stHost;
                         }
+                        if (base->m_uFlags & FLAGS_HAS_PORT)
+                        {
+                            m_uFlags |= FLAGS_HAS_PORT;
+                            m_uPort = base->m_uPort;
+                        }
                         if (base->m_uFlags & FLAGS_HAS_QUERY)
                         {
                             m_uFlags |= FLAGS_HAS_QUERY;
@@ -1880,8 +1929,6 @@ void Url::Parse(ArrayView<char> input, Url* base, URL_PARSE_STATES stateOverride
                             m_uFlags |= FLAGS_HAS_PATH;
                             m_stPath = base->m_stPath;
                         }
-
-                        m_uPort = base->m_uPort;
                         break;
                     case '/':
                         state = PARSE_STATE_RELATIVE_SLASH;
@@ -1902,13 +1949,17 @@ void Url::Parse(ArrayView<char> input, Url* base, URL_PARSE_STATES stateOverride
                             m_uFlags |= FLAGS_HAS_HOST;
                             m_stHost = base->m_stHost;
                         }
+                        if (base->m_uFlags & FLAGS_HAS_PORT)
+                        {
+                            m_uFlags |= FLAGS_HAS_PORT;
+                            m_uPort = base->m_uPort;
+                        }
                         if (base->m_uFlags & FLAGS_HAS_PATH)
                         {
                             m_uFlags |= FLAGS_HAS_PATH;
                             m_stPath = base->m_stPath;
                         }
 
-                        m_uPort = base->m_uPort;
                         state = PARSE_STATE_QUERY;
                         break;
                     case '#':
@@ -1917,24 +1968,32 @@ void Url::Parse(ArrayView<char> input, Url* base, URL_PARSE_STATES stateOverride
                             m_uFlags |= FLAGS_HAS_USERNAME;
                             m_stUsername = base->m_stUsername;
                         }
-                        if (base->m_uFlags & FLAGS_HAS_PASSWORD) {
+                        if (base->m_uFlags & FLAGS_HAS_PASSWORD)
+                        {
                             m_uFlags |= FLAGS_HAS_PASSWORD;
                             m_stPassword = base->m_stPassword;
                         }
-                        if (base->m_uFlags & FLAGS_HAS_HOST) {
+                        if (base->m_uFlags & FLAGS_HAS_HOST)
+                        {
                             m_uFlags |= FLAGS_HAS_HOST;
                             m_stHost = base->m_stHost;
                         }
-                        if (base->m_uFlags & FLAGS_HAS_QUERY) {
+                        if (base->m_uFlags & FLAGS_HAS_PORT)
+                        {
+                            m_uFlags |= FLAGS_HAS_PORT;
+                            m_uPort = base->m_uPort;
+                        }
+                        if (base->m_uFlags & FLAGS_HAS_QUERY)
+                        {
                             m_uFlags |= FLAGS_HAS_QUERY;
                             m_stQuery = base->m_stQuery;
                         }
-                        if (base->m_uFlags & FLAGS_HAS_PATH) {
+                        if (base->m_uFlags & FLAGS_HAS_PATH)
+                        {
                             m_uFlags |= FLAGS_HAS_PATH;
                             m_stPath = base->m_stPath;
                         }
 
-                        m_uPort = base->m_uPort;
                         state = PARSE_STATE_FRAGMENT;
                         break;
                     default:
@@ -1961,6 +2020,11 @@ void Url::Parse(ArrayView<char> input, Url* base, URL_PARSE_STATES stateOverride
                                     m_uFlags |= FLAGS_HAS_HOST;
                                     m_stHost = base->m_stHost;
                                 }
+                                if (base->m_uFlags & FLAGS_HAS_PORT)
+                                {
+                                    m_uFlags |= FLAGS_HAS_PORT;
+                                    m_uPort = base->m_uPort;
+                                }
                                 if (base->m_uFlags & FLAGS_HAS_PATH)
                                 {
                                     m_uFlags |= FLAGS_HAS_PATH;
@@ -1968,7 +2032,6 @@ void Url::Parse(ArrayView<char> input, Url* base, URL_PARSE_STATES stateOverride
                                     ShortenUrlPath();
                                 }
 
-                                m_uPort = base->m_uPort;
                                 state = PARSE_STATE_PATH;
                                 continue;
                             }
@@ -1988,16 +2051,22 @@ void Url::Parse(ArrayView<char> input, Url* base, URL_PARSE_STATES stateOverride
                         m_uFlags |= FLAGS_HAS_USERNAME;
                         m_stUsername = base->m_stUsername;
                     }
-                    if (base->m_uFlags & FLAGS_HAS_PASSWORD) {
+                    if (base->m_uFlags & FLAGS_HAS_PASSWORD)
+                    {
                         m_uFlags |= FLAGS_HAS_PASSWORD;
                         m_stPassword = base->m_stPassword;
                     }
-                    if (base->m_uFlags & FLAGS_HAS_HOST) {
+                    if (base->m_uFlags & FLAGS_HAS_HOST)
+                    {
                         m_uFlags |= FLAGS_HAS_HOST;
                         m_stHost = base->m_stHost;
                     }
+                    if (base->m_uFlags & FLAGS_HAS_PORT)
+                    {
+                        m_uFlags |= FLAGS_HAS_PORT;
+                        m_uPort = base->m_uPort;
+                    }
 
-                    m_uPort = base->m_uPort;
                     state = PARSE_STATE_PATH;
                     continue;
                 }
@@ -2089,8 +2158,8 @@ void Url::Parse(ArrayView<char> input, Url* base, URL_PARSE_STATES stateOverride
                                 p - input.GetBuffer());
                         }
 
-                        m_uFlags |= FLAGS_HAS_HOST;
                         m_stHost.Parse(buffer, special);
+                        m_uFlags |= FLAGS_HAS_HOST;
 
                         if (stateOverride == PARSE_STATE_HOSTNAME)
                             return;
@@ -2112,8 +2181,8 @@ void Url::Parse(ArrayView<char> input, Url* base, URL_PARSE_STATES stateOverride
                             return;
                         }
 
-                        m_uFlags |= FLAGS_HAS_HOST;
                         m_stHost.Parse(buffer, special);
+                        m_uFlags |= FLAGS_HAS_HOST;
 
                         if (hasStateOverride)
                             return;
@@ -2323,6 +2392,7 @@ void Url::Parse(ArrayView<char> input, Url* base, URL_PARSE_STATES stateOverride
                             m_stHost.Reset();
                         else if (m_stHost.GetOpaque() == "localhost")
                             m_stHost.Reset();
+
                         m_uFlags |= FLAGS_HAS_HOST;
 
                         if (hasStateOverride)

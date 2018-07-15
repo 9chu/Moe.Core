@@ -1839,7 +1839,7 @@ namespace moe
             size_t sz = std::char_traits<TChar>::length(format);
             out.clear();
 
-            Formatter::AppendToString(out, static_cast<void*>(&obj), ArrayView<TChar>(format, sz));
+            Formatter::AppendToString(out, static_cast<const void*>(&obj), ArrayView<TChar>(format, sz));
         }
 
         /**

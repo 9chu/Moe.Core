@@ -681,7 +681,7 @@ void Idna::ToAscii(std::u32string& out, ArrayView<char32_t> domainName, bool che
         ++it;
     }
 
-    if (verifyDnsLength && (totalLength > 253 || totalLength < 1))
+    if (verifyDnsLength && (totalLength > 253 || (totalLength < 1 && i != 1)))
         MOE_THROW(BadFormatException, "Domain is too long or empty: {0}", StringUtils::Repr(domainName));
 }
 
