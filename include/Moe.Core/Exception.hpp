@@ -15,7 +15,7 @@ namespace moe
     /**
      * @brief 异常基类
      */
-    class Exception :
+    class ExceptionBase :
         public std::exception
     {
         struct InternalStorage :
@@ -32,23 +32,23 @@ namespace moe
         };
 
     public:
-        Exception()
+        ExceptionBase()
         {
             m_pStorage = MakeRef<InternalStorage>();
         }
-        Exception(const Exception& rhs)noexcept  // 拷贝构造不能抛出异常
+        ExceptionBase(const ExceptionBase& rhs)noexcept  // 拷贝构造不能抛出异常
             : m_pStorage(rhs.m_pStorage) {}
 
-        Exception(Exception&& rhs) = delete;
-        ~Exception() = default;
+        ExceptionBase(ExceptionBase&& rhs) = delete;
+        ~ExceptionBase() = default;
 
     public:
-        Exception& operator=(const Exception& rhs)noexcept
+        ExceptionBase& operator=(const ExceptionBase& rhs)noexcept
         {
             m_pStorage = rhs.m_pStorage;
             return *this;
         }
-        Exception& operator=(Exception&&) = delete;
+        ExceptionBase& operator=(ExceptionBase&&) = delete;
 
     public:
         /**
@@ -61,36 +61,12 @@ namespace moe
         }
 
         /**
-         * @brief 设置抛出点的源文件
-         * @param[in] filename 源文件，必须是常量
-         */
-        Exception& SetSourceFile(const char* filename)noexcept
-        {
-            assert(m_pStorage);
-            m_pStorage->SourceFile = filename;
-            m_pStorage->FullDescCache.clear();
-            return *this;
-        }
-
-        /**
          * @brief 获取异常抛出点的函数名
          */
         const char* GetFunctionName()const noexcept
         {
             assert(m_pStorage);
             return m_pStorage->FunctionName;
-        }
-
-        /**
-         * @brief 设置抛出点的函数名
-         * @param[in] name 函数名，必须是常量
-         */
-        Exception& SetFunctionName(const char* name)noexcept
-        {
-            assert(m_pStorage);
-            m_pStorage->FunctionName = name;
-            m_pStorage->FullDescCache.clear();
-            return *this;
         }
 
         /**
@@ -103,48 +79,12 @@ namespace moe
         }
 
         /**
-         * @brief 设置抛出点的行号
-         * @param[in] line 行号
-         */
-        Exception& SetLineNumber(uint32_t line)noexcept
-        {
-            assert(m_pStorage);
-            m_pStorage->LineNumber = line;
-            m_pStorage->FullDescCache.clear();
-            return *this;
-        }
-
-        /**
          * @brief 获取异常的描述
          */
         const std::string& GetDescription()const noexcept
         {
             assert(m_pStorage);
             return m_pStorage->Desc;
-        }
-
-        /**
-         * @brief 设置异常描述
-         * @param[in] str 描述字符串
-         */
-        Exception& SetDescription(const std::string& str)
-        {
-            assert(m_pStorage);
-            m_pStorage->Desc = str;
-            m_pStorage->FullDescCache.clear();
-            return *this;
-        }
-
-        /**
-         * @brief 设置异常描述
-         * @param[in] str 描述字符串
-         */
-        Exception& SetDescription(std::string&& str)noexcept
-        {
-            assert(m_pStorage);
-            m_pStorage->Desc = std::move(str);
-            m_pStorage->FullDescCache.clear();
-            return *this;
         }
 
         /**
@@ -166,20 +106,6 @@ namespace moe
         }
 
         /**
-         * @brief 设置携带的额外信息
-         * @tparam T 类型
-         * @param key 键值
-         * @param value 值
-         */
-        template <typename T>
-        Exception& SetInfo(const std::string& key, T&& value)
-        {
-            assert(m_pStorage);
-            m_pStorage->Info[key] = Any(std::forward<T&&>(value));
-            return *this;
-        }
-
-        /**
          * @brief 转换到字符串
          */
         virtual const std::string& ToString()const;
@@ -187,8 +113,92 @@ namespace moe
     public: // implement for std::exception
         const char* what()const noexcept override;  // 等价于ToString
 
-    private:
+    protected:
         RefPtr<InternalStorage> m_pStorage;
+    };
+
+    /**
+     * @brief 异常实现包装类
+     * @tparam T 异常
+     */
+    template <typename T>
+    class Exception :
+        public ExceptionBase
+    {
+    public:
+        /**
+         * @brief 设置抛出点的源文件
+         * @param[in] filename 源文件，必须是常量
+         */
+        T& SetSourceFile(const char* filename)noexcept
+        {
+            assert(m_pStorage);
+            m_pStorage->SourceFile = filename;
+            m_pStorage->FullDescCache.clear();
+            return static_cast<T&>(*this);
+        }
+
+        /**
+         * @brief 设置抛出点的函数名
+         * @param[in] name 函数名，必须是常量
+         */
+        T& SetFunctionName(const char* name)noexcept
+        {
+            assert(m_pStorage);
+            m_pStorage->FunctionName = name;
+            m_pStorage->FullDescCache.clear();
+            return static_cast<T&>(*this);
+        }
+
+        /**
+         * @brief 设置抛出点的行号
+         * @param[in] line 行号
+         */
+        T& SetLineNumber(uint32_t line)noexcept
+        {
+            assert(m_pStorage);
+            m_pStorage->LineNumber = line;
+            m_pStorage->FullDescCache.clear();
+            return static_cast<T&>(*this);
+        }
+
+        /**
+         * @brief 设置异常描述
+         * @param[in] str 描述字符串
+         */
+        T& SetDescription(const std::string& str)
+        {
+            assert(m_pStorage);
+            m_pStorage->Desc = str;
+            m_pStorage->FullDescCache.clear();
+            return static_cast<T&>(*this);
+        }
+
+        /**
+         * @brief 设置异常描述
+         * @param[in] str 描述字符串
+         */
+        T& SetDescription(std::string&& str)noexcept
+        {
+            assert(m_pStorage);
+            m_pStorage->Desc = std::move(str);
+            m_pStorage->FullDescCache.clear();
+            return static_cast<T&>(*this);
+        }
+
+        /**
+         * @brief 设置携带的额外信息
+         * @tparam T 类型
+         * @param key 键值
+         * @param value 值
+         */
+        template <typename P>
+        T& SetInfo(const std::string& key, P&& value)
+        {
+            assert(m_pStorage);
+            m_pStorage->Info[key] = Any(std::forward<P&&>(value));
+            return static_cast<T&>(*this);
+        }
     };
 }
 
@@ -212,7 +222,7 @@ namespace moe
  */
 #define MOE_DEFINE_EXCEPTION(Name) \
     class Name : \
-        public Exception \
+        public Exception<Name> \
     { \
     public: \
         using Exception::Exception; \

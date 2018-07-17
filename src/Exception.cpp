@@ -7,7 +7,7 @@
 using namespace std;
 using namespace moe;
 
-const std::string& Exception::ToString()const
+const std::string& ExceptionBase::ToString()const
 {
     assert(m_pStorage);
     if (m_pStorage->FullDescCache.empty())
@@ -19,7 +19,7 @@ const std::string& Exception::ToString()const
     return m_pStorage->FullDescCache;
 }
 
-const char* Exception::what()const noexcept
+const char* ExceptionBase::what()const noexcept
 {
     return ToString().c_str();
 }

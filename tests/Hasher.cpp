@@ -10,12 +10,14 @@
 using namespace std;
 using namespace moe;
 
-TEST(Hasher, MD5)
+TEST(Hasher, Md5)
 {
-    uint8_t buffer[16];
+    array<uint8_t, 16> buffer;
 
-    EXPECT_STREQ("d41d8cd98f00b204e9800998ecf8427e", StringUtils::BufferToHexLower(Hasher::MD5(buffer, "")).c_str());
-    EXPECT_STREQ("202cb962ac59075b964b07152d234b70", StringUtils::BufferToHexLower(Hasher::MD5(buffer, "123")).c_str());
-    EXPECT_STREQ("5eb63bbbe01eeed093cb22bb8f5acdc3",
-        StringUtils::BufferToHexLower(Hasher::MD5(buffer, "hello world")).c_str());
+    EXPECT_STREQ("d41d8cd98f00b204e9800998ecf8427e", StringUtils::BufferToHexLower(
+        ComputeHash<Hasher::Md5>(buffer, StringToBytesView(""))).c_str());
+    EXPECT_STREQ("202cb962ac59075b964b07152d234b70", StringUtils::BufferToHexLower(
+        ComputeHash<Hasher::Md5>(buffer, StringToBytesView("123"))).c_str());
+    EXPECT_STREQ("5eb63bbbe01eeed093cb22bb8f5acdc3", StringUtils::BufferToHexLower(
+        ComputeHash<Hasher::Md5>(buffer, StringToBytesView("hello world"))).c_str());
 }

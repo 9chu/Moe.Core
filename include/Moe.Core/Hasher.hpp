@@ -3,9 +3,10 @@
  * @date 2017/7/5
  */
 #pragma once
+#include <array>
 #include <string>
-#include <unordered_map>
 #include <limits>
+#include <unordered_map>
 
 #include "ArrayView.hpp"
 
@@ -13,204 +14,425 @@ namespace moe
 {
     namespace Hasher
     {
-        //////////////////////////////////////// <editor-fold desc="MPQHash">
-
         /**
-         * @brief 获取暴雪所用Hash算法的加密表
-         * @return 返回大小为0x500的加密表
-         */
-        const uint32_t* GetMPQCryptTable()noexcept;
-
-        /**
-         * @brief 暴雪所用One-Way Hash算法
-         * @param str 输入串
-         * @param offset 偏移，可取0,1,2,3,4
-         * @return Hash值
-         */
-        inline uint32_t MPQHash(const BytesView& str, unsigned offset=0)
-        {
-            assert(offset < 5);
-
-            const uint32_t* cryptTable = GetMPQCryptTable();
-            uint32_t seed1 = 0x7FED7FEDu, seed2 = 0xEEEEEEEEu;
-
-            for (size_t i = 0; i < str.GetSize(); ++i)
-            {
-                auto ch = str[i];
-
-                seed1 = cryptTable[(offset << 8) + ch] ^ (seed1 + seed2);
-                seed2 = ch + seed1 + seed2 + (seed2 << 5) + 3;
-            }
-
-            return seed1;
-        }
-
-        struct MPQHashKey
-        {
-            uint32_t Key;
-            uint32_t HashA;
-            uint32_t HashB;
-
-            MPQHashKey()noexcept
-                : Key(0), HashA(0), HashB(0) {}
-
-            MPQHashKey(const std::string& key)noexcept
-                : MPQHashKey(BytesView(reinterpret_cast<const uint8_t*>(key.data()), key.size())) {}
-
-            MPQHashKey(const BytesView& raw)noexcept
-                : Key(MPQHash(raw, 0)), HashA(MPQHash(raw, 1)), HashB(MPQHash(raw, 2)) {}
-
-            MPQHashKey(const MPQHashKey&) = default;
-        };
-
-        namespace details
-        {
-            struct MPQHasher
-            {
-                uint32_t operator()(const MPQHashKey& x)const noexcept { return x.Key; }
-            };
-        }
-
-        template <typename T>
-        using MPQHashMap = std::unordered_map<MPQHashKey, T, details::MPQHasher>;
-
-        //////////////////////////////////////// </editor-fold>
-
-        //////////////////////////////////////// <editor-fold desc="MurmurHash">
-
-        /**
-         * @brief Murmur哈希函数(二代)
-         * @see https://github.com/aappleby/smhasher
-         * @param data 输入数据
-         * @param len 长度
-         * @param seed 种子
-         * @return 哈希结果
+         * Hash对象需要满足
          *
-         * 方法用于生成64位的哈希值。
-         * 该方法平台无关，在不同大小端机器上能得出相同结果。
+         * interface T
+         * {
+         *     using ResultType;
+         *
+         *     T& Reset()noexcept;
+         *     T& Update(BytesView)noexcept;
+         *     ResultType Final()noexcept;
+         * };
+         *
+         * 当执行Final后，将不能再执行Update方法。并且Final方法可以重入并返回同一结果。
+         * 当且仅当执行Reset后可以继续Update。
          */
-        inline uint64_t MurmurHash2(const uint8_t* data, size_t len, uint64_t seed)noexcept
-        {
-            const uint64_t m = 0xC6A4A7935BD1E995ull;
-            const int r = 47;
-
-            uint64_t h = seed ^ (len * m);
-
-            while (len >= 8)
-            {
-                uint64_t k;
-
-                k = uint64_t(data[0]);
-                k |= uint64_t(data[1]) << 8;
-                k |= uint64_t(data[2]) << 16;
-                k |= uint64_t(data[3]) << 24;
-                k |= uint64_t(data[4]) << 32;
-                k |= uint64_t(data[5]) << 40;
-                k |= uint64_t(data[6]) << 48;
-                k |= uint64_t(data[7]) << 56;
-
-                k *= m;
-                k ^= k >> r;
-                k *= m;
-
-                h ^= k;
-                h *= m;
-
-                data += 8;
-                len -= 8;
-            }
-
-            switch (len)
-            {
-                case 7:
-                    h ^= uint64_t(data[6]) << 48;
-                case 6:
-                    h ^= uint64_t(data[5]) << 40;
-                case 5:
-                    h ^= uint64_t(data[4]) << 32;
-                case 4:
-                    h ^= uint64_t(data[3]) << 24;
-                case 3:
-                    h ^= uint64_t(data[2]) << 16;
-                case 2:
-                    h ^= uint64_t(data[1]) << 8;
-                case 1:
-                    h ^= uint64_t(data[0]);
-                    h *= m;
-                    break;
-                default:
-                    break;
-            };
-
-            h ^= h >> r;
-            h *= m;
-            h ^= h >> r;
-
-            return h;
-        }
-
-        //////////////////////////////////////// </editor-fold>
-
-        //////////////////////////////////////// <editor-fold desc="MD5">
 
         namespace details
         {
-            struct MD5Context
-            {
-                uint32_t lo, hi;
-                uint32_t a, b, c, d;
-
-                uint8_t Buffer[64];
-            };
-
-            void MD5Init(MD5Context* context)noexcept;
-            void MD5Update(MD5Context* context, const uint8_t* data, uint32_t size)noexcept;
+            /**
+             * @breif 获取MpqHash内部所用的加密表(0x500大小)
+             */
+            const uint32_t* GetMpqCryptTable()noexcept;
 
             /**
-             * @brief 计算MD5最终结果
-             * @param ctx 上下文
-             * @param result 结果，必须为16字节
-             *
-             * 调用方法后必须使用MD5Init来重置状态。
+             * @brief 获取Crc32内部所用的表（256大小）
              */
-            void MD5Final(MD5Context* context, uint8_t result[])noexcept;
+            const uint32_t* GetCrc32Table()noexcept;
         }
 
         /**
-         * @brief 计算MD5
-         * @tparam Size 输出缓冲区大小
-         * @param out 输出缓冲区，必须为16字节
-         * @param data 输入数据
-         * @param len 输入长度
-         * @return 输出缓冲区
+         * @brief MPQ哈希算法
+         * @tparam Offset Offset，可取值0,1,2,3,4
          */
-        template <size_t Size>
-        inline BytesView MD5(uint8_t (&out)[Size], const uint8_t* data, size_t len)noexcept
+        template <uint32_t Offset>
+        class Mpq
         {
-            static_assert(Size >= 16, "Bad buffer size");
-            assert(len <= std::numeric_limits<uint32_t>::max());
+            static_assert(Offset < 5, "Offset must be in 0~4");
 
-            details::MD5Context context;
-            details::MD5Init(&context);
-            details::MD5Update(&context, data, static_cast<uint32_t>(len));
-            details::MD5Final(&context, out);
-            return BytesView(out, 16);
-        }
+            enum STATE
+            {
+                STATE_DEFAULT = 0,
+                STATE_FINISHED = 1,
+            };
+
+        public:
+            using ResultType = uint32_t;
+
+        public:
+            Mpq()noexcept { Reset(); }
+
+            /**
+             * @brief 重置内部状态
+             */
+            Mpq& Reset()noexcept
+            {
+                m_iState = STATE_DEFAULT;
+                m_uSeed1 = 0x7FED7FEDu;
+                m_uSeed2 = 0xEEEEEEEEu;
+                return *this;
+            }
+
+            /**
+             * @brief 更新内部状态
+             * @param input 输入数据
+             */
+            Mpq& Update(BytesView input)noexcept
+            {
+                assert(m_iState == STATE_DEFAULT);
+
+                const uint32_t* table = details::GetMpqCryptTable();
+                for (size_t i = 0; i < input.GetSize(); ++i)
+                {
+                    auto b = input[i];
+                    m_uSeed1 = table[(Offset << 8u) + b] ^ (m_uSeed1 + m_uSeed2);
+                    m_uSeed2 = b + m_uSeed1 + m_uSeed2 + (m_uSeed2 << 5u) + 3u;
+                }
+                return *this;
+            }
+
+            /**
+             * @brief 计算最终输出
+             */
+            ResultType Final()noexcept
+            {
+                m_iState = STATE_FINISHED;
+                return m_uSeed1;
+            }
+
+        private:
+            STATE m_iState = STATE_DEFAULT;
+            uint32_t m_uSeed1 = 0;
+            uint32_t m_uSeed2 = 0;
+        };
 
         /**
-         * @brief 计算字符串MD5
-         * @tparam Size 输出缓冲区大小
-         * @param out 输出缓冲区，必须为16字节
-         * @param data 输入字符串
-         * @return 输出缓冲区
+         * @brief Time33哈希算法
          */
-        template <size_t Size>
-        inline BytesView MD5(uint8_t (&out)[Size], const std::string& data)noexcept
+        template <uint32_t Seed=5381>
+        class Time33
         {
-            static_assert(Size >= 16, "Bad buffer size");
-            return MD5(out, reinterpret_cast<const uint8_t*>(data.c_str()), data.size());
-        }
+            enum STATE
+            {
+                STATE_DEFAULT = 0,
+                STATE_FINISHED = 1,
+            };
 
-        //////////////////////////////////////// </editor-fold>
+        public:
+            using ResultType = uint32_t;
+
+        public:
+            Time33()noexcept { Reset(); }
+
+            /**
+             * @brief 重置内部状态
+             */
+            Time33& Reset()noexcept
+            {
+                m_iState = STATE_DEFAULT;
+                m_uHash = Seed;
+                return *this;
+            }
+
+            /**
+             * @brief 更新内部状态
+             * @param input 输入数据
+             */
+            Time33& Update(BytesView input)noexcept
+            {
+                assert(m_iState == STATE_DEFAULT);
+
+                for (size_t i = 0; i < input.GetSize(); ++i)
+                {
+                    auto b = input[i];
+                    m_uHash += (m_uHash << 5u) + b;
+                }
+                return *this;
+            }
+
+            /**
+             * @brief 计算最终输出
+             */
+            ResultType Final()noexcept
+            {
+                if (m_iState == STATE_FINISHED)
+                    return m_uHash;
+
+                m_iState = STATE_FINISHED;
+                m_uHash &= 0x7FFFFFFF;
+                return m_uHash;
+            }
+
+        private:
+            STATE m_iState = STATE_DEFAULT;
+            uint32_t m_uHash = 0;
+        };
+
+        /**
+         * @brief Murmur哈希函数
+         * @tparam Seed 种子值
+         */
+        template <uint32_t Seed>
+        class Murmur3
+        {
+            static_assert(sizeof(uint32_t) == 4, "Bad condition");
+
+            enum STATE
+            {
+                STATE_DEFAULT = 0,
+                STATE_FINISHED = 1,
+            };
+
+        public:
+            using ResultType = uint64_t;
+
+        public:
+            Murmur3()noexcept { Reset(); }
+
+            /**
+             * @brief 重置内部状态
+             */
+            Murmur3& Reset()noexcept
+            {
+                m_iState = STATE_DEFAULT;
+                m_uH1 = Seed;
+                m_uRest = 0;
+                m_uLength = 0;
+                return *this;
+            }
+
+            /**
+             * @brief 更新内部状态
+             * @param input 输入数据
+             */
+            Murmur3& Update(BytesView input)noexcept
+            {
+                assert(m_iState == STATE_DEFAULT);
+
+                static const uint32_t c1 = 0xcc9e2d51;
+                static const uint32_t c2 = 0x1b873593;
+
+                auto blocks = (m_uRest + input.GetSize()) / sizeof(uint32_t);
+                auto rest = (m_uRest + input.GetSize()) % sizeof(uint32_t);
+
+                for (uint32_t i = 0; i < blocks; ++i)
+                {
+                    uint32_t k1 = 0;
+
+                    if (i == 0 && m_uRest > 0)
+                    {
+                        for (uint32_t j = 0, k = 0; j < sizeof(uint32_t); ++j, k += 8)
+                        {
+                            if (j < m_uRest)
+                                k1 |= (m_stBuf[j] << k);
+                            else
+                                k1 |= (input[j - m_uRest] << k);
+                        }
+                    }
+                    else
+                    {
+                        for (uint32_t j = 0, k = 0; j < sizeof(uint32_t); ++j, k += 8)
+                            k1 |= (input[i * sizeof(uint32_t) + j - m_uRest] << k);
+                    }
+
+                    k1 *= c1;
+                    k1 = (k1 << 15u) | (k1 >> (32u - 15u));
+                    k1 *= c2;
+
+                    m_uH1 ^= k1;
+                    m_uH1 = (m_uH1 << 13u) | (m_uH1 >> (32u - 13u));
+                    m_uH1 = m_uH1 * 5 + 0xE6546B64u;
+                }
+
+                // 复制末尾未能成block的结果
+                if (blocks > 0)
+                    m_uRest = 0;
+                for (uint32_t i = 0; i < rest; ++i)
+                    m_stBuf[m_uRest + i] = input[input.GetSize() - rest + i];
+                m_uRest += rest;
+                assert(m_uRest < 4);
+
+                m_uLength += input.GetSize();
+                return *this;
+            }
+
+            /**
+             * @brief 计算最终输出
+             */
+            ResultType Final()noexcept
+            {
+                if (m_iState == STATE_FINISHED)
+                    return m_uH1;
+
+                static const uint32_t c1 = 0xcc9e2d51;
+                static const uint32_t c2 = 0x1b873593;
+
+                m_iState = STATE_FINISHED;
+
+                uint32_t k1 = 0;
+                switch (m_uRest)
+                {
+                    case 3:
+                        k1 ^= (m_stBuf[2] << 16);
+                    case 2:
+                        k1 ^= (m_stBuf[1] << 8);
+                    case 1:
+                        k1 ^= m_stBuf[0];
+                        k1 *= c1;
+                        k1 = (k1 << 15u) | (k1 >> (32u - 15u));
+                        k1 *= c2;
+                        m_uH1 ^= k1;
+                    default:
+                        break;
+                };
+
+                m_uH1 ^= m_uLength;
+
+                // Final mix
+                m_uH1 ^= m_uH1 >> 16u;
+                m_uH1 *= 0x85EBCA6Bu;
+                m_uH1 ^= m_uH1 >> 13u;
+                m_uH1 *= 0xC2B2AE35u;
+                m_uH1 ^= m_uH1 >> 16u;
+                return m_uH1;
+            }
+
+        private:
+            STATE m_iState = STATE_DEFAULT;
+            uint32_t m_uH1 = 0;
+            uint32_t m_uRest = 0;
+            uint32_t m_uLength = 0;
+            std::array<uint8_t, sizeof(uint32_t)> m_stBuf {};
+        };
+
+        /**
+         * @brief Crc32校验
+         */
+        class Crc32
+        {
+            enum STATE
+            {
+                STATE_DEFAULT = 0,
+                STATE_FINISHED = 1,
+            };
+
+        public:
+            using ResultType = uint32_t;
+
+        public:
+            Crc32()noexcept { Reset(); }
+
+            /**
+             * @brief 重置内部状态
+             */
+            Crc32& Reset()noexcept
+            {
+                m_iState = STATE_DEFAULT;
+                m_uCrc32 = 0u ^ 0xFFFFFFFFu;
+                return *this;
+            }
+
+            /**
+             * @brief 更新内部状态
+             * @param input 输入数据
+             */
+            Crc32& Update(BytesView input)noexcept
+            {
+                assert(m_iState == STATE_DEFAULT);
+
+                const uint32_t* table = details::GetCrc32Table();
+                for (size_t i = 0; i < input.GetSize(); ++i)
+                    m_uCrc32 = (m_uCrc32 >> 8u) ^ table[(m_uCrc32 ^ input[i]) & 0xFFu];
+                return *this;
+            }
+
+            /**
+             * @brief 计算最终输出
+             */
+            ResultType Final()noexcept
+            {
+                if (m_iState == STATE_FINISHED)
+                    return m_uCrc32;
+
+                m_iState = STATE_FINISHED;
+                m_uCrc32 ^= 0xFFFFFFFFu;
+                return m_uCrc32;
+            }
+
+        private:
+            STATE m_iState = STATE_DEFAULT;
+            uint32_t m_uCrc32 = 0;
+        };
+
+        /**
+         * @brief MD5计算
+         */
+        class Md5
+        {
+            enum STATE
+            {
+                STATE_DEFAULT = 0,
+                STATE_FINISHED = 1,
+            };
+
+        public:
+            using ResultType = std::array<uint8_t, 16>;
+
+        public:
+            Md5()noexcept { Reset(); }
+
+            /**
+             * @brief 重置内部状态
+             */
+            Md5& Reset()noexcept
+            {
+                m_iState = STATE_DEFAULT;
+                m_uLo = m_uHi = 0;
+                m_uA = 0x67452301u;
+                m_uB = 0xeFCDAB89u;
+                m_uC = 0x98BADCFEu;
+                m_uD = 0x10325476u;
+                m_stBuffer.fill(0);
+                return *this;
+            }
+
+            /**
+             * @brief 更新内部状态
+             * @param input 输入数据
+             */
+            Md5& Update(BytesView input)noexcept;
+
+            /**
+             * @brief 计算最终输出
+             */
+            const ResultType& Final()noexcept;
+
+        private:
+            const uint8_t* Transform(const uint8_t* data, size_t length)noexcept;
+
+        private:
+            STATE m_iState = STATE_DEFAULT;
+            uint32_t m_uLo = 0, m_uHi = 0, m_uA = 0, m_uB = 0, m_uC = 0, m_uD = 0;
+            std::array<uint8_t, 64> m_stBuffer {};
+            ResultType m_stResult {};
+        };
+    }
+
+    /**
+     * @brief 计算Hash
+     * @tparam Hasher 哈希对象
+     * @param out 计算结果
+     * @param input 输入
+     * @return 计算结果的引用
+     */
+    template <typename Hasher>
+    const typename Hasher::ResultType& ComputeHash(typename Hasher::ResultType& out, BytesView input)noexcept
+    {
+        Hasher h;
+        h.Update(input);
+        out = h.Final();
+        return out;
     }
 }

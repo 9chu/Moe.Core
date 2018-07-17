@@ -4,6 +4,7 @@
  */
 #pragma once
 #include <set>
+#include <array>
 #include <string>
 
 #include "Convert.hpp"
@@ -965,6 +966,22 @@ namespace moe
         {
             std::basic_string<TChar> ret;
             BufferToHexLower(ret, buffer.GetBuffer(), buffer.GetSize());
+            return ret;
+        }
+
+        template <size_t Size, typename TChar = char>
+        inline std::basic_string<TChar> BufferToHex(const std::array<uint8_t, Size>& buffer)
+        {
+            std::basic_string<TChar> ret;
+            BufferToHex(ret, buffer.data(), buffer.size());
+            return ret;
+        }
+
+        template <size_t Size, typename TChar = char>
+        inline std::basic_string<TChar> BufferToHexLower(const std::array<uint8_t, Size>& buffer)
+        {
+            std::basic_string<TChar> ret;
+            BufferToHexLower(ret, buffer.data(), buffer.size());
             return ret;
         }
 

@@ -10,11 +10,10 @@
 using namespace std;
 using namespace moe;
 using namespace Hasher;
-using namespace details;
 
-//////////////////////////////////////////////////////////////////////////////// MPQHash
+//////////////////////////////////////////////////////////////////////////////// details
 
-static const uint32_t kMPQCryptTable[0x500] = {
+static const uint32_t kMpqCryptTable[0x500] = {
     0x55C636E2u, 0x02BE0170u, 0x584B71D4u, 0x2984F00Eu, 0xB682C809u, 0x91CF876Bu, 0x775A9C24u, 0x597D5CA5u,
     0x5A1AFEB2u, 0xD3E9CE0Du, 0x32CDCDF8u, 0xB18201CDu, 0x3CCE05CEu, 0xA55D13BEu, 0xBB0AFE71u, 0x9376AB33u,
     0x848F645Eu, 0x87E45A45u, 0x45B86017u, 0x5E656CA8u, 0x1B851A95u, 0x2542DBD7u, 0xAB4DF9E4u, 0x5976AE9Bu,
@@ -177,12 +176,57 @@ static const uint32_t kMPQCryptTable[0x500] = {
     0x1C9FA44Au, 0xC406B6D7u, 0xEEDCA152u, 0x6149809Cu, 0xB0099EF4u, 0xC5F653A5u, 0x4C10790Du, 0x7303286Cu,
 };
 
-const uint32_t* Hasher::GetMPQCryptTable()noexcept
+static const uint32_t kCrc32Table[256] = {
+    0x00000000u, 0x77073096u, 0xEE0E612Cu, 0x990951BAu, 0x076DC419u, 0x706AF48Fu, 0xE963A535u, 
+    0x9E6495A3u, 0x0EDB8832u, 0x79DCB8A4u, 0xE0D5E91Eu, 0x97D2D988u, 0x09B64C2Bu, 0x7EB17CBDu, 
+    0xE7B82D07u, 0x90BF1D91u, 0x1DB71064u, 0x6AB020F2u, 0xF3B97148u, 0x84BE41DEu, 0x1ADAD47Du, 
+    0x6DDDE4EBu, 0xF4D4B551u, 0x83D385C7u, 0x136C9856u, 0x646BA8C0u, 0xFD62F97Au, 0x8A65C9ECu, 
+    0x14015C4Fu, 0x63066CD9u, 0xFA0F3D63u, 0x8D080DF5u, 0x3B6E20C8u, 0x4C69105Eu, 0xD56041E4u, 
+    0xA2677172u, 0x3C03E4D1u, 0x4B04D447u, 0xD20D85FDu, 0xA50AB56Bu, 0x35B5A8FAu, 0x42B2986Cu, 
+    0xDBBBC9D6u, 0xACBCF940u, 0x32D86CE3u, 0x45DF5C75u, 0xDCD60DCFu, 0xABD13D59u, 0x26D930ACu, 
+    0x51DE003Au, 0xC8D75180u, 0xBFD06116u, 0x21B4F4B5u, 0x56B3C423u, 0xCFBA9599u, 0xB8BDA50Fu, 
+    0x2802B89Eu, 0x5F058808u, 0xC60CD9B2u, 0xB10BE924u, 0x2F6F7C87u, 0x58684C11u, 0xC1611DABu, 
+    0xB6662D3Du, 0x76DC4190u, 0x01DB7106u, 0x98D220BCu, 0xEFD5102Au, 0x71B18589u, 0x06B6B51Fu, 
+    0x9FBFE4A5u, 0xE8B8D433u, 0x7807C9A2u, 0x0F00F934u, 0x9609A88Eu, 0xE10E9818u, 0x7F6A0DBBu, 
+    0x086D3D2Du, 0x91646C97u, 0xE6635C01u, 0x6B6B51F4u, 0x1C6C6162u, 0x856530D8u, 0xF262004Eu, 
+    0x6C0695EDu, 0x1B01A57Bu, 0x8208F4C1u, 0xF50FC457u, 0x65B0D9C6u, 0x12B7E950u, 0x8BBEB8EAu, 
+    0xFCB9887Cu, 0x62DD1DDFu, 0x15DA2D49u, 0x8CD37CF3u, 0xFBD44C65u, 0x4DB26158u, 0x3AB551CEu, 
+    0xA3BC0074u, 0xD4BB30E2u, 0x4ADFA541u, 0x3DD895D7u, 0xA4D1C46Du, 0xD3D6F4FBu, 0x4369E96Au, 
+    0x346ED9FCu, 0xAD678846u, 0xDA60B8D0u, 0x44042D73u, 0x33031DE5u, 0xAA0A4C5Fu, 0xDD0D7CC9u, 
+    0x5005713Cu, 0x270241AAu, 0xBE0B1010u, 0xC90C2086u, 0x5768B525u, 0x206F85B3u, 0xB966D409u, 
+    0xCE61E49Fu, 0x5EDEF90Eu, 0x29D9C998u, 0xB0D09822u, 0xC7D7A8B4u, 0x59B33D17u, 0x2EB40D81u, 
+    0xB7BD5C3Bu, 0xC0BA6CADu, 0xEDB88320u, 0x9ABFB3B6u, 0x03B6E20Cu, 0x74B1D29Au, 0xEAD54739u, 
+    0x9DD277AFu, 0x04DB2615u, 0x73DC1683u, 0xE3630B12u, 0x94643B84u, 0x0D6D6A3Eu, 0x7A6A5AA8u, 
+    0xE40ECF0Bu, 0x9309FF9Du, 0x0A00AE27u, 0x7D079EB1u, 0xF00F9344u, 0x8708A3D2u, 0x1E01F268u, 
+    0x6906C2FEu, 0xF762575Du, 0x806567CBu, 0x196C3671u, 0x6E6B06E7u, 0xFED41B76u, 0x89D32BE0u, 
+    0x10DA7A5Au, 0x67DD4ACCu, 0xF9B9DF6Fu, 0x8EBEEFF9u, 0x17B7BE43u, 0x60B08ED5u, 0xD6D6A3E8u, 
+    0xA1D1937Eu, 0x38D8C2C4u, 0x4FDFF252u, 0xD1BB67F1u, 0xA6BC5767u, 0x3FB506DDu, 0x48B2364Bu, 
+    0xD80D2BDAu, 0xAF0A1B4Cu, 0x36034AF6u, 0x41047A60u, 0xDF60EFC3u, 0xA867DF55u, 0x316E8EEFu, 
+    0x4669BE79u, 0xCB61B38Cu, 0xBC66831Au, 0x256FD2A0u, 0x5268E236u, 0xCC0C7795u, 0xBB0B4703u, 
+    0x220216B9u, 0x5505262Fu, 0xC5BA3BBEu, 0xB2BD0B28u, 0x2BB45A92u, 0x5CB36A04u, 0xC2D7FFA7u, 
+    0xB5D0CF31u, 0x2CD99E8Bu, 0x5BDEAE1Du, 0x9B64C2B0u, 0xEC63F226u, 0x756AA39Cu, 0x026D930Au, 
+    0x9C0906A9u, 0xEB0E363Fu, 0x72076785u, 0x05005713u, 0x95BF4A82u, 0xE2B87A14u, 0x7BB12BAEu, 
+    0x0CB61B38u, 0x92D28E9Bu, 0xE5D5BE0Du, 0x7CDCEFB7u, 0x0BDBDF21u, 0x86D3D2D4u, 0xF1D4E242u, 
+    0x68DDB3F8u, 0x1FDA836Eu, 0x81BE16CDu, 0xF6B9265Bu, 0x6FB077E1u, 0x18B74777u, 0x88085AE6u, 
+    0xFF0F6A70u, 0x66063BCAu, 0x11010B5Cu, 0x8F659EFFu, 0xF862AE69u, 0x616BFFD3u, 0x166CCF45u, 
+    0xA00AE278u, 0xD70DD2EEu, 0x4E048354u, 0x3903B3C2u, 0xA7672661u, 0xD06016F7u, 0x4969474Du, 
+    0x3E6E77DBu, 0xAED16A4Au, 0xD9D65ADCu, 0x40DF0B66u, 0x37D83BF0u, 0xA9BCAE53u, 0xDEBB9EC5u, 
+    0x47B2CF7Fu, 0x30B5FFE9u, 0xBDBDF21Cu, 0xCABAC28Au, 0x53B39330u, 0x24B4A3A6u, 0xBAD03605u, 
+    0xCDD70693u, 0x54DE5729u, 0x23D967BFu, 0xB3667A2Eu, 0xC4614AB8u, 0x5D681B02u, 0x2A6F2B94u, 
+    0xB40BBE37u, 0xC30C8EA1u, 0x5A05DF1Bu, 0x2D02EF8D
+};
+
+const uint32_t* details::GetMpqCryptTable()noexcept
 {
-    return kMPQCryptTable;
+    return kMpqCryptTable;
 }
 
-//////////////////////////////////////////////////////////////////////////////// MD5
+const uint32_t* details::GetCrc32Table()noexcept
+{
+    return kCrc32Table;
+}
+
+//////////////////////////////////////////////////////////////////////////////// Md5
 
 // 基本的MD5操作
 #define MD5_F(x, y, z) ((z) ^ ((x) & ((y) ^ (z))))
@@ -192,231 +236,225 @@ const uint32_t* Hasher::GetMPQCryptTable()noexcept
 
 // 单次变换操作
 #define MD5_STEP(f, a, b, c, d, x, t, s) \
-    (a) += f((b), (c), (d)) + (x) + (t); \
-    (a) = (((a) << (s)) | (((a) & 0xFFFFFFFF) >> (32 - (s)))); \
-    (a) += (b);
+    do { \
+        (a) += f((b), (c), (d)) + (x) + (t); \
+        (a) = (((a) << (s)) | (((a) & 0xFFFFFFFFu) >> (32u - (s)))); \
+        (a) += (b); \
+    } while (false)
 
 // 获取小端序
-#define MD5_READLE(arr, i) \
-    ((arr)[(i)] | (static_cast<uint32_t>((arr)[(i) + 1]) << 8) | (static_cast<uint32_t>((arr)[(i) + 2]) << 16) | \
-    (static_cast<uint32_t>((arr)[(i) + 3] << 24)))
+#define MD5_READ_LE(arr, i) \
+    ((arr)[(i)] | (static_cast<uint32_t>((arr)[(i) + 1]) << 8u) | (static_cast<uint32_t>((arr)[(i) + 2]) << 16u) | \
+    (static_cast<uint32_t>((arr)[(i) + 3] << 24u)))
 
-namespace
+Md5& Md5::Update(BytesView input)noexcept
 {
-    // 处理一个64字节的数据块
-    const uint8_t* MD5Transform(MD5Context* context, const uint8_t* data, uint32_t size)
-    {
-        assert(size % 64 == 0);
+    assert(m_iState == STATE_DEFAULT);
+    assert(input.GetSize() <= numeric_limits<uint32_t>::max());
 
-        auto a = context->a;
-        auto b = context->b;
-        auto c = context->c;
-        auto d = context->d;
+    auto lo = m_uLo;
+    auto data = input.GetBuffer();
+    auto size = static_cast<uint32_t>(input.GetSize());
+    if ((m_uLo = (lo + size) & 0x1FFFFFFFu) < lo)
+        ++m_uHi;
+    m_uHi += (size >> 29u);
 
-        do
-        {
-            auto saved_a = a;
-            auto saved_b = b;
-            auto saved_c = c;
-            auto saved_d = d;
-
-            uint32_t chunk[16] = {
-                MD5_READLE(data, 0),
-                MD5_READLE(data, 4),
-                MD5_READLE(data, 8),
-                MD5_READLE(data, 12),
-                MD5_READLE(data, 16),
-                MD5_READLE(data, 20),
-                MD5_READLE(data, 24),
-                MD5_READLE(data, 28),
-                MD5_READLE(data, 32),
-                MD5_READLE(data, 36),
-                MD5_READLE(data, 40),
-                MD5_READLE(data, 44),
-                MD5_READLE(data, 48),
-                MD5_READLE(data, 52),
-                MD5_READLE(data, 56),
-                MD5_READLE(data, 60),
-            };
-
-            // Round 1
-            MD5_STEP(MD5_F, a, b, c, d, chunk[0],  0xd76aa478, 7)
-            MD5_STEP(MD5_F, d, a, b, c, chunk[1],  0xe8c7b756, 12)
-            MD5_STEP(MD5_F, c, d, a, b, chunk[2],  0x242070db, 17)
-            MD5_STEP(MD5_F, b, c, d, a, chunk[3],  0xc1bdceee, 22)
-            MD5_STEP(MD5_F, a, b, c, d, chunk[4],  0xf57c0faf, 7)
-            MD5_STEP(MD5_F, d, a, b, c, chunk[5],  0x4787c62a, 12)
-            MD5_STEP(MD5_F, c, d, a, b, chunk[6],  0xa8304613, 17)
-            MD5_STEP(MD5_F, b, c, d, a, chunk[7],  0xfd469501, 22)
-            MD5_STEP(MD5_F, a, b, c, d, chunk[8],  0x698098d8, 7)
-            MD5_STEP(MD5_F, d, a, b, c, chunk[9],  0x8b44f7af, 12)
-            MD5_STEP(MD5_F, c, d, a, b, chunk[10], 0xffff5bb1, 17)
-            MD5_STEP(MD5_F, b, c, d, a, chunk[11], 0x895cd7be, 22)
-            MD5_STEP(MD5_F, a, b, c, d, chunk[12], 0x6b901122, 7)
-            MD5_STEP(MD5_F, d, a, b, c, chunk[13], 0xfd987193, 12)
-            MD5_STEP(MD5_F, c, d, a, b, chunk[14], 0xa679438e, 17)
-            MD5_STEP(MD5_F, b, c, d, a, chunk[15], 0x49b40821, 22)
-
-            // Round 2
-            MD5_STEP(MD5_G, a, b, c, d, chunk[1],  0xf61e2562, 5)
-            MD5_STEP(MD5_G, d, a, b, c, chunk[6],  0xc040b340, 9)
-            MD5_STEP(MD5_G, c, d, a, b, chunk[11], 0x265e5a51, 14)
-            MD5_STEP(MD5_G, b, c, d, a, chunk[0],  0xe9b6c7aa, 20)
-            MD5_STEP(MD5_G, a, b, c, d, chunk[5],  0xd62f105d, 5)
-            MD5_STEP(MD5_G, d, a, b, c, chunk[10], 0x02441453, 9)
-            MD5_STEP(MD5_G, c, d, a, b, chunk[15], 0xd8a1e681, 14)
-            MD5_STEP(MD5_G, b, c, d, a, chunk[4],  0xe7d3fbc8, 20)
-            MD5_STEP(MD5_G, a, b, c, d, chunk[9],  0x21e1cde6, 5)
-            MD5_STEP(MD5_G, d, a, b, c, chunk[14], 0xc33707d6, 9)
-            MD5_STEP(MD5_G, c, d, a, b, chunk[3],  0xf4d50d87, 14)
-            MD5_STEP(MD5_G, b, c, d, a, chunk[8],  0x455a14ed, 20)
-            MD5_STEP(MD5_G, a, b, c, d, chunk[13], 0xa9e3e905, 5)
-            MD5_STEP(MD5_G, d, a, b, c, chunk[2],  0xfcefa3f8, 9)
-            MD5_STEP(MD5_G, c, d, a, b, chunk[7],  0x676f02d9, 14)
-            MD5_STEP(MD5_G, b, c, d, a, chunk[12], 0x8d2a4c8a, 20)
-
-            // Round 3
-            MD5_STEP(MD5_H, a, b, c, d, chunk[5],  0xfffa3942, 4)
-            MD5_STEP(MD5_H, d, a, b, c, chunk[8],  0x8771f681, 11)
-            MD5_STEP(MD5_H, c, d, a, b, chunk[11], 0x6d9d6122, 16)
-            MD5_STEP(MD5_H, b, c, d, a, chunk[14], 0xfde5380c, 23)
-            MD5_STEP(MD5_H, a, b, c, d, chunk[1],  0xa4beea44, 4)
-            MD5_STEP(MD5_H, d, a, b, c, chunk[4],  0x4bdecfa9, 11)
-            MD5_STEP(MD5_H, c, d, a, b, chunk[7],  0xf6bb4b60, 16)
-            MD5_STEP(MD5_H, b, c, d, a, chunk[10], 0xbebfbc70, 23)
-            MD5_STEP(MD5_H, a, b, c, d, chunk[13], 0x289b7ec6, 4)
-            MD5_STEP(MD5_H, d, a, b, c, chunk[0],  0xeaa127fa, 11)
-            MD5_STEP(MD5_H, c, d, a, b, chunk[3],  0xd4ef3085, 16)
-            MD5_STEP(MD5_H, b, c, d, a, chunk[6],  0x04881d05, 23)
-            MD5_STEP(MD5_H, a, b, c, d, chunk[9],  0xd9d4d039, 4)
-            MD5_STEP(MD5_H, d, a, b, c, chunk[12], 0xe6db99e5, 11)
-            MD5_STEP(MD5_H, c, d, a, b, chunk[15], 0x1fa27cf8, 16)
-            MD5_STEP(MD5_H, b, c, d, a, chunk[2],  0xc4ac5665, 23)
-
-            // Round 4
-            MD5_STEP(MD5_I, a, b, c, d, chunk[0],  0xf4292244, 6)
-            MD5_STEP(MD5_I, d, a, b, c, chunk[7],  0x432aff97, 10)
-            MD5_STEP(MD5_I, c, d, a, b, chunk[14], 0xab9423a7, 15)
-            MD5_STEP(MD5_I, b, c, d, a, chunk[5],  0xfc93a039, 21)
-            MD5_STEP(MD5_I, a, b, c, d, chunk[12], 0x655b59c3, 6)
-            MD5_STEP(MD5_I, d, a, b, c, chunk[3],  0x8f0ccc92, 10)
-            MD5_STEP(MD5_I, c, d, a, b, chunk[10], 0xffeff47d, 15)
-            MD5_STEP(MD5_I, b, c, d, a, chunk[1],  0x85845dd1, 21)
-            MD5_STEP(MD5_I, a, b, c, d, chunk[8],  0x6fa87e4f, 6)
-            MD5_STEP(MD5_I, d, a, b, c, chunk[15], 0xfe2ce6e0, 10)
-            MD5_STEP(MD5_I, c, d, a, b, chunk[6],  0xa3014314, 15)
-            MD5_STEP(MD5_I, b, c, d, a, chunk[13], 0x4e0811a1, 21)
-            MD5_STEP(MD5_I, a, b, c, d, chunk[4],  0xf7537e82, 6)
-            MD5_STEP(MD5_I, d, a, b, c, chunk[11], 0xbd3af235, 10)
-            MD5_STEP(MD5_I, c, d, a, b, chunk[2],  0x2ad7d2bb, 15)
-            MD5_STEP(MD5_I, b, c, d, a, chunk[9],  0xeb86d391, 21)
-
-            a += saved_a;
-            b += saved_b;
-            c += saved_c;
-            d += saved_d;
-
-            data += 64;
-            size -= 64;
-        } while(size > 0);
-
-        context->a = a;
-        context->b = b;
-        context->c = c;
-        context->d = d;
-        return data;
-    }
-}
-
-void Hasher::details::MD5Init(MD5Context* context)noexcept
-{
-    ::memset(context, 0, sizeof(MD5Context));
-
-    context->a = 0x67452301;
-    context->b = 0xeFCDAB89;
-    context->c = 0x98BADCFE;
-    context->d = 0x10325476;
-
-    context->lo = 0;
-    context->hi = 0;
-}
-
-void Hasher::details::MD5Update(MD5Context* context, const uint8_t* data, uint32_t size)noexcept
-{
-    auto lo = context->lo;
-    if ((context->lo = (lo + size) & 0x1FFFFFFF) < lo)
-        context->hi++;
-    context->hi += (uint32_t)(size >> 29);
-
-    auto used = lo & 0x3F;
-
+    auto used = lo & 0x3Fu;
     if (used)
     {
-        auto free = 64 - used;
+        auto free = 64u - used;
 
         if (size < free)
         {
-            ::memcpy(&context->Buffer[used], data, size);
-            return;
+            ::memcpy(&m_stBuffer[used], data, size);
+            return *this;
         }
 
-        ::memcpy(&context->Buffer[used], data, free);
+        ::memcpy(&m_stBuffer[used], data, free);
         data += free;
         size -= free;
-        MD5Transform(context, context->Buffer, 64);
+        Transform(m_stBuffer.data(), m_stBuffer.size());
     }
 
     if (size >= 64)
     {
-        data = MD5Transform(context, data, size & ~0x3Fu);
+        data = Transform(data, size & ~0x3Fu);
         size &= 0x3F;
     }
 
-    ::memcpy(context->Buffer, data, size);
+    ::memcpy(m_stBuffer.data(), data, size);
+    return *this;
 }
 
-void Hasher::details::MD5Final(MD5Context* context, uint8_t result[])noexcept
+const Md5::ResultType& Md5::Final()noexcept
 {
-    auto used = context->lo & 0x3F;
-    context->Buffer[used++] = 0x80;
-    auto free = 64 - used;
+    if (m_iState == STATE_FINISHED)
+        return m_stResult;
+
+    auto used = m_uLo & 0x3Fu;
+    m_stBuffer[used++] = 0x80u;
+    auto free = 64u - used;
 
     if (free < 8)
     {
-        ::memset(&context->Buffer[used], 0, free);
-        MD5Transform(context, context->Buffer, 64);
+        ::memset(&m_stBuffer[used], 0, free);
+        Transform(m_stBuffer.data(), m_stBuffer.size());
         used = 0;
         free = 64;
     }
 
-    ::memset(&context->Buffer[used], 0, free - 8);
+    ::memset(&m_stBuffer[used], 0, free - 8);
 
-    context->lo <<= 3;
-    context->Buffer[56] = (uint8_t)(context->lo & 0xFF);
-    context->Buffer[57] = (uint8_t)((context->lo >> 8) & 0xFF);
-    context->Buffer[58] = (uint8_t)((context->lo >> 16) & 0xFF);
-    context->Buffer[59] = (uint8_t)((context->lo >> 24) & 0xFF);
-    context->Buffer[60] = (uint8_t)(context->hi & 0xFF);
-    context->Buffer[61] = (uint8_t)((context->hi >> 8) & 0xFF);
-    context->Buffer[62] = (uint8_t)((context->hi >> 16) & 0xFF);
-    context->Buffer[63] = (uint8_t)((context->hi >> 24) & 0xFF);
+    m_uLo <<= 3u;
+    m_stBuffer[56] = static_cast<uint8_t>(m_uLo & 0xFFu);
+    m_stBuffer[57] = static_cast<uint8_t>((m_uLo >> 8u) & 0xFFu);
+    m_stBuffer[58] = static_cast<uint8_t>((m_uLo >> 16u) & 0xFFu);
+    m_stBuffer[59] = static_cast<uint8_t>((m_uLo >> 24u) & 0xFFu);
+    m_stBuffer[60] = static_cast<uint8_t>(m_uHi & 0xFFu);
+    m_stBuffer[61] = static_cast<uint8_t>((m_uHi >> 8u) & 0xFFu);
+    m_stBuffer[62] = static_cast<uint8_t>((m_uHi >> 16u) & 0xFFu);
+    m_stBuffer[63] = static_cast<uint8_t>((m_uHi >> 24u) & 0xFFu);
 
-    MD5Transform(context, context->Buffer, 64);
+    Transform(m_stBuffer.data(), m_stBuffer.size());
 
-    result[0]  = (uint8_t)(context->a & 0xFF);
-    result[1]  = (uint8_t)((context->a >> 8) & 0xFF);
-    result[2]  = (uint8_t)((context->a >> 16) & 0xFF);
-    result[3]  = (uint8_t)((context->a >> 24) & 0xFF);
-    result[4]  = (uint8_t)(context->b & 0xFF);
-    result[5]  = (uint8_t)((context->b >> 8) & 0xFF);
-    result[6]  = (uint8_t)((context->b >> 16) & 0xFF);
-    result[7]  = (uint8_t)((context->b >> 24) & 0xFF);
-    result[8]  = (uint8_t)(context->c & 0xFF);
-    result[9]  = (uint8_t)((context->c >> 8) & 0xFF);
-    result[10] = (uint8_t)((context->c >> 16) & 0xFF);
-    result[11] = (uint8_t)((context->c >> 24) & 0xFF);
-    result[12] = (uint8_t)(context->d & 0xFF);
-    result[13] = (uint8_t)((context->d >> 8) & 0xFF);
-    result[14] = (uint8_t)((context->d >> 16) & 0xFF);
-    result[15] = (uint8_t)((context->d >> 24) & 0xFF);
+    m_stResult[0]  = static_cast<uint8_t>(m_uA & 0xFFu);
+    m_stResult[1]  = static_cast<uint8_t>((m_uA >> 8u) & 0xFFu);
+    m_stResult[2]  = static_cast<uint8_t>((m_uA >> 16u) & 0xFFu);
+    m_stResult[3]  = static_cast<uint8_t>((m_uA >> 24u) & 0xFFu);
+    m_stResult[4]  = static_cast<uint8_t>(m_uB & 0xFFu);
+    m_stResult[5]  = static_cast<uint8_t>((m_uB >> 8u) & 0xFFu);
+    m_stResult[6]  = static_cast<uint8_t>((m_uB >> 16u) & 0xFFu);
+    m_stResult[7]  = static_cast<uint8_t>((m_uB >> 24u) & 0xFFu);
+    m_stResult[8]  = static_cast<uint8_t>(m_uC & 0xFFu);
+    m_stResult[9]  = static_cast<uint8_t>((m_uC >> 8u) & 0xFFu);
+    m_stResult[10] = static_cast<uint8_t>((m_uC >> 16u) & 0xFFu);
+    m_stResult[11] = static_cast<uint8_t>((m_uC >> 24u) & 0xFFu);
+    m_stResult[12] = static_cast<uint8_t>(m_uD & 0xFFu);
+    m_stResult[13] = static_cast<uint8_t>((m_uD >> 8u) & 0xFFu);
+    m_stResult[14] = static_cast<uint8_t>((m_uD >> 16u) & 0xFFu);
+    m_stResult[15] = static_cast<uint8_t>((m_uD >> 24u) & 0xFFu);
+    return m_stResult;
+}
+
+const uint8_t* Md5::Transform(const uint8_t* data, size_t length)noexcept
+{
+    assert(length % 64 == 0);
+
+    auto a = m_uA;
+    auto b = m_uB;
+    auto c = m_uC;
+    auto d = m_uD;
+
+    do
+    {
+        auto savedA = a;
+        auto savedB = b;
+        auto savedC = c;
+        auto savedD = d;
+
+        uint32_t chunk[16] = {
+            MD5_READ_LE(data, 0u),
+            MD5_READ_LE(data, 4u),
+            MD5_READ_LE(data, 8u),
+            MD5_READ_LE(data, 12u),
+            MD5_READ_LE(data, 16u),
+            MD5_READ_LE(data, 20u),
+            MD5_READ_LE(data, 24u),
+            MD5_READ_LE(data, 28u),
+            MD5_READ_LE(data, 32u),
+            MD5_READ_LE(data, 36u),
+            MD5_READ_LE(data, 40u),
+            MD5_READ_LE(data, 44u),
+            MD5_READ_LE(data, 48u),
+            MD5_READ_LE(data, 52u),
+            MD5_READ_LE(data, 56u),
+            MD5_READ_LE(data, 60u),
+        };
+
+        // Round 1
+        MD5_STEP(MD5_F, a, b, c, d, chunk[0],  0xD76AA478u, 7u);
+        MD5_STEP(MD5_F, d, a, b, c, chunk[1],  0xE8C7B756u, 12u);
+        MD5_STEP(MD5_F, c, d, a, b, chunk[2],  0x242070DBu, 17u);
+        MD5_STEP(MD5_F, b, c, d, a, chunk[3],  0xC1BDCEEEu, 22u);
+        MD5_STEP(MD5_F, a, b, c, d, chunk[4],  0xF57C0FAFu, 7u);
+        MD5_STEP(MD5_F, d, a, b, c, chunk[5],  0x4787C62Au, 12u);
+        MD5_STEP(MD5_F, c, d, a, b, chunk[6],  0xA8304613u, 17u);
+        MD5_STEP(MD5_F, b, c, d, a, chunk[7],  0xFD469501u, 22u);
+        MD5_STEP(MD5_F, a, b, c, d, chunk[8],  0x698098D8u, 7u);
+        MD5_STEP(MD5_F, d, a, b, c, chunk[9],  0x8B44F7AFu, 12u);
+        MD5_STEP(MD5_F, c, d, a, b, chunk[10], 0xFFFF5BB1u, 17u);
+        MD5_STEP(MD5_F, b, c, d, a, chunk[11], 0x895CD7BEu, 22u);
+        MD5_STEP(MD5_F, a, b, c, d, chunk[12], 0x6B901122u, 7u);
+        MD5_STEP(MD5_F, d, a, b, c, chunk[13], 0xFD987193u, 12u);
+        MD5_STEP(MD5_F, c, d, a, b, chunk[14], 0xA679438Eu, 17u);
+        MD5_STEP(MD5_F, b, c, d, a, chunk[15], 0x49B40821u, 22u);
+
+        // Round 2
+        MD5_STEP(MD5_G, a, b, c, d, chunk[1],  0xF61E2562u, 5u);
+        MD5_STEP(MD5_G, d, a, b, c, chunk[6],  0xC040B340u, 9u);
+        MD5_STEP(MD5_G, c, d, a, b, chunk[11], 0x265E5A51u, 14u);
+        MD5_STEP(MD5_G, b, c, d, a, chunk[0],  0xE9B6C7AAu, 20u);
+        MD5_STEP(MD5_G, a, b, c, d, chunk[5],  0xD62F105Du, 5u);
+        MD5_STEP(MD5_G, d, a, b, c, chunk[10], 0x02441453u, 9u);
+        MD5_STEP(MD5_G, c, d, a, b, chunk[15], 0xD8A1E681u, 14u);
+        MD5_STEP(MD5_G, b, c, d, a, chunk[4],  0xE7D3FBC8u, 20u);
+        MD5_STEP(MD5_G, a, b, c, d, chunk[9],  0x21E1CDE6u, 5u);
+        MD5_STEP(MD5_G, d, a, b, c, chunk[14], 0xC33707D6u, 9u);
+        MD5_STEP(MD5_G, c, d, a, b, chunk[3],  0xF4D50D87u, 14u);
+        MD5_STEP(MD5_G, b, c, d, a, chunk[8],  0x455A14EDu, 20u);
+        MD5_STEP(MD5_G, a, b, c, d, chunk[13], 0xA9E3E905u, 5u);
+        MD5_STEP(MD5_G, d, a, b, c, chunk[2],  0xFCEFA3F8u, 9u);
+        MD5_STEP(MD5_G, c, d, a, b, chunk[7],  0x676F02D9u, 14u);
+        MD5_STEP(MD5_G, b, c, d, a, chunk[12], 0x8D2A4C8Au, 20u);
+
+        // Round 3
+        MD5_STEP(MD5_H, a, b, c, d, chunk[5],  0xFFFA3942u, 4u);
+        MD5_STEP(MD5_H, d, a, b, c, chunk[8],  0x8771F681u, 11u);
+        MD5_STEP(MD5_H, c, d, a, b, chunk[11], 0x6D9D6122u, 16u);
+        MD5_STEP(MD5_H, b, c, d, a, chunk[14], 0xFDE5380Cu, 23u);
+        MD5_STEP(MD5_H, a, b, c, d, chunk[1],  0xA4BEEA44u, 4u);
+        MD5_STEP(MD5_H, d, a, b, c, chunk[4],  0x4BDECFA9u, 11u);
+        MD5_STEP(MD5_H, c, d, a, b, chunk[7],  0xF6BB4B60u, 16u);
+        MD5_STEP(MD5_H, b, c, d, a, chunk[10], 0xBEBFBC70u, 23u);
+        MD5_STEP(MD5_H, a, b, c, d, chunk[13], 0x289B7EC6u, 4u);
+        MD5_STEP(MD5_H, d, a, b, c, chunk[0],  0xEAA127FAu, 11u);
+        MD5_STEP(MD5_H, c, d, a, b, chunk[3],  0xD4EF3085u, 16u);
+        MD5_STEP(MD5_H, b, c, d, a, chunk[6],  0x04881D05u, 23u);
+        MD5_STEP(MD5_H, a, b, c, d, chunk[9],  0xD9D4D039u, 4u);
+        MD5_STEP(MD5_H, d, a, b, c, chunk[12], 0xE6DB99E5u, 11u);
+        MD5_STEP(MD5_H, c, d, a, b, chunk[15], 0x1FA27CF8u, 16u);
+        MD5_STEP(MD5_H, b, c, d, a, chunk[2],  0xC4AC5665u, 23u);
+
+        // Round 4
+        MD5_STEP(MD5_I, a, b, c, d, chunk[0],  0xF4292244u, 6u);
+        MD5_STEP(MD5_I, d, a, b, c, chunk[7],  0x432AFF97u, 10u);
+        MD5_STEP(MD5_I, c, d, a, b, chunk[14], 0xAB9423A7u, 15u);
+        MD5_STEP(MD5_I, b, c, d, a, chunk[5],  0xFC93A039u, 21u);
+        MD5_STEP(MD5_I, a, b, c, d, chunk[12], 0x655B59C3u, 6u);
+        MD5_STEP(MD5_I, d, a, b, c, chunk[3],  0x8F0CCC92u, 10u);
+        MD5_STEP(MD5_I, c, d, a, b, chunk[10], 0xFFEFF47Du, 15u);
+        MD5_STEP(MD5_I, b, c, d, a, chunk[1],  0x85845DD1u, 21u);
+        MD5_STEP(MD5_I, a, b, c, d, chunk[8],  0x6FA87E4Fu, 6u);
+        MD5_STEP(MD5_I, d, a, b, c, chunk[15], 0xFE2CE6E0u, 10u);
+        MD5_STEP(MD5_I, c, d, a, b, chunk[6],  0xA3014314u, 15u);
+        MD5_STEP(MD5_I, b, c, d, a, chunk[13], 0x4E0811A1u, 21u);
+        MD5_STEP(MD5_I, a, b, c, d, chunk[4],  0xF7537E82u, 6u);
+        MD5_STEP(MD5_I, d, a, b, c, chunk[11], 0xBD3AF235u, 10u);
+        MD5_STEP(MD5_I, c, d, a, b, chunk[2],  0x2AD7D2BBu, 15u);
+        MD5_STEP(MD5_I, b, c, d, a, chunk[9],  0xEB86D391u, 21u);
+
+        a += savedA;
+        b += savedB;
+        c += savedC;
+        d += savedD;
+
+        data += 64;
+        length -= 64;
+    } while(length > 0);
+
+    m_uA = a;
+    m_uB = b;
+    m_uC = c;
+    m_uD = d;
+    return data;
 }
