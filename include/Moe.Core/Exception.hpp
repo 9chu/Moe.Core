@@ -64,11 +64,12 @@ namespace moe
          * @brief 设置抛出点的源文件
          * @param[in] filename 源文件，必须是常量
          */
-        void SetSourceFile(const char* filename)noexcept
+        Exception& SetSourceFile(const char* filename)noexcept
         {
             assert(m_pStorage);
             m_pStorage->SourceFile = filename;
             m_pStorage->FullDescCache.clear();
+            return *this;
         }
 
         /**
@@ -84,11 +85,12 @@ namespace moe
          * @brief 设置抛出点的函数名
          * @param[in] name 函数名，必须是常量
          */
-        void SetFunctionName(const char* name)noexcept
+        Exception& SetFunctionName(const char* name)noexcept
         {
             assert(m_pStorage);
             m_pStorage->FunctionName = name;
             m_pStorage->FullDescCache.clear();
+            return *this;
         }
 
         /**
@@ -104,11 +106,12 @@ namespace moe
          * @brief 设置抛出点的行号
          * @param[in] line 行号
          */
-        void SetLineNumber(uint32_t line)noexcept
+        Exception& SetLineNumber(uint32_t line)noexcept
         {
             assert(m_pStorage);
             m_pStorage->LineNumber = line;
             m_pStorage->FullDescCache.clear();
+            return *this;
         }
 
         /**
@@ -124,22 +127,24 @@ namespace moe
          * @brief 设置异常描述
          * @param[in] str 描述字符串
          */
-        void SetDescription(const std::string& str)
+        Exception& SetDescription(const std::string& str)
         {
             assert(m_pStorage);
             m_pStorage->Desc = str;
             m_pStorage->FullDescCache.clear();
+            return *this;
         }
 
         /**
          * @brief 设置异常描述
          * @param[in] str 描述字符串
          */
-        void SetDescription(std::string&& str)noexcept
+        Exception& SetDescription(std::string&& str)noexcept
         {
             assert(m_pStorage);
             m_pStorage->Desc = std::move(str);
             m_pStorage->FullDescCache.clear();
+            return *this;
         }
 
         /**
@@ -167,10 +172,11 @@ namespace moe
          * @param value 值
          */
         template <typename T>
-        void SetInfo(const std::string& key, T&& value)
+        Exception& SetInfo(const std::string& key, T&& value)
         {
             assert(m_pStorage);
             m_pStorage->Info[key] = Any(std::forward<T&&>(value));
+            return *this;
         }
 
         /**
@@ -193,12 +199,11 @@ namespace moe
  */
 #define MOE_THROW(Except, ...) \
     do { \
-        Except ex; \
-        ex.SetSourceFile(__FILE__); \
-        ex.SetFunctionName(__FUNCTION__); \
-        ex.SetLineNumber(__LINE__); \
-        ex.SetDescription(moe::StringUtils::Format(__VA_ARGS__)); \
-        throw ex; \
+        throw Except() \
+            .SetSourceFile(__FILE__) \
+            .SetFunctionName(__FUNCTION__) \
+            .SetLineNumber(__LINE__) \
+            .SetDescription(moe::StringUtils::Format(__VA_ARGS__)); \
     } while (false)
 
 /**
