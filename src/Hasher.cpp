@@ -458,3 +458,271 @@ const uint8_t* Md5::Transform(const uint8_t* data, size_t length)noexcept
     m_uD = d;
     return data;
 }
+
+//////////////////////////////////////////////////////////////////////////////// Sha1
+
+#define SHA1_LOAD32H(x, y) x = (static_cast<uint32_t>((y)[0] & 255u) << 24u) | \
+    (static_cast<uint32_t>((y)[1] & 255u) << 16u) | (static_cast<uint32_t>((y)[2] & 255u) << 8u) | \
+    (static_cast<uint32_t>((y)[3] & 255u));
+
+#define SHA1_ROL(value, bits) (((value) << (bits)) | ((value) >> (32u - (bits))))
+
+#define SHA1_BLK0(i) block->l[i]
+
+#define SHA1_BLK(i) \
+    (block->l[i & 15u] = SHA1_ROL(block->l[(i + 13u) & 15u] ^ block->l[(i + 8u) & 15u] ^ block->l[(i + 2u) & 15u] ^ \
+    block->l[i & 15u], 1u))
+
+#define SHA1_R0(v, w, x, y, z, i) z += ((w & (x ^ y)) ^ y) + SHA1_BLK0(i)+ 0x5A827999u + SHA1_ROL(v, 5u); \
+    w = SHA1_ROL(w, 30u);
+#define SHA1_R1(v, w, x, y, z, i) z += ((w & (x ^ y)) ^ y) + SHA1_BLK(i) + 0x5A827999u + SHA1_ROL(v, 5u); \
+    w = SHA1_ROL(w, 30u);
+#define SHA1_R2(v, w, x, y, z, i) z += (w ^ x ^ y) + SHA1_BLK(i) + 0x6ED9EBA1u + SHA1_ROL(v, 5u); w = SHA1_ROL(w, 30u);
+#define SHA1_R3(v, w, x, y, z, i) z += (((w | x) & y) | (w & x)) + SHA1_BLK(i) + 0x8F1BBCDCu + SHA1_ROL(v, 5u); \
+    w = SHA1_ROL(w, 30u);
+#define SHA1_R4(v, w, x, y, z, i) z += (w ^ x ^ y) + SHA1_BLK(i) + 0xCA62C1D6u + SHA1_ROL(v, 5u); w = SHA1_ROL(w, 30u);
+
+Sha1& Sha1::Update(BytesView input)noexcept
+{
+    assert(m_iState == STATE_DEFAULT);
+
+    uint32_t i = 0;
+    uint32_t j = (m_uCount[0] >> 3u) & 63u;
+    if ((m_uCount[0] += input.GetSize() << 3u) < (input.GetSize() << 3u))
+        ++m_uCount[1];
+
+    m_uCount[1] += input.GetSize() >> 29u;
+    if ((j + input.GetSize()) > 63u)
+    {
+        i = 64u - j;
+        ::memcpy(&m_stBuffer[j], input.GetBuffer(), i);
+        Transform(m_stBuffer.data());
+        for (; i + 63u < input.GetSize(); i += 64u)
+            Transform(&input[i]);
+        j = 0;
+    }
+
+    if (input.GetSize() != i)
+        ::memcpy(&m_stBuffer[j], &input[i], input.GetSize() - i);
+    return *this;
+}
+
+const Sha1::ResultType& Sha1::Final()noexcept
+{
+    if (m_iState == STATE_FINISHED)
+        return m_stResult;
+
+    uint8_t final[8];
+    for (uint32_t i = 0; i < 8; ++i)
+        final[i] = static_cast<uint8_t>((m_uCount[(i >= 4 ? 0 : 1)] >> ((3u - (i & 3u)) * 8u)) & 255u);
+    Update(BytesView(reinterpret_cast<const uint8_t*>("\x80"), 1));
+    while ((m_uCount[0] & 504u) != 448u)
+        Update(BytesView(reinterpret_cast<const uint8_t*>("\0"), 1));
+    Update(BytesView(final, 8));
+    for (uint32_t i = 0; i < kHashSize; ++i)
+        m_stResult[i] = static_cast<uint8_t>((m_uState[i >> 2u] >> ((3u - (i & 3u)) * 8u)) & 255u);
+    m_iState = STATE_FINISHED;
+    return m_stResult;
+}
+
+void Sha1::Transform(const uint8_t buffer[64])noexcept
+{
+    union BlockType
+    {
+        uint8_t c[64];
+        uint32_t l[16];
+    };
+
+    uint32_t a = m_uState[0];
+    uint32_t b = m_uState[1];
+    uint32_t c = m_uState[2];
+    uint32_t d = m_uState[3];
+    uint32_t e = m_uState[4];
+    uint8_t workspace[64];
+    auto* block = reinterpret_cast<BlockType*>(workspace);
+
+    for (uint32_t i = 0; i < 16; ++i)
+        SHA1_LOAD32H(block->l[i], buffer + (i * 4));
+
+    SHA1_R0(a,b,c,d,e, 0u); SHA1_R0(e,a,b,c,d, 1u); SHA1_R0(d,e,a,b,c, 2u); SHA1_R0(c,d,e,a,b, 3u);
+    SHA1_R0(b,c,d,e,a, 4u); SHA1_R0(a,b,c,d,e, 5u); SHA1_R0(e,a,b,c,d, 6u); SHA1_R0(d,e,a,b,c, 7u);
+    SHA1_R0(c,d,e,a,b, 8u); SHA1_R0(b,c,d,e,a, 9u); SHA1_R0(a,b,c,d,e,10u); SHA1_R0(e,a,b,c,d,11u);
+    SHA1_R0(d,e,a,b,c,12u); SHA1_R0(c,d,e,a,b,13u); SHA1_R0(b,c,d,e,a,14u); SHA1_R0(a,b,c,d,e,15u);
+    SHA1_R1(e,a,b,c,d,16u); SHA1_R1(d,e,a,b,c,17u); SHA1_R1(c,d,e,a,b,18u); SHA1_R1(b,c,d,e,a,19u);
+    SHA1_R2(a,b,c,d,e,20u); SHA1_R2(e,a,b,c,d,21u); SHA1_R2(d,e,a,b,c,22u); SHA1_R2(c,d,e,a,b,23u);
+    SHA1_R2(b,c,d,e,a,24u); SHA1_R2(a,b,c,d,e,25u); SHA1_R2(e,a,b,c,d,26u); SHA1_R2(d,e,a,b,c,27u);
+    SHA1_R2(c,d,e,a,b,28u); SHA1_R2(b,c,d,e,a,29u); SHA1_R2(a,b,c,d,e,30u); SHA1_R2(e,a,b,c,d,31u);
+    SHA1_R2(d,e,a,b,c,32u); SHA1_R2(c,d,e,a,b,33u); SHA1_R2(b,c,d,e,a,34u); SHA1_R2(a,b,c,d,e,35u);
+    SHA1_R2(e,a,b,c,d,36u); SHA1_R2(d,e,a,b,c,37u); SHA1_R2(c,d,e,a,b,38u); SHA1_R2(b,c,d,e,a,39u);
+    SHA1_R3(a,b,c,d,e,40u); SHA1_R3(e,a,b,c,d,41u); SHA1_R3(d,e,a,b,c,42u); SHA1_R3(c,d,e,a,b,43u);
+    SHA1_R3(b,c,d,e,a,44u); SHA1_R3(a,b,c,d,e,45u); SHA1_R3(e,a,b,c,d,46u); SHA1_R3(d,e,a,b,c,47u);
+    SHA1_R3(c,d,e,a,b,48u); SHA1_R3(b,c,d,e,a,49u); SHA1_R3(a,b,c,d,e,50u); SHA1_R3(e,a,b,c,d,51u);
+    SHA1_R3(d,e,a,b,c,52u); SHA1_R3(c,d,e,a,b,53u); SHA1_R3(b,c,d,e,a,54u); SHA1_R3(a,b,c,d,e,55u);
+    SHA1_R3(e,a,b,c,d,56u); SHA1_R3(d,e,a,b,c,57u); SHA1_R3(c,d,e,a,b,58u); SHA1_R3(b,c,d,e,a,59u);
+    SHA1_R4(a,b,c,d,e,60u); SHA1_R4(e,a,b,c,d,61u); SHA1_R4(d,e,a,b,c,62u); SHA1_R4(c,d,e,a,b,63u);
+    SHA1_R4(b,c,d,e,a,64u); SHA1_R4(a,b,c,d,e,65u); SHA1_R4(e,a,b,c,d,66u); SHA1_R4(d,e,a,b,c,67u);
+    SHA1_R4(c,d,e,a,b,68u); SHA1_R4(b,c,d,e,a,69u); SHA1_R4(a,b,c,d,e,70u); SHA1_R4(e,a,b,c,d,71u);
+    SHA1_R4(d,e,a,b,c,72u); SHA1_R4(c,d,e,a,b,73u); SHA1_R4(b,c,d,e,a,74u); SHA1_R4(a,b,c,d,e,75u);
+    SHA1_R4(e,a,b,c,d,76u); SHA1_R4(d,e,a,b,c,77u); SHA1_R4(c,d,e,a,b,78u); SHA1_R4(b,c,d,e,a,79u);
+
+    m_uState[0] += a;
+    m_uState[1] += b;
+    m_uState[2] += c;
+    m_uState[3] += d;
+    m_uState[4] += e;
+}
+
+//////////////////////////////////////////////////////////////////////////////// Sha256
+
+static const uint32_t kSha256Table[64] = {
+    0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u, 0x3956c25bu,
+    0x59f111f1u, 0x923f82a4u, 0xab1c5ed5u, 0xd807aa98u, 0x12835b01u,
+    0x243185beu, 0x550c7dc3u, 0x72be5d74u, 0x80deb1feu, 0x9bdc06a7u,
+    0xc19bf174u, 0xe49b69c1u, 0xefbe4786u, 0x0fc19dc6u, 0x240ca1ccu,
+    0x2de92c6fu, 0x4a7484aau, 0x5cb0a9dcu, 0x76f988dau, 0x983e5152u,
+    0xa831c66du, 0xb00327c8u, 0xbf597fc7u, 0xc6e00bf3u, 0xd5a79147u,
+    0x06ca6351u, 0x14292967u, 0x27b70a85u, 0x2e1b2138u, 0x4d2c6dfcu,
+    0x53380d13u, 0x650a7354u, 0x766a0abbu, 0x81c2c92eu, 0x92722c85u,
+    0xa2bfe8a1u, 0xa81a664bu, 0xc24b8b70u, 0xc76c51a3u, 0xd192e819u,
+    0xd6990624u, 0xf40e3585u, 0x106aa070u, 0x19a4c116u, 0x1e376c08u,
+    0x2748774cu, 0x34b0bcb5u, 0x391c0cb3u, 0x4ed8aa4au, 0x5b9cca4fu,
+    0x682e6ff3u, 0x748f82eeu, 0x78a5636fu, 0x84c87814u, 0x8cc70208u,
+    0x90befffau, 0xa4506cebu, 0xbef9a3f7u, 0xc67178f2u
+};
+
+#define SHA256_STORE32H(x, y) \
+    do { \
+        (y)[0] = static_cast<uint8_t>(((x) >> 24u) & 255u); (y)[1] = static_cast<uint8_t>(((x) >> 16u) & 255u); \
+        (y)[2] = static_cast<uint8_t>(((x) >> 8u) & 255u); (y)[3] = static_cast<uint8_t>((x) & 255u); \
+    } while (false)
+
+#define SHA256_LOAD32H(x, y) \
+    do { \
+        x = (static_cast<uint32_t>((y)[0] & 255u) << 24u) | (static_cast<uint32_t>((y)[1] & 255u) << 16u) | \
+            (static_cast<uint32_t>((y)[2] & 255u) << 8u) | (static_cast<uint32_t>((y)[3] & 255u)); \
+    } while (false)
+
+#define SHA256_STORE64H(x, y) \
+    do { \
+        (y)[0] = static_cast<uint8_t>(((x) >> 56u) & 255u); (y)[1] = static_cast<uint8_t>(((x) >> 48u) & 255u); \
+        (y)[2] = static_cast<uint8_t>(((x) >> 40u) & 255u); (y)[3] = static_cast<uint8_t>(((x) >> 32u) & 255u); \
+        (y)[4] = static_cast<uint8_t>(((x) >> 24u) & 255u); (y)[5] = static_cast<uint8_t>(((x) >> 16u) & 255u); \
+        (y)[6] = static_cast<uint8_t>(((x) >> 8u) & 255u); (y)[7] = static_cast<uint8_t>((x) & 255u); \
+    } while (false)
+
+#define SHA256_ROR(value, bits) (((value) >> (bits)) | ((value) << (32u - (bits))))
+#define SHA256_CH(x, y, z) (z ^ (x & (y ^ z)))
+#define SHA256_MAJ(x, y, z) (((x | y) & z) | (x & y))
+#define SHA256_S(x, n) SHA256_ROR((x), (n))
+#define SHA256_R(x, n) (((x) & 0xFFFFFFFFu) >> (n))
+#define SHA256_SIGMA0(x) (SHA256_S(x, 2) ^ SHA256_S(x, 13) ^ SHA256_S(x, 22))
+#define SHA256_SIGMA1(x) (SHA256_S(x, 6) ^ SHA256_S(x, 11) ^ SHA256_S(x, 25))
+#define SHA256_GAMMA0(x) (SHA256_S(x, 7) ^ SHA256_S(x, 18) ^ SHA256_R(x, 3))
+#define SHA256_GAMMA1(x) (SHA256_S(x, 17) ^ SHA256_S(x, 19) ^ SHA256_R(x, 10))
+
+#define SHA256_ROUND(a, b, c, d, e, f, g, h, i) \
+    do { \
+        t0 = h + SHA256_SIGMA1(e) + SHA256_CH(e, f, g) + kSha256Table[i] + w[i]; \
+        t1 = SHA256_SIGMA0(a) + SHA256_MAJ(a, b, c); \
+        d += t0; \
+        h  = t0 + t1; \
+    } while (false)
+
+Sha256& Sha256::Update(BytesView input)noexcept
+{
+    assert(m_iState == STATE_DEFAULT);
+    assert(m_uCurrent < m_stBuffer.size());
+
+    auto size = input.GetSize();
+    auto buffer = input.GetBuffer();
+    while (size > 0)
+    {
+        if (m_uCurrent == 0 && size >= kBlockSize)
+        {
+            Transform(buffer);
+            m_uLength += kBlockSize * 8;
+            buffer += kBlockSize;
+            size -= kBlockSize;
+        }
+        else
+        {
+            auto n = std::min<uint32_t>(static_cast<uint32_t>(size), kBlockSize - m_uCurrent);
+            ::memcpy(m_stBuffer.data() + m_uCurrent, buffer, n);
+            m_uCurrent += n;
+            buffer += n;
+            size -= n;
+            if (m_uCurrent == kBlockSize)
+            {
+                Transform(m_stBuffer.data());
+                m_uLength += 8 * kBlockSize;
+                m_uCurrent = 0;
+            }
+        }
+    }
+    return *this;
+}
+
+const Sha256::ResultType& Sha256::Final()noexcept
+{
+    if (m_iState == STATE_FINISHED)
+        return m_stResult;
+
+    assert(m_uCurrent < m_stBuffer.size());
+    m_uLength += m_uCurrent * 8;
+    m_stBuffer[m_uCurrent++] = 0x80;
+
+    if (m_uCurrent > 56)
+    {
+        while (m_uCurrent < 64)
+            m_stBuffer[m_uCurrent++] = 0;
+        Transform(m_stBuffer.data());
+        m_uCurrent = 0;
+    }
+
+    while (m_uCurrent < 56)
+        m_stBuffer[m_uCurrent++] = 0;
+
+    SHA256_STORE64H(m_uLength, m_stBuffer.data() + 56);
+    Transform(m_stBuffer.data());
+
+    for (uint32_t i = 0; i < 8; ++i)
+        SHA256_STORE32H(m_uState[i], &m_stResult[4 * i]);
+
+    m_iState = STATE_FINISHED;
+    return m_stResult;
+}
+
+void Sha256::Transform(const uint8_t* buffer)noexcept
+{
+    uint32_t s[8];
+    uint32_t w[64];
+    uint32_t t0;
+    uint32_t t1;
+    uint32_t t;
+
+    for (uint32_t i = 0; i < 8; ++i)
+        s[i] = m_uState[i];
+
+    for (uint32_t i = 0; i < 16; ++i)
+        SHA256_LOAD32H(w[i], buffer + (4 * i));
+
+    for (uint32_t i = 16; i < 64; ++i)
+        w[i] = SHA256_GAMMA1(w[i - 2]) + w[i - 7] + SHA256_GAMMA0(w[i - 15]) + w[i - 16];
+
+    for (uint32_t i = 0; i < 64; ++i)
+    {
+        SHA256_ROUND(s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], i);
+        t = s[7];
+        s[7] = s[6];
+        s[6] = s[5];
+        s[5] = s[4];
+        s[4] = s[3];
+        s[3] = s[2];
+        s[2] = s[1];
+        s[1] = s[0];
+        s[0] = t;
+    }
+
+    for (uint32_t i = 0; i < 8; ++i)
+        m_uState[i] = m_uState[i] + s[i];
+}

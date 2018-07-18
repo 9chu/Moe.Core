@@ -418,6 +418,125 @@ namespace moe
             std::array<uint8_t, 64> m_stBuffer {};
             ResultType m_stResult {};
         };
+
+        /**
+         * @brief SHA1计算
+         */
+        class Sha1
+        {
+            enum STATE
+            {
+                STATE_DEFAULT = 0,
+                STATE_FINISHED = 1,
+            };
+
+        public:
+            static const uint32_t kHashSize = 160 / 8;
+            using ResultType = std::array<uint8_t, kHashSize>;
+
+        public:
+            Sha1()noexcept { Reset(); }
+
+            /**
+             * @brief 重置内部状态
+             */
+            Sha1& Reset()noexcept
+            {
+                m_iState = STATE_DEFAULT;
+                m_uState[0] = 0x67452301u;
+                m_uState[1] = 0xEFCDAB89u;
+                m_uState[2] = 0x98BADCFEu;
+                m_uState[3] = 0x10325476u;
+                m_uState[4] = 0xC3D2E1F0u;
+                m_uCount[0] = 0;
+                m_uCount[1] = 0;
+                m_stBuffer.fill(0);
+                return *this;
+            }
+
+            /**
+             * @brief 更新内部状态
+             * @param input 输入数据
+             */
+            Sha1& Update(BytesView input)noexcept;
+
+            /**
+             * @brief 计算最终输出
+             */
+            const ResultType& Final()noexcept;
+
+        private:
+            void Transform(const uint8_t buffer[64])noexcept;
+
+        private:
+            STATE m_iState = STATE_DEFAULT;
+            std::array<uint32_t, 5> m_uState {};
+            std::array<uint32_t, 2> m_uCount {};
+            std::array<uint8_t, 64> m_stBuffer {};
+            ResultType m_stResult {};
+        };
+
+        /**
+         * @brief SHA256计算
+         */
+        class Sha256
+        {
+            enum STATE
+            {
+                STATE_DEFAULT = 0,
+                STATE_FINISHED = 1,
+            };
+
+            static const uint32_t kBlockSize = 64;
+
+        public:
+            static const uint32_t kHashSize = 256 / 8;
+            using ResultType = std::array<uint8_t, kHashSize>;
+
+        public:
+            Sha256()noexcept { Reset(); }
+
+            /**
+             * @brief 重置内部状态
+             */
+            Sha256& Reset()noexcept
+            {
+                m_iState = STATE_DEFAULT;
+                m_uLength = m_uCurrent = 0;
+                m_uState[0] = 0x6A09E667u;
+                m_uState[1] = 0xBB67AE85u;
+                m_uState[2] = 0x3C6EF372u;
+                m_uState[3] = 0xA54FF53Au;
+                m_uState[4] = 0x510E527Fu;
+                m_uState[5] = 0x9B05688Cu;
+                m_uState[6] = 0x1F83D9ABu;
+                m_uState[7] = 0x5BE0CD19u;
+                m_stBuffer.fill(0);
+                return *this;
+            }
+
+            /**
+             * @brief 更新内部状态
+             * @param input 输入数据
+             */
+            Sha256& Update(BytesView input)noexcept;
+
+            /**
+             * @brief 计算最终输出
+             */
+            const ResultType& Final()noexcept;
+
+        private:
+            void Transform(const uint8_t* buffer)noexcept;
+
+        private:
+            STATE m_iState = STATE_DEFAULT;
+            uint64_t m_uLength = 0;
+            std::array<uint32_t, 8> m_uState {};
+            uint32_t m_uCurrent = 0;
+            std::array<uint8_t, 64> m_stBuffer {};
+            ResultType m_stResult {};
+        };
     }
 
     /**
