@@ -126,7 +126,8 @@ SharedMemory::SharedMemory(const char* name, size_t sz, AttachMode mode)
     
 #ifdef MOE_WINDOWS
     static_assert(sizeof(wchar_t) == sizeof(char16_t), "Bad platform");
-    m_stPlatformName = Encoding::Convert<Encoding::UTF16, Encoding::UTF8>(MakePlatformSpecificShmName(m_stName));
+    m_stPlatformName = Encoding::Convert<Encoding::Utf8, Encoding::Utf16>(MakePlatformSpecificShmName(m_stName),
+        Encoding::DefaultUnicodeFallbackHandler);
 
     switch (mode)
     {

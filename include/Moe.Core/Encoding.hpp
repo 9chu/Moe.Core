@@ -38,55 +38,71 @@ namespace moe
         /**
          * @brief UTF8编解码器
          */
-        class UTF8
+        class Utf8
         {
         public:
-            // 字符类型
-            using CharType = char;
-
-            // 最大码点大小
-            static const uint32_t kMaxCodePointSize = 6;
+            static const char* const kName;
 
             class Decoder
             {
+            public:
+                using InputType = char;
+                using OutputType = char32_t;
+                static const uint32_t kMaxOutputCount = 1;
+
             public:
                 Decoder()noexcept = default;
                 Decoder(const Decoder&)noexcept = default;
                 Decoder(Decoder&&)noexcept = default;
 
+                Decoder& operator=(const Decoder&)noexcept = default;
+                Decoder& operator=(Decoder&&)noexcept = default;
+
             public:
-                EncodingResult operator()(char ch, char32_t& out)noexcept;
+                EncodingResult operator()(InputType ch, std::array<OutputType, kMaxOutputCount>& out,
+                    uint32_t& count)noexcept;
 
             private:
                 uint32_t m_iState = 0;
+                uint32_t m_iTmp = 0;
             };
 
             class Encoder
             {
             public:
+                using InputType = char32_t;
+                using OutputType = char;
+                static const uint32_t kMaxOutputCount = 6;
+
+            public:
                 Encoder()noexcept = default;
                 Encoder(const Encoder&)noexcept = default;
                 Encoder(Encoder&&)noexcept = default;
 
+                Encoder& operator=(const Encoder&)noexcept = default;
+                Encoder& operator=(Encoder&&)noexcept = default;
+
             public:
-                EncodingResult operator()(char32_t ch, char out[], uint32_t& cnt)noexcept;
+                EncodingResult operator()(InputType ch, std::array<OutputType, kMaxOutputCount>& out,
+                    uint32_t& count)noexcept;
             };
         };
 
         /**
          * @brief UTF16编解码器
          */
-        class UTF16
+        class Utf16
         {
         public:
-            // 字符类型
-            using CharType = char16_t;
-
-            // 最大码点大小
-            static const uint32_t kMaxCodePointSize = 2;
+            static const char* const kName;
 
             class Decoder
             {
+            public:
+                using InputType = char16_t;
+                using OutputType = char32_t;
+                static const uint32_t kMaxOutputCount = 1;
+
             private:
                 uint32_t m_iState = 0;
                 uint16_t m_iLastWord = 0;
@@ -96,19 +112,32 @@ namespace moe
                 Decoder(const Decoder&)noexcept = default;
                 Decoder(Decoder&&)noexcept = default;
 
+                Decoder& operator=(const Decoder&)noexcept = default;
+                Decoder& operator=(Decoder&&)noexcept = default;
+
             public:
-                EncodingResult operator()(char16_t ch, char32_t& out)noexcept;
+                EncodingResult operator()(InputType ch, std::array<OutputType, kMaxOutputCount>& out,
+                    uint32_t& count)noexcept;
             };
 
             class Encoder
             {
             public:
+                using InputType = char32_t;
+                using OutputType = char16_t;
+                static const uint32_t kMaxOutputCount = 2;
+
+            public:
                 Encoder()noexcept = default;
                 Encoder(const Encoder&)noexcept = default;
                 Encoder(Encoder&&)noexcept = default;
 
+                Encoder& operator=(const Encoder&)noexcept = default;
+                Encoder& operator=(Encoder&&)noexcept = default;
+
             public:
-                EncodingResult operator()(char32_t ch, char16_t out[], uint32_t& cnt)noexcept;
+                EncodingResult operator()(InputType ch, std::array<OutputType, kMaxOutputCount>& out,
+                    uint32_t& count)noexcept;
             };
         };
 
@@ -117,26 +146,32 @@ namespace moe
          *
          * 仅作接口匹配使用
          */
-        class UTF32
+        class Utf32
         {
         public:
-            // 字符类型
-            using CharType = char32_t;
-
-            // 最大码点大小
-            static const uint32_t kMaxCodePointSize = 1;
+            static const char* const kName;
 
             class Decoder
             {
+            public:
+                using InputType = char32_t;
+                using OutputType = char32_t;
+                static const uint32_t kMaxOutputCount = 1;
+
             public:
                 Decoder()noexcept = default;
                 Decoder(const Decoder&)noexcept = default;
                 Decoder(Decoder&&)noexcept = default;
 
+                Decoder& operator=(const Decoder&)noexcept = default;
+                Decoder& operator=(Decoder&&)noexcept = default;
+
             public:
-                EncodingResult operator()(char32_t ch, char32_t& out)noexcept
+                EncodingResult operator()(InputType ch, std::array<OutputType, kMaxOutputCount>& out,
+                    uint32_t& count)noexcept
                 {
-                    out = ch;
+                    out[0] = ch;
+                    count = 1;
                     return EncodingResult::Accept;
                 }
             };
@@ -144,304 +179,404 @@ namespace moe
             class Encoder
             {
             public:
+                using InputType = char32_t;
+                using OutputType = char32_t;
+                static const uint32_t kMaxOutputCount = 1;
+
+            public:
                 Encoder()noexcept = default;
                 Encoder(const Encoder&)noexcept = default;
                 Encoder(Encoder&&)noexcept = default;
 
+                Encoder& operator=(const Encoder&)noexcept = default;
+                Encoder& operator=(Encoder&&)noexcept = default;
+
             public:
-                EncodingResult operator()(char32_t ch, char32_t out[], uint32_t& cnt)noexcept
+                EncodingResult operator()(InputType ch, std::array<OutputType, kMaxOutputCount>& out,
+                    uint32_t& count)noexcept
                 {
                     out[0] = ch;
-                    cnt = 1;
+                    count = 1;
                     return EncodingResult::Accept;
                 }
             };
         };
 
         /**
-         * @brief 执行编码转换
-         * @throw InvalidEncodingException 当转换无效时抛出
-         * @tparam DestEncoding 目标编码
-         * @tparam SrcEncoding 原始编码
-         * @tparam TDestChar 目标字符类型
-         * @tparam TSrcChar 原始字符类型
-         * @tparam DestContainer 目的容器
-         * @param[out] out 转换输出
-         * @param src 原始输入
-         * @param replacer 非法字符替换字符, 若为0则在错误时抛出异常
+         * @brief 错误回退处理函数回调类型
+         *
+         * 该方法不应当抛出异常。
          */
-        template <typename DestEncoding, typename SrcEncoding, typename TDestChar = typename DestEncoding::CharType,
-            typename TSrcChar = typename SrcEncoding::CharType, typename DestContainer = std::basic_string<TDestChar>>
-        DestContainer& Convert(DestContainer& out, ArrayView<TSrcChar> src, char32_t replacer=0xFFFD)
+        template <typename EncoderOrDecoder>
+        using FailureFallbackCallbackType = bool(std::array<typename EncoderOrDecoder::OutputType,
+            EncoderOrDecoder::kMaxOutputCount>& out, uint32_t& count) /* noexcept */;
+
+        /**
+         * @brief 默认Unicode回退处理函数
+         */
+        inline bool DefaultUnicodeFallbackHandler(std::array<char32_t, 1>& out, uint32_t& count)noexcept
         {
-            static_assert(DestEncoding::kMaxCodePointSize > 0,
-                "Invalid kMaxCodePointSize, which must bigger than zero.");
-            static_assert(sizeof(TSrcChar) == sizeof(typename SrcEncoding::CharType), "Type size mismatched.");
-            static_assert(sizeof(typename DestContainer::value_type) ==
-                sizeof(typename DestEncoding::CharType), "Type size mismatched.");
+            out[0] = 0xFFFD;
+            count = 1;
+            return true;
+        }
 
-            // 预分配空间
+        /**
+         * @brief 编码转换
+         * @throw InvalidEncodingException 当转换无效时抛出
+         * @tparam InputEncoding 输入编码
+         * @tparam OutputEncoding 输出编码
+         * @tparam InputType 输入字符类型
+         * @tparam OutputType 输出字符类型
+         * @param out 转码输出
+         * @param src 转码输入
+         * @param decoderFailureFallback 当解码失败时的处理
+         * @param encoderFailureFallback 当编码失败时的处理
+         * @return out对象的引用
+         */
+        template <typename InputEncoding, typename OutputEncoding,
+            typename InputType = typename InputEncoding::Decoder::InputType,
+            typename OutputType = typename OutputEncoding::Encoder::OutputType>
+        std::basic_string<OutputType>& Convert(std::basic_string<OutputType>& out, ArrayView<InputType> src,
+            FailureFallbackCallbackType<typename InputEncoding::Decoder> decoderFailureFallback = nullptr,
+            FailureFallbackCallbackType<typename OutputEncoding::Encoder> encoderFailureFallback = nullptr)
+        {
+            using DecoderType = typename InputEncoding::Decoder;
+            using EncoderType = typename OutputEncoding::Encoder;
+            using DecoderInputType = typename InputEncoding::Decoder::InputType;
+            using DecoderOutputType = typename InputEncoding::Decoder::OutputType;
+            using EncoderInputType = typename OutputEncoding::Encoder::InputType;
+            using EncoderOutputType = typename OutputEncoding::Encoder::OutputType;
+
+            static_assert(std::is_same<DecoderOutputType, EncoderInputType>::value,
+                "InputEncoder and OutputEncoder mismatched");
+
+            DecoderType decoder;
+            EncoderType encoder;
+            EncodingResult decoderResult = EncodingResult::Accept;
+            EncodingResult encoderResult = EncodingResult::Accept;
+            uint32_t decoderOutCount = 0, encoderOutCount = 0;
+            std::array<DecoderOutputType, InputEncoding::Decoder::kMaxOutputCount> decoderBuffer;
+            std::array<EncoderOutputType, OutputEncoding::Encoder::kMaxOutputCount> encoderBuffer;
+
             out.clear();
-            out.reserve(src.GetSize() > 10 ? src.GetSize() / 2 : src.GetSize());
-
-            typename SrcEncoding::Decoder decoder;
-            typename DestEncoding::Encoder encoder;
-
-            // 保存解码器的输出
-            EncodingResult lastDecoderResult = EncodingResult::Accept;
-            char32_t decoderOutput = 0;
-
-            // 保存编码器的输出
-            typename DestEncoding::CharType destOutput[DestEncoding::kMaxCodePointSize] = { 0 };
-            uint32_t destOutputCount = 0;
+            out.reserve(src.GetSize());
 
             for (size_t i = 0; i < src.GetSize(); ++i)
             {
                 auto ch = src[i];
 
-                switch (lastDecoderResult = decoder(static_cast<typename SrcEncoding::CharType>(ch), decoderOutput))
-                {
-                    case EncodingResult::Reject:  // 将错误的序列进行替换
-                        if (replacer == 0)
-                            MOE_THROW(InvalidEncodingException, "Bad input character near {0}", i);
-                        decoderOutput = replacer;
-                        lastDecoderResult = EncodingResult::Accept;
-                    case EncodingResult::Accept:
-                        switch (encoder(decoderOutput, destOutput, destOutputCount))
-                        {
-                            case EncodingResult::Reject:
-                            case EncodingResult::Incomplete:
-                                if (replacer == 0)
-                                    MOE_THROW(InvalidEncodingException, "Cannot encode character near {0}", i);
-
-                                // 试图使用replacer进行编码
-                                switch (encoder(replacer, destOutput, destOutputCount))
-                                {
-                                    case EncodingResult::Reject:
-                                    case EncodingResult::Incomplete:  // 若替换为替换字符依旧无法编码,则抛出异常
-                                        MOE_THROW(InvalidEncodingException, "Cannot encode character near {0}", i);
-                                    case EncodingResult::Accept:
-                                        break;
-                                    default:
-                                        assert(false);
-                                        break;
-                                }
-                            case EncodingResult::Accept:
-                                for (uint32_t j = 0; j < destOutputCount; ++j)
-                                    out.push_back(static_cast<TDestChar>(destOutput[j]));
-                                break;
-                            default:
-                                assert(false);
-                                break;
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            }
-
-            // 检查是否所有字符都被解码
-            if (lastDecoderResult != EncodingResult::Accept)
-            {
-                if (replacer == 0)
-                    MOE_THROW(InvalidEncodingException, "Not all character has been decoded");
-
-                switch (encoder(replacer, destOutput, destOutputCount))
+                switch (decoderResult = decoder(static_cast<DecoderInputType>(ch), decoderBuffer, decoderOutCount))
                 {
                     case EncodingResult::Reject:
-                    case EncodingResult::Incomplete:  // 若替换为替换字符依旧无法编码,则抛出异常
-                        MOE_THROW(InvalidEncodingException, "Cannot encode character");
-                    case EncodingResult::Accept:
-                        break;
-                    default:
-                        assert(false);
-                        break;
-                }
-
-                for (uint32_t j = 0; j < destOutputCount; ++j)
-                    out.push_back(static_cast<TDestChar>(destOutput[j]));
-            }
-
-            return out;
-        }
-
-        /**
-         * @brief 执行编码转换
-         * @throw InvalidEncodingException 当转换无效时抛出
-         * @tparam DestEncoding 目标编码
-         * @tparam SrcEncoding 原始编码
-         * @tparam TDestChar 目标字符类型
-         * @tparam TSrcChar 原始字符类型
-         * @tparam DestContainer 目的容器
-         * @tparam SrcContainer 原始容器
-         * @param src 原始字符串
-         * @param replacer 非法字符替换字符, 若为0则在错误时抛出异常
-         * @return 目标转换输出
-         */
-        template <typename DestEncoding, typename SrcEncoding, typename TDestChar = typename DestEncoding::CharType,
-            typename TSrcChar = typename SrcEncoding::CharType, typename DestContainer = std::basic_string<TDestChar>,
-            typename SrcContainer = std::basic_string<TSrcChar>>
-        DestContainer Convert(const SrcContainer& src, char32_t replacer=0xFFFD)
-        {
-            DestContainer out;
-            Convert<DestEncoding, SrcEncoding, TDestChar, TSrcChar, DestContainer>(out,
-                ArrayView<typename SrcContainer::value_type>(src.c_str(), src.length()), replacer);
-            return out;
-        }
-
-        /**
-         * @brief 执行编码转换
-         * @throw InvalidEncodingException 当转换无效时抛出
-         * @tparam DestEncoding 目标编码
-         * @tparam SrcEncoding 原始编码
-         * @tparam TDestChar 目标字符类型
-         * @tparam TSrcChar 原始字符类型
-         * @tparam DestContainer 目的容器
-         * @tparam SrcContainer 原始容器
-         * @param src 原始字符串
-         * @param replacer 非法字符替换字符, 若为0则在错误时抛出异常
-         * @return 目标转换输出
-         */
-        template <typename DestEncoding, typename SrcEncoding, typename TDestChar = typename DestEncoding::CharType,
-            typename TSrcChar = typename SrcEncoding::CharType, typename DestContainer = std::basic_string<TDestChar>,
-            typename SrcContainer = std::basic_string<TSrcChar>>
-        DestContainer Convert(ArrayView<TSrcChar> src, char32_t replacer=0xFFFD)
-        {
-            DestContainer out;
-            Convert<DestEncoding, SrcEncoding, TDestChar, TSrcChar, DestContainer>(out, src, replacer);
-            return out;
-        }
-
-        /**
-         * @brief 执行编码转换
-         * @throw InvalidEncodingException 当转换无效时抛出
-         * @tparam DestEncoding 目标编码
-         * @tparam SrcEncoding 原始编码
-         * @tparam TDestChar 目标字符类型
-         * @tparam TSrcChar 原始字符类型
-         * @tparam DestContainer 目的容器
-         * @tparam SrcContainer 原始容器
-         * @param src 原始字符串
-         * @param replacer 非法字符替换字符, 若为0则在错误时抛出异常
-         * @return 目标转换输出
-         */
-        template <typename DestEncoding, typename SrcEncoding, typename TDestChar = typename DestEncoding::CharType,
-            typename TSrcChar = typename SrcEncoding::CharType, typename DestContainer = std::basic_string<TDestChar>,
-            typename SrcContainer = std::basic_string<TSrcChar>>
-        DestContainer Convert(const TSrcChar* src, char32_t replacer=0xFFFD)
-        {
-            DestContainer out;
-            Convert<DestEncoding, SrcEncoding, TDestChar, TSrcChar, DestContainer>(out,
-                ArrayView<TSrcChar>(src, std::char_traits<TSrcChar>::length(src)), replacer);
-            return out;
-        }
-
-        /**
-         * @brief 执行编码转换
-         * @tparam DestEncoding 目标编码
-         * @tparam SrcEncoding 原始编码
-         * @tparam TDestChar 目标字符类型
-         * @tparam TSrcChar 原始字符类型
-         * @param dest 目的字符串缓冲区
-         * @param destSize 目的字符串缓冲区大小
-         * @param src 原始字符串缓冲区
-         * @param srcSize 原始字符串缓冲区大小
-         * @param replacer 非法字符替换字符, 若为0则在错误时直接退出
-         * @return 转换的字符数量（个数）
-         *
-         * @warning 方法不会在缓冲区结尾加入'\0'。
-         */
-        template <typename DestEncoding, typename SrcEncoding, typename TDestChar = typename DestEncoding::CharType,
-            typename TSrcChar = typename SrcEncoding::CharType>
-        size_t Convert(TDestChar* dest, size_t destSize, const TSrcChar* src, size_t srcSize,
-            char32_t replacer=0xFFFD)noexcept
-        {
-            static_assert(DestEncoding::kMaxCodePointSize > 0,
-                "Invalid kMaxCodePointSize, which must bigger than zero.");
-
-            typename SrcEncoding::Decoder decoder;
-            typename DestEncoding::Encoder encoder;
-
-            // 保存解码器的输出
-            EncodingResult lastDecoderResult = EncodingResult::Accept;
-            char32_t decoderOutput = 0;
-
-            // 保存编码器的输出
-            typename DestEncoding::CharType destOutput[DestEncoding::kMaxCodePointSize] = { 0 };
-            uint32_t destOutputCount = 0;
-
-            size_t encodedCount = 0;
-            for (size_t i = 0; i < srcSize; ++i)
-            {
-                auto ch = src[i];
-                if (ch == '\0')
-                    break;
-
-                switch (lastDecoderResult = decoder(static_cast<typename SrcEncoding::CharType>(ch), decoderOutput))
-                {
-                    case EncodingResult::Reject:  // 将错误的序列进行替换
-                        if (replacer == 0)
-                            return encodedCount;
-                        decoderOutput = replacer;
-                        lastDecoderResult = EncodingResult::Accept;
-                    case EncodingResult::Accept:
-                        switch (encoder(decoderOutput, destOutput, destOutputCount))
+                        if (!decoderFailureFallback || !decoderFailureFallback(decoderBuffer, decoderOutCount))
                         {
-                            case EncodingResult::Reject:
-                            case EncodingResult::Incomplete:
-                                if (replacer == 0)
-                                    return encodedCount;
-
-                                // 试图使用replacer进行编码
-                                switch (encoder(replacer, destOutput, destOutputCount))
-                                {
-                                    case EncodingResult::Reject:
-                                    case EncodingResult::Incomplete:  // 若替换为替换字符依旧无法编码,则抛出异常
-                                        return encodedCount;
-                                    case EncodingResult::Accept:
-                                        break;
-                                }
-                            case EncodingResult::Accept:
-                                if (destOutputCount + encodedCount > destSize)
-                                    return encodedCount;  // 此时会导致截断
-                                for (uint32_t j = 0; j < destOutputCount; ++j)
-                                    dest[encodedCount++] = destOutput[j];
-                                break;
-                            default:
-                                assert(false);
-                                break;
+                            MOE_THROW(InvalidEncodingException, "{0} decoder cannot accept character near {1}",
+                                InputEncoding::kName, i);
+                        }
+                        encoder = EncoderType();  // Reset encoder
+                        decoderResult = EncodingResult::Accept;
+                    case EncodingResult::Accept:
+                        for (size_t j = 0; j < decoderOutCount; ++j)
+                        {
+                            switch (encoderResult = encoder(decoderBuffer[j], encoderBuffer, encoderOutCount))
+                            {
+                                case EncodingResult::Reject:
+                                    if (!encoderFailureFallback ||
+                                        !encoderFailureFallback(encoderBuffer, encoderOutCount))
+                                    {
+                                        MOE_THROW(InvalidEncodingException,
+                                            "{0} encoder cannot accept character near {1}", OutputEncoding::kName, i);
+                                    }
+                                    encoderResult = EncodingResult::Accept;
+                                case EncodingResult::Accept:
+                                    for (uint32_t k = 0; k < encoderOutCount; ++k)
+                                        out.push_back(static_cast<OutputType>(encoderBuffer[k]));
+                                    break;
+                                case EncodingResult::Incomplete:
+                                default:
+                                    break;
+                            }
                         }
                         break;
+                    case EncodingResult::Incomplete:
                     default:
                         break;
                 }
             }
 
-            // 检查是否所有字符都被解码
-            if (lastDecoderResult != EncodingResult::Accept)
+            if (decoderResult != EncodingResult::Accept)
             {
-                if (replacer != 0)
+                if (!decoderFailureFallback || !decoderFailureFallback(decoderBuffer, decoderOutCount))
+                    MOE_THROW(InvalidEncodingException, "Not all input characters has been decoded");
+
+                for (size_t i = 0; i < decoderOutCount; ++i)
                 {
-                    switch (encoder(replacer, destOutput, destOutputCount))
+                    switch (encoderResult = encoder(decoderBuffer[i], encoderBuffer, encoderOutCount))
                     {
                         case EncodingResult::Reject:
-                        case EncodingResult::Incomplete:
-                            return encodedCount;
+                            if (!encoderFailureFallback ||
+                                !encoderFailureFallback(encoderBuffer, encoderOutCount))
+                            {
+                                MOE_THROW(InvalidEncodingException, "{0} encoder cannot accept character near {1}",
+                                    OutputEncoding::kName, i);
+                            }
+                            encoderResult = EncodingResult::Accept;
                         case EncodingResult::Accept:
+                            for (uint32_t j = 0; j < encoderOutCount; ++j)
+                                out.push_back(static_cast<OutputType>(decoderBuffer[j]));
                             break;
+                        case EncodingResult::Incomplete:
                         default:
-                            assert(false);
                             break;
                     }
-
-                    if (destOutputCount + encodedCount > destSize)
-                        return encodedCount;  // 此时会导致截断
-                    for (uint32_t j = 0; j < destOutputCount; ++j)
-                        dest[encodedCount++] = destOutput[j];
                 }
             }
 
-            return encodedCount;
+            if (encoderResult != EncodingResult::Accept)
+            {
+                if (!encoderFailureFallback || !encoderFailureFallback(encoderBuffer, encoderOutCount))
+                    MOE_THROW(InvalidEncodingException, "Not all input characters has been encoded");
+
+                for (uint32_t i = 0; i < encoderOutCount; ++i)
+                    out.push_back(static_cast<OutputType>(decoderBuffer[i]));
+            }
+            return out;
+        }
+
+        /**
+         * @brief 编码转换
+         * @throw InvalidEncodingException 当转换无效时抛出
+         * @tparam InputEncoding 输入编码
+         * @tparam OutputEncoding 输出编码
+         * @tparam InputType 输入字符类型
+         * @tparam OutputType 输出字符类型
+         * @param src 转码输入
+         * @param decoderFailureFallback 当解码失败时的处理
+         * @param encoderFailureFallback 当编码失败时的处理
+         * @return 转码输出
+         */
+        template <typename InputEncoding, typename OutputEncoding,
+            typename InputType = typename InputEncoding::Decoder::InputType,
+            typename OutputType = typename OutputEncoding::Encoder::OutputType>
+        std::basic_string<OutputType> Convert(ArrayView<InputType> src,
+            FailureFallbackCallbackType<typename InputEncoding::Decoder> decoderFailureFallback = nullptr,
+            FailureFallbackCallbackType<typename OutputEncoding::Encoder> encoderFailureFallback = nullptr)
+        {
+            std::basic_string<OutputType> out;
+            Convert<InputEncoding, OutputEncoding, InputType, OutputType>(out, src, decoderFailureFallback,
+                encoderFailureFallback);
+            return out;
+        }
+
+        /**
+         * @brief 编码转换
+         * @throw InvalidEncodingException 当转换无效时抛出
+         * @tparam InputEncoding 输入编码
+         * @tparam OutputEncoding 输出编码
+         * @tparam InputType 输入字符类型
+         * @tparam OutputType 输出字符类型
+         * @param src 转码输入
+         * @param decoderFailureFallback 当解码失败时的处理
+         * @param encoderFailureFallback 当编码失败时的处理
+         * @return 转码输出
+         */
+        template <typename InputEncoding, typename OutputEncoding,
+            typename InputType = typename InputEncoding::Decoder::InputType,
+            typename OutputType = typename OutputEncoding::Encoder::OutputType>
+        std::basic_string<OutputType> Convert(const std::basic_string<InputType> src,
+            FailureFallbackCallbackType<typename InputEncoding::Decoder> decoderFailureFallback = nullptr,
+            FailureFallbackCallbackType<typename OutputEncoding::Encoder> encoderFailureFallback = nullptr)
+        {
+            std::basic_string<OutputType> out;
+            Convert<InputEncoding, OutputEncoding, InputType, OutputType>(out, ArrayView<InputType>(src.data(),
+                src.length()), decoderFailureFallback, encoderFailureFallback);
+            return out;
+        }
+
+        /**
+         * @brief 编码转换
+         * @throw InvalidEncodingException 当转换无效时抛出
+         * @tparam InputEncoding 输入编码
+         * @tparam OutputEncoding 输出编码
+         * @tparam InputType 输入字符类型
+         * @tparam OutputType 输出字符类型
+         * @param src 转码输入
+         * @param decoderFailureFallback 当解码失败时的处理
+         * @param encoderFailureFallback 当编码失败时的处理
+         * @return 转码输出
+         */
+        template <typename InputEncoding, typename OutputEncoding,
+            typename InputType = typename InputEncoding::Decoder::InputType,
+            typename OutputType = typename OutputEncoding::Encoder::OutputType>
+        std::basic_string<OutputType> Convert(const InputType* src,
+            FailureFallbackCallbackType<typename InputEncoding::Decoder> decoderFailureFallback = nullptr,
+            FailureFallbackCallbackType<typename OutputEncoding::Encoder> encoderFailureFallback = nullptr)
+        {
+            std::basic_string<OutputType> out;
+            Convert<InputEncoding, OutputEncoding, InputType, OutputType>(out, ArrayView<InputType>(src,
+                std::char_traits<InputType>::length(src)), decoderFailureFallback, encoderFailureFallback);
+            return out;
+        }
+
+        /**
+         * @brief 编码转换
+         * @throw InvalidEncodingException 当转换无效时抛出
+         * @warning 编码输出不保证以'\0'结尾
+         * @tparam InputEncoding 输入编码
+         * @tparam OutputEncoding 输出编码
+         * @tparam InputType 输入字符类型
+         * @tparam OutputType 输出字符类型
+         * @param out 转码输出
+         * @param src 转码输入
+         * @param[in,out] converted 记录转换的个数
+         * @param decoderFailureFallback 当解码失败时的处理
+         * @param encoderFailureFallback 当编码失败时的处理
+         * @return 转换是否成功
+         *
+         * 当转换遇到失败时，方法会直接退出并返回已经转换的个数。
+         */
+        template <typename InputEncoding, typename OutputEncoding,
+            typename InputType = typename InputEncoding::Decoder::InputType,
+            typename OutputType = typename OutputEncoding::Encoder::OutputType>
+        bool Convert(MutableArrayView<OutputType> out, ArrayView<InputType> src, size_t* converted = nullptr,
+            FailureFallbackCallbackType<typename InputEncoding::Decoder> decoderFailureFallback = nullptr,
+            FailureFallbackCallbackType<typename OutputEncoding::Encoder> encoderFailureFallback = nullptr)noexcept
+        {
+            using DecoderType = typename InputEncoding::Decoder;
+            using EncoderType = typename OutputEncoding::Encoder;
+            using DecoderInputType = typename InputEncoding::Decoder::InputType;
+            using DecoderOutputType = typename InputEncoding::Decoder::OutputType;
+            using EncoderInputType = typename OutputEncoding::Encoder::InputType;
+            using EncoderOutputType = typename OutputEncoding::Encoder::OutputType;
+
+            static_assert(std::is_same<DecoderOutputType, EncoderInputType>::value,
+                "InputEncoder and OutputEncoder mismatched");
+
+            DecoderType decoder;
+            EncoderType encoder;
+            EncodingResult decoderResult = EncodingResult::Accept;
+            EncodingResult encoderResult = EncodingResult::Accept;
+            uint32_t decoderOutCount = 0, encoderOutCount = 0;
+            std::array<DecoderOutputType, InputEncoding::Decoder::kMaxOutputCount> decoderBuffer;
+            std::array<EncoderOutputType, OutputEncoding::Encoder::kMaxOutputCount> encoderBuffer;
+
+            size_t count = 0;
+
+            for (size_t i = 0; i < src.GetSize(); ++i)
+            {
+                auto ch = src[i];
+
+                switch (decoderResult = decoder(static_cast<DecoderInputType>(ch), decoderBuffer, decoderOutCount))
+                {
+                    case EncodingResult::Reject:
+                        if (!decoderFailureFallback || !decoderFailureFallback(decoderBuffer, decoderOutCount))
+                        {
+                            if (converted)
+                                *converted = count;
+                            return false;
+                        }
+                        encoder = EncoderType();  // Reset encoder
+                        decoderResult = EncodingResult::Accept;
+                    case EncodingResult::Accept:
+                        for (size_t j = 0; j < decoderOutCount; ++j)
+                        {
+                            switch (encoderResult = encoder(decoderBuffer[j], encoderBuffer, encoderOutCount))
+                            {
+                                case EncodingResult::Reject:
+                                    if (!encoderFailureFallback ||
+                                        !encoderFailureFallback(encoderBuffer, encoderOutCount))
+                                    {
+                                        if (converted)
+                                            *converted = count;
+                                        return false;
+                                    }
+                                    encoderResult = EncodingResult::Accept;
+                                case EncodingResult::Accept:
+                                    for (uint32_t k = 0; k < encoderOutCount; ++k)
+                                    {
+                                        if (count >= out.GetSize())
+                                        {
+                                            if (converted)
+                                                *converted = count;
+                                            return false;
+                                        }
+                                        out[count++] = static_cast<OutputType>(encoderBuffer[k]);
+                                    }
+                                    break;
+                                case EncodingResult::Incomplete:
+                                default:
+                                    break;
+                            }
+                        }
+                        break;
+                    case EncodingResult::Incomplete:
+                    default:
+                        break;
+                }
+            }
+
+            if (decoderResult != EncodingResult::Accept)
+            {
+                if (!decoderFailureFallback || !decoderFailureFallback(decoderBuffer, decoderOutCount))
+                {
+                    if (converted)
+                        *converted = count;
+                    return false;
+                }
+
+                for (size_t i = 0; i < decoderOutCount; ++i)
+                {
+                    switch (encoderResult = encoder(decoderBuffer[i], encoderBuffer, encoderOutCount))
+                    {
+                        case EncodingResult::Reject:
+                            if (!encoderFailureFallback ||
+                                !encoderFailureFallback(encoderBuffer, encoderOutCount))
+                            {
+                                if (converted)
+                                    *converted = count;
+                                return false;
+                            }
+                            encoderResult = EncodingResult::Accept;
+                        case EncodingResult::Accept:
+                            for (uint32_t j = 0; j < encoderOutCount; ++j)
+                            {
+                                if (count >= out.GetSize())
+                                {
+                                    if (converted)
+                                        *converted = count;
+                                    return false;
+                                }
+                                out[count++] = static_cast<OutputType>(encoderBuffer[j]);
+                            }
+                            break;
+                        case EncodingResult::Incomplete:
+                        default:
+                            break;
+                    }
+                }
+            }
+
+            if (encoderResult != EncodingResult::Accept)
+            {
+                if (!encoderFailureFallback || !encoderFailureFallback(encoderBuffer, encoderOutCount))
+                    MOE_THROW(InvalidEncodingException, "Not all input characters has been encoded");
+
+                for (uint32_t i = 0; i < encoderOutCount; ++i)
+                {
+                    if (count >= out.GetSize())
+                    {
+                        if (converted)
+                            *converted = count;
+                        return false;
+                    }
+                    out[count++] = static_cast<OutputType>(encoderBuffer[i]);
+                }
+            }
+
+            if (converted)
+                *converted = count;
+            return true;
         }
     }
 }

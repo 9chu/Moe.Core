@@ -11,10 +11,13 @@ using namespace Encoding;
 
 //////////////////////////////////////////////////////////////////////////////// UTF8
 
-EncodingResult UTF8::Decoder::operator()(char ch, char32_t& out)noexcept
+const char* const Utf8::kName = "Utf8";
+
+EncodingResult Utf8::Decoder::operator()(InputType ch, std::array<OutputType, kMaxOutputCount>& out,
+    uint32_t& count)noexcept
 {
     // http://bjoern.hoehrmann.de/utf-8/decoder/dfa/
-    static const uint8_t kUTF8DFA[] = {
+    static const uint8_t kUtf8Dfa[] = {
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 00..1f
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 20..3f
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 40..5f
@@ -31,52 +34,59 @@ EncodingResult UTF8::Decoder::operator()(char ch, char32_t& out)noexcept
         1,3,1,1,1,1,1,3,1,3,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1, // s7..s8
     };
 
-    uint8_t b = static_cast<uint8_t>(ch);
-    uint32_t type = kUTF8DFA[b];
-    out = (m_iState != 0) ? (b & 0x3Fu) | (out << 6) : (0xFFu >> type) & b;
-    m_iState = kUTF8DFA[256 + m_iState * 16 + type];
+    auto b = static_cast<uint8_t>(ch);
+    uint32_t type = kUtf8Dfa[b];
+    m_iTmp = (m_iState != 0) ? (b & 0x3Fu) | (m_iTmp << 6u) : (0xFFu >> type) & b;
+    m_iState = kUtf8Dfa[256 + m_iState * 16 + type];
 
+    count = 0;
     switch (m_iState)
     {
         case 0:
+            out[0] = m_iTmp;
+            m_iTmp = 0;
+            count = 1;
             return EncodingResult::Accept;
         case 1:
             m_iState = 0;
+            m_iTmp = 0;
             return EncodingResult::Reject;
         default:
             return EncodingResult::Incomplete;
     }
 }
 
-EncodingResult UTF8::Encoder::operator()(char32_t ch, char out[], uint32_t& cnt)noexcept
+EncodingResult Utf8::Encoder::operator()(InputType ch, std::array<OutputType, kMaxOutputCount>& out,
+    uint32_t& count)noexcept
 {
-    uint32_t cp = static_cast<uint32_t>(ch);
+    auto cp = static_cast<uint32_t>(ch);
 
+    count = 0;
     if (cp <= 0x7Fu)
     {
         out[0] = static_cast<char>(cp & 0xFFu);
-        cnt = 1;
+        count = 1;
     }
     else if (cp <= 0x7FFu)
     {
-        out[0] = static_cast<char>(0xC0u | ((cp >> 6) & 0xFFu));
+        out[0] = static_cast<char>(0xC0u | ((cp >> 6u) & 0xFFu));
         out[1] = static_cast<char>(0x80u | (cp & 0x3Fu));
-        cnt = 2;
+        count = 2;
     }
     else if (cp <= 0xFFFFu)
     {
-        out[0] = static_cast<char>(0xE0u | ((cp >> 12) & 0xFFu));
-        out[1] = static_cast<char>(0x80u | ((cp >> 6) & 0x3Fu));
+        out[0] = static_cast<char>(0xE0u | ((cp >> 12u) & 0xFFu));
+        out[1] = static_cast<char>(0x80u | ((cp >> 6u) & 0x3Fu));
         out[2] = static_cast<char>(0x80u | (cp & 0x3Fu));
-        cnt = 3;
+        count = 3;
     }
     else if (cp <= 0x10FFFFu)
     {
-        out[0] = static_cast<char>(0xF0u | ((cp >> 18) & 0xFFu));
-        out[1] = static_cast<char>(0x80u | ((cp >> 12) & 0x3Fu));
-        out[2] = static_cast<char>(0x80u | ((cp >> 6) & 0x3Fu));
+        out[0] = static_cast<char>(0xF0u | ((cp >> 18u) & 0xFFu));
+        out[1] = static_cast<char>(0x80u | ((cp >> 12u) & 0x3Fu));
+        out[2] = static_cast<char>(0x80u | ((cp >> 6u) & 0x3Fu));
         out[3] = static_cast<char>(0x80u | (cp & 0x3Fu));
-        cnt = 4;
+        count = 4;
     }
     else
         return EncodingResult::Reject;
@@ -86,16 +96,21 @@ EncodingResult UTF8::Encoder::operator()(char32_t ch, char out[], uint32_t& cnt)
 
 //////////////////////////////////////////////////////////////////////////////// UTF16
 
-EncodingResult UTF16::Decoder::operator()(char16_t ch, char32_t& out)noexcept
-{
-    uint16_t word = static_cast<uint16_t>(ch);
+const char* const Utf16::kName = "Utf16";
 
+EncodingResult Utf16::Decoder::operator()(InputType ch, std::array<OutputType, kMaxOutputCount>& out,
+    uint32_t& count)noexcept
+{
+    auto word = static_cast<uint16_t>(ch);
+
+    count = 0;
     switch (m_iState)
     {
         case 0:
             if (word < 0xD800u || word > 0xDFFFu)
             {
-                out = word;
+                out[0] = word;
+                count = 1;
                 return EncodingResult::Accept;
             }
             else if (word <= 0xDBFFu)
@@ -112,9 +127,10 @@ EncodingResult UTF16::Decoder::operator()(char16_t ch, char32_t& out)noexcept
                 m_iState = 0;
                 return EncodingResult::Reject;
             }
-            out = (m_iLastWord & 0x3FFu) << 10;
-            out |= word & 0x3FFu;
-            out += 0x10000u;
+            out[0] = (m_iLastWord & 0x3FFu) << 10u;
+            out[0] |= word & 0x3FFu;
+            out[0] += 0x10000u;
+            count = 1;
             return EncodingResult::Accept;
         default:
             assert(false);
@@ -122,23 +138,30 @@ EncodingResult UTF16::Decoder::operator()(char16_t ch, char32_t& out)noexcept
     }
 }
 
-Encoding::EncodingResult Encoding::UTF16::Encoder::operator()(char32_t ch, char16_t out[], uint32_t& cnt)noexcept
+EncodingResult Utf16::Encoder::operator()(InputType ch, std::array<OutputType, kMaxOutputCount>& out,
+    uint32_t& count)noexcept
 {
-    uint32_t cp = static_cast<uint32_t>(ch);
+    auto cp = static_cast<uint32_t>(ch);
+
+    count = 0;
     if (cp <= 0xFFFFu)
     {
         out[0] = static_cast<char16_t>(cp);
-        cnt = 1;
+        count = 1;
     }
     else if (cp <= 0x10FFFFu)
     {
         cp -= 0x10000u;
-        out[0] = static_cast<char16_t>(0xD800u | (cp >> 10));
+        out[0] = static_cast<char16_t>(0xD800u | (cp >> 10u));
         out[1] = static_cast<char16_t>(0xDC00u | (cp & 0x3FFu));
-        cnt = 2;
+        count = 2;
     }
     else
         return EncodingResult::Reject;
 
     return EncodingResult::Accept;
 }
+
+//////////////////////////////////////////////////////////////////////////////// UTF32
+
+const char* const Utf32::kName = "Utf32_Dummy";

@@ -925,9 +925,10 @@ void Url::Host::Parse(const char* start, const char* end, bool special, bool uni
         temp2.reserve(decoded.length());
 
         // Punycode ToAscii
-        Encoding::Convert<Encoding::UTF32, Encoding::UTF8>(temp, ArrayView<char>(decoded.data(), decoded.length()));
+        Encoding::Convert<Encoding::Utf8, Encoding::Utf32>(temp, ArrayView<char>(decoded.data(), decoded.length()),
+            Encoding::DefaultUnicodeFallbackHandler);
         Idna::ToAscii(temp2, ArrayView<char32_t>(temp.data(), temp.length()), false, true, true, true, false, true);
-        Encoding::Convert<Encoding::UTF8, Encoding::UTF32>(decoded, ArrayView<char32_t>(temp2.data(), temp2.length()));
+        Encoding::Convert<Encoding::Utf32, Encoding::Utf8>(decoded, ArrayView<char32_t>(temp2.data(), temp2.length()));
     }
     else
     {
@@ -954,9 +955,10 @@ void Url::Host::Parse(const char* start, const char* end, bool special, bool uni
     if (!isFastPath && unicode)
     {
         // Punycode ToUnicode
-        Encoding::Convert<Encoding::UTF32, Encoding::UTF8>(temp, ArrayView<char>(decoded.data(), decoded.length()));
+        Encoding::Convert<Encoding::Utf8, Encoding::Utf32>(temp, ArrayView<char>(decoded.data(), decoded.length()),
+            Encoding::DefaultUnicodeFallbackHandler);
         Idna::ToUnicode(temp2, ArrayView<char32_t>(temp.data(), temp.length()), false, true, true, false, false);
-        Encoding::Convert<Encoding::UTF8, Encoding::UTF32>(decoded, ArrayView<char32_t>(temp2.data(), temp2.length()));
+        Encoding::Convert<Encoding::Utf32, Encoding::Utf8>(decoded, ArrayView<char32_t>(temp2.data(), temp2.length()));
     }
 
     // 不是IPV6或者IPV4，那么就是域名

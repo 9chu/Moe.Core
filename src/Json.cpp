@@ -901,15 +901,14 @@ namespace
     private:
         void BufferUnicodeCharacter(char32_t ch)
         {
-            char buffer[Encoding::UTF8::kMaxCodePointSize + 1];
-
             uint32_t count = 0;
-            Encoding::UTF8::Encoder encoder;
+            array<char, Encoding::Utf8::Encoder::kMaxOutputCount> buffer {};
+            Encoding::Utf8::Encoder encoder;
+
             if (Encoding::EncodingResult::Accept != encoder(ch, buffer, count))
                 ThrowError("Encoding {0} to utf-8 failed", (int)ch);
 
-            buffer[count] = '\0';
-            m_stStringBuffer.append(buffer);
+            m_stStringBuffer.append(buffer.data(), count);
         }
 
         void ReadString()
