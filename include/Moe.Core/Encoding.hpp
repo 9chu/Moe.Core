@@ -56,7 +56,7 @@ namespace moe
                 static const uint32_t kMaxOutputCount = 1;
 
             public:
-                Decoder()noexcept = default;
+                Decoder()noexcept {}
                 Decoder(const Decoder&)noexcept = default;
                 Decoder(Decoder&&)noexcept = default;
 
@@ -90,7 +90,7 @@ namespace moe
                 static const uint32_t kMaxOutputCount = 6;
 
             public:
-                Encoder()noexcept = default;
+                Encoder()noexcept {}
                 Encoder(const Encoder&)noexcept = default;
                 Encoder(Encoder&&)noexcept = default;
 
@@ -125,7 +125,7 @@ namespace moe
                 static const uint32_t kMaxOutputCount = 1;
 
             public:
-                Decoder()noexcept = default;
+                Decoder()noexcept {}
                 Decoder(const Decoder&)noexcept = default;
                 Decoder(Decoder&&)noexcept = default;
 
@@ -159,7 +159,7 @@ namespace moe
                 static const uint32_t kMaxOutputCount = 2;
 
             public:
-                Encoder()noexcept = default;
+                Encoder()noexcept {}
                 Encoder(const Encoder&)noexcept = default;
                 Encoder(Encoder&&)noexcept = default;
 
@@ -196,7 +196,7 @@ namespace moe
                 static const uint32_t kMaxOutputCount = 1;
 
             public:
-                Decoder()noexcept = default;
+                Decoder()noexcept {}
                 Decoder(const Decoder&)noexcept = default;
                 Decoder(Decoder&&)noexcept = default;
 
@@ -227,7 +227,7 @@ namespace moe
                 static const uint32_t kMaxOutputCount = 1;
 
             public:
-                Encoder()noexcept = default;
+                Encoder()noexcept {}
                 Encoder(const Encoder&)noexcept = default;
                 Encoder(Encoder&&)noexcept = default;
 
@@ -267,7 +267,7 @@ namespace moe
                 static const uint32_t kMaxOutputCount = 3;
 
             public:
-                Decoder()noexcept = default;
+                Decoder()noexcept {}
                 Decoder(const Decoder&)noexcept = default;
                 Decoder(Decoder&&)noexcept = default;
 
@@ -293,7 +293,7 @@ namespace moe
                 static const uint32_t kMaxOutputCount = 4;
 
             public:
-                Encoder()noexcept = default;
+                Encoder()noexcept {}
                 Encoder(const Encoder&)noexcept = default;
                 Encoder(Encoder&&)noexcept = default;
 

@@ -720,7 +720,7 @@ namespace moe
         {
             template <typename TChar = char>
             class SplitByCharsIterator :
-                public std::iterator<std::input_iterator_tag, std::basic_string<TChar>>
+                public std::iterator<std::input_iterator_tag, ArrayView<TChar>>
             {
             public:
                 SplitByCharsIterator()noexcept = default;
@@ -800,8 +800,8 @@ namespace moe
          * @return 迭代器
          */
         template <typename TChar = char>
-        constexpr details::SplitByCharsIterator<TChar> SplitByCharsBegin(const TChar* source,
-            const TChar* deliminators)noexcept
+        constexpr details::SplitByCharsIterator<TChar> SplitByCharsFirst(const TChar *source,
+            const TChar *deliminators)noexcept
         {
             return details::SplitByCharsIterator<TChar>(
                 ArrayView<TChar>(source, std::char_traits<TChar>::length(source)),
@@ -809,7 +809,7 @@ namespace moe
         }
 
         template <typename TChar = char>
-        constexpr details::SplitByCharsIterator<TChar> SplitByCharsBegin(ArrayView<TChar> source,
+        constexpr details::SplitByCharsIterator<TChar> SplitByCharsFirst(ArrayView<TChar> source,
             ArrayView<TChar> deliminators)noexcept
         {
             return details::SplitByCharsIterator<TChar>(source, deliminators);
@@ -821,7 +821,7 @@ namespace moe
          * @return 终止迭代器
          */
         template <typename TChar = char>
-        constexpr details::SplitByCharsIterator<TChar> SplitByCharsEnd()noexcept
+        constexpr details::SplitByCharsIterator<TChar> SplitByCharsLast()noexcept
         {
             return details::SplitByCharsIterator<TChar>();
         }

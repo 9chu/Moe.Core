@@ -856,8 +856,8 @@ bool Url::Host::IsAsciiFastPath(const std::string& domain)noexcept
     static const char kPunycodePrefix[] = { 'x', 'n', '-', '-', '\0' };
 
     // 按dot对domain进行分割
-    auto it = StringUtils::SplitByCharsBegin<char>(ToArrayView<char>(domain), ArrayView<char>(kDeliminators, 1));
-    while (it != StringUtils::SplitByCharsEnd<char>())
+    auto it = StringUtils::SplitByCharsFirst<char>(ToArrayView<char>(domain), ArrayView<char>(kDeliminators, 1));
+    while (it != StringUtils::SplitByCharsLast<char>())
     {
         auto label = *it;
 

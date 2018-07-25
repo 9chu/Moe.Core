@@ -600,8 +600,8 @@ static void Process(std::u32string& out, ArrayView<char32_t> input, bool useStd3
     // Step3 按照'.'进行分割
     auto i = 0;
     auto cnt = std::count(buffer.begin(), buffer.end(), kDeliminators[0]);
-    auto it = StringUtils::SplitByCharsBegin(ToArrayView<char32_t>(buffer), ArrayView<char32_t>(kDeliminators, 1));
-    while (it != StringUtils::SplitByCharsEnd<char32_t>())
+    auto it = StringUtils::SplitByCharsFirst(ToArrayView<char32_t>(buffer), ArrayView<char32_t>(kDeliminators, 1));
+    while (it != StringUtils::SplitByCharsLast<char32_t>())
     {
         auto label = *it;
 
@@ -638,8 +638,8 @@ void Idna::ToAscii(std::u32string& out, ArrayView<char32_t> domainName, bool che
     auto i = 0;
     auto cnt = verifyDnsLength ? std::count(tmp.begin(), tmp.end(), kDeliminators[0]) : 0;
     auto totalLength = 0;
-    auto it = StringUtils::SplitByCharsBegin(ToArrayView<char32_t>(tmp), ArrayView<char32_t>(kDeliminators, 1));
-    while (it != StringUtils::SplitByCharsEnd<char32_t>())
+    auto it = StringUtils::SplitByCharsFirst(ToArrayView<char32_t>(tmp), ArrayView<char32_t>(kDeliminators, 1));
+    while (it != StringUtils::SplitByCharsLast<char32_t>())
     {
         auto label = *it;
 
