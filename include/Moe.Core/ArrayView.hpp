@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdint>
 #include <string>
+#include <type_traits>
 
 namespace moe
 {
@@ -187,5 +188,11 @@ namespace moe
     inline ArrayView<T> ToArrayView(const P& container)noexcept
     {
         return ArrayView<T>(container.data(), container.size());
+    }
+
+    template <typename T>
+    inline ArrayView<T> ToArrayView(const T* str)noexcept
+    {
+        return ArrayView<T>(str, std::char_traits<T>::length(str));
     }
 }

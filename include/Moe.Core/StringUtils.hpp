@@ -800,12 +800,10 @@ namespace moe
          * @return 迭代器
          */
         template <typename TChar = char>
-        constexpr details::SplitByCharsIterator<TChar> SplitByCharsFirst(const TChar *source,
-            const TChar *deliminators)noexcept
+        constexpr details::SplitByCharsIterator<TChar> SplitByCharsFirst(const TChar* source,
+            const TChar* deliminators)noexcept
         {
-            return details::SplitByCharsIterator<TChar>(
-                ArrayView<TChar>(source, std::char_traits<TChar>::length(source)),
-                ArrayView<TChar>(deliminators, std::char_traits<TChar>::length(deliminators)));
+            return details::SplitByCharsIterator<TChar>(ToArrayView(source), ToArrayView(deliminators));
         }
 
         template <typename TChar = char>
@@ -1814,8 +1812,7 @@ namespace moe
         template <typename TChar = char, typename... Args>
         void Format(std::basic_string<TChar>& out, const TChar* format, const Args&... args)
         {
-            size_t length = std::char_traits<TChar>::length(format);
-            Format(out, ArrayView<TChar>(format, length), args...);
+            Format(out, ToArrayView(format), args...);
         }
 
         template <typename TChar = char, typename... Args>
@@ -1824,7 +1821,7 @@ namespace moe
             size_t length = std::char_traits<TChar>::length(format);
 
             std::basic_string<TChar> ret;
-            ret.reserve(256);
+            ret.reserve(length);
 
             Format(ret, ArrayView<TChar>(format, length), args...);
             return ret;
@@ -1834,6 +1831,300 @@ namespace moe
         std::basic_string<TChar> Format(const std::basic_string<TChar>& format, const Args&... args)
         {
             return Format(format.c_str(), args...);
+        }
+
+        namespace details
+        {
+            template <typename TChar = char, typename T>
+            bool VariableFormatAppend(std::basic_string<TChar>& out, ArrayView<TChar> variable,
+                ArrayView<TChar> formatDesc, const std::pair<ArrayView<TChar>, T>& one)
+            {
+                auto length = variable.GetSize();
+                if (one.first.GetSize() != length || std::char_traits<TChar>::compare(variable.GetBuffer(),
+                    one.first.GetBuffer(), length) != 0)
+                {
+                    return false;
+                }
+
+                return details::ToStringFormatterSelector<TChar, T>::AppendToString(out,
+                    static_cast<const void*>(&one.second), formatDesc);
+            }
+
+            template <typename TChar = char, typename T, typename... Args>
+            bool VariableFormatAppend(std::basic_string<TChar>& out, ArrayView<TChar> variable,
+                ArrayView<TChar> formatDesc, const std::pair<ArrayView<TChar>, T>& one,
+                const std::pair<ArrayView<TChar>, Args>&... rest)
+            {
+                if (!VariableFormatAppend(out, variable, formatDesc, one))
+                    return VariableFormatAppend(out, variable, formatDesc, rest...);
+                return true;
+            }
+        }
+
+        /**
+         * @brief 基于变量的字符串格式化
+         * @tparam TChar 字符类型
+         * @tparam Args 参数类型
+         * @param[out] out 输出结果
+         * @param format 格式化文本
+         * @param args 参数列表
+         * @see https://github.com/dotnet/coreclr/blob/master/src/mscorlib/shared/System/Text/StringBuilder.cs
+         *
+         * 格式化字符串格式（扩展但不完全兼容C#语法）：
+         *   Hole := '{' ws* Var ws* (',' ws* PaddingCount ('[' PaddingCharacter ']')? ws* )? (':' ws* Format )? ws* '}'
+         *   Var := [^,:}]+
+         *   PaddingCount := '-'? [0-9]+
+         *   PaddingCharacter := .  // PaddingCharacter为扩展语法
+         *   Format := [^} ]  // C#允许在Format中对'{'和'}'进行转义，这个语法被去除了
+         *   ws := ' '
+         *
+         * 其余规则请参考Format函数。
+         */
+        template <typename TChar = char, typename... Args>
+        void VariableFormat(std::basic_string<TChar>& out, const ArrayView<TChar>& format,
+            const std::pair<ArrayView<TChar>, Args>&... args)
+        {
+            static const unsigned kWidthLimit = 1000000u;
+
+            out.clear();
+            out.reserve(256);
+
+            TChar ch = '\0';
+            size_t pos = 0;
+            size_t len = format.GetSize();
+
+            while (true)
+            {
+                // 不断读取并寻找 '{'
+                while (pos < len)
+                {
+                    ch = format[pos++];
+
+                    if (ch == '}')
+                    {
+                        // 将连续的 '}}' 转义成 '}'
+                        // 单个情况下在C#中属于错误配对异常，在这直接做容错处理，不管。
+                        if (pos < len && format[pos] == '}')
+                            ++pos;
+                    }
+                    else if (ch == '{')
+                    {
+                        // 将连续的 '{{' 转义成 '{'
+                        if (pos < len && format[pos] == '{')
+                            ++pos;
+                        else
+                        {
+                            --pos;
+                            break;
+                        }
+                    }
+
+                    out.append(1, ch);
+                }
+
+                // 字符串处理完毕
+                if (pos == len)
+                    break;
+
+                // 开始解析格式化语法
+                size_t holeStart = pos++;  // 记录当前开始的位置，可以方便做容错
+                size_t variableStart = 0;  // 记录变量名称的起止范围
+                size_t variableEnd = 0;
+                bool leftJustify = false;
+                unsigned padding = 0;
+                TChar paddingCharacter = ' ';
+                ArrayView<TChar> formatDescriptor;
+                size_t outputPos = 0, outputLength = 0;
+
+                while (pos < len && (ch = format[pos]) == ' ')  // 读取可选的空白
+                    ++pos;
+
+                // 解析Variable部分
+                if (pos == len)
+                    goto badFormat;
+
+                ch = format[pos];
+                if (ch == ',' || ch == ':' || ch == '}')
+                    goto badFormat;
+
+                variableStart = pos;
+                do
+                {
+                    variableEnd = pos;
+                    if ((++pos) == len)
+                        goto badFormat;
+                    ch = format[pos];
+                } while (ch != ',' && ch != ':' && ch != '}');
+
+                // 去掉可选的空白
+                while (variableStart < variableEnd && format[variableEnd] == ' ')
+                    --variableEnd;
+
+                // 解析Padding部分
+                if (ch == ',')
+                {
+                    ++pos;
+                    while (pos < len && format[pos] == ' ')  // 读取可选的空白
+                        ++pos;
+
+                    if (pos == len)  // 索引越界
+                        goto badFormat;
+
+                    if ((ch = format[pos]) == '-')  // 是否存在一个减号
+                    {
+                        leftJustify = true;  // 此时左对齐
+
+                        if ((++pos) == len)
+                            goto badFormat;
+
+                        ch = format[pos];
+                    }
+
+                    if (!(ch >= '0' && ch <= '9'))  // 非法字符
+                        goto badFormat;
+
+                    do
+                    {
+                        padding = padding * 10 + ch - '0';
+
+                        if ((++pos) == len)
+                            goto badFormat;
+
+                        ch = format[pos];
+                    } while (ch >= '0' && ch <= '9' && padding < kWidthLimit);
+
+                    // 扩展语法：如果紧跟一个'['，则读取PaddingCharacter
+                    if (ch == '[')
+                    {
+                        if ((++pos) == len)
+                            goto badFormat;
+
+                        // 读取PaddingCharacter
+                        paddingCharacter = format[pos];
+
+                        if ((++pos) == len)
+                            goto badFormat;
+
+                        // 后面必须紧跟一个']'
+                        ch = format[pos];
+                        if (ch != ']')
+                            goto badFormat;
+
+                        if ((++pos) == len)
+                            goto badFormat;
+
+                        ch = format[pos];
+                    }
+
+                    while (pos < len && (ch = format[pos]) == ' ')  // 读取可选的空白
+                        ++pos;
+                }
+
+                // 读取可选的格式化字段
+                if (ch == ':')
+                {
+                    size_t descriptorStart = 0;
+
+                    ++pos;
+                    while (pos < len && (ch = format[pos]) == ' ')  // 读取可选的空白
+                        ++pos;
+
+                    if (pos == len)
+                        goto badFormat;
+
+                    descriptorStart = pos;
+                    while (pos < len && !(ch == '}' || ch == ' '))
+                    {
+                        ++pos;
+                        ch = format[pos];
+                    }
+
+                    if (pos == len)
+                        goto badFormat;
+
+                    if (pos != descriptorStart)
+                        formatDescriptor = ArrayView<TChar>(&format[descriptorStart], pos - descriptorStart);
+
+                    while (pos < len && (ch = format[pos]) == ' ')  // 读取可选的空白
+                        ++pos;
+                }
+
+                // 此时，format[pos]必然为一个'}'
+                if (ch != '}')
+                    goto badFormat;
+                ++pos;
+
+                // 基本格式化参数收集完成，开始进行格式化处理
+                // 格式化函数保证在字符串末尾插入，因此先记录当前输出的位置，后续需要用来调整Padding
+                outputPos = out.length();
+
+                // 执行格式化函数进行输出
+                if (!details::VariableFormatAppend(out, ArrayView<TChar>(&format[variableStart],
+                    variableEnd - variableStart + 1), formatDescriptor, args...))
+                {
+                    // 如果转换失败，格式化函数会进行清理
+                    assert(out.length() == outputPos);
+                    goto badFormat;
+                }
+
+                outputLength = out.length() - outputPos;
+                if (outputLength < padding)  // 需要进行补齐操作
+                {
+                    assert(outputPos + padding == out.length() + (padding - outputLength));
+                    out.resize(outputPos + padding);
+
+                    size_t paddingPos = 0;
+                    if (leftJustify)
+                        paddingPos = outputPos + outputLength;
+                    else
+                    {
+                        // 需要对字符串做移动操作
+                        ::memmove(&out[out.length() - outputLength], out.data() + outputPos, outputLength *
+                            sizeof(TChar));
+
+                        paddingPos = outputPos;
+                    }
+
+                    // 填充Padding字符
+                    for (size_t i = paddingPos, paddingEnd = paddingPos + padding - outputLength; i < paddingEnd; ++i)
+                        out[i] = paddingCharacter;
+                }
+
+                continue;  // 完成一个字符串的格式化操作
+
+                badFormat:
+                // 错误恢复，直接将从holeStart开始到当前pos位置的所有字符放入结果
+                if (pos < len)
+                    ++pos;
+                out.append(&format[holeStart], pos - holeStart);
+            }
+        }
+
+        template <typename TChar = char, typename... Args>
+        void VariableFormat(std::basic_string<TChar>& out, const TChar* format,
+            const std::pair<const TChar*, Args>&... args)
+        {
+            VariableFormat(out, ToArrayView(format), std::make_pair(ToArrayView(args.first), args.second)...);
+        }
+
+        template <typename TChar = char, typename... Args>
+        std::basic_string<TChar> VariableFormat(const TChar* format, const std::pair<const TChar*, Args>&... args)
+        {
+            size_t length = std::char_traits<TChar>::length(format);
+
+            std::basic_string<TChar> ret;
+            ret.reserve(length);
+
+            VariableFormat(ret, ArrayView<TChar>(format, length),
+                std::make_pair(ToArrayView(args.first), args.second)...);
+            return ret;
+        }
+
+        template <typename TChar = char, typename... Args>
+        std::basic_string<TChar> VariableFormat(const std::basic_string<TChar>& format,
+            const std::pair<const TChar*, Args>&... args)
+        {
+            return VariableFormat(format.c_str(), args...);
         }
 
         //////////////////////////////////////// </editor-fold>
