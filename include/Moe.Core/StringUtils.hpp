@@ -1044,9 +1044,7 @@ namespace moe
             struct HasMethodToStringValidator
             {
                 template <class T,
-                    typename U = typename std::decay<decltype(std::declval<T>().ToString())>::type,
-                    typename = typename std::enable_if<
-                        std::is_same<std::basic_string<TChar>, U>::value>::type>
+                    typename = typename std::decay<decltype(std::declval<T>().ToString())>::type>
                 static std::true_type Test(int);
 
                 template <typename>
@@ -1057,10 +1055,8 @@ namespace moe
             struct HasMethodToStringExValidator
             {
                 template <class T,
-                    typename U = typename std::decay<
-                        decltype(std::declval<T>().ToString(std::declval<const ArrayView<TChar>&>()))>::type,
-                    typename = typename std::enable_if<
-                        std::is_same<std::basic_string<TChar>, U>::value>::type>
+                    typename = typename std::decay<
+                        decltype(std::declval<T>().ToString(std::declval<const ArrayView<TChar>&>()))>::type>
                 static std::true_type Test(int);
 
                 template <typename>
@@ -1444,6 +1440,20 @@ namespace moe
             };
 
             template <typename TChar, typename T>
+            struct CharArrayViewToStringFormatter
+            {
+                static bool AppendToString(std::basic_string<TChar>& output, const void* object,
+                    const ArrayView<TChar>& format)
+                {
+                    MOE_UNUSED(format);
+
+                    const T& value = *static_cast<const T*>(object);
+                    output.append(value.GetBuffer(), value.GetSize());
+                    return true;
+                }
+            };
+
+            template <typename TChar, typename T>
             struct CustomExToStringFormatter
             {
                 template <typename P>
@@ -1496,30 +1506,10 @@ namespace moe
             };
 
             template <typename TChar, typename T>
-            struct CharArrayViewToStringFormatter
-            {
-                static bool AppendToString(std::basic_string<TChar>& output, const void* object,
-                    const ArrayView<TChar>& format)
-                {
-                    MOE_UNUSED(format);
-
-                    const T& value = *static_cast<const T*>(object);
-                    output.append(value.GetBuffer(), value.GetSize());
-                    return true;
-                }
-            };
-
-            template <typename TChar, typename T>
-            using ToStringFormatterSelectCharArrayView = typename std::conditional<
-                std::is_same<typename std::remove_cv<T>::type, ArrayView<TChar>>::value,
-                CharArrayViewToStringFormatter<TChar, T>,
-                void>::type;
-
-            template <typename TChar, typename T>
             using ToStringFormatterSelectCustomOrNot = typename std::conditional<
                 HasMethodToString<TChar, T>::value,
                 CustomToStringFormatter<TChar, T>,
-                ToStringFormatterSelectCharArrayView<TChar, T>>::type;
+                void>::type;
 
             template <typename TChar, typename T>
             using ToStringFormatterSelectCustomExOrNot = typename std::conditional<
@@ -1528,10 +1518,16 @@ namespace moe
                 ToStringFormatterSelectCustomOrNot<TChar, T>>::type;
 
             template <typename TChar, typename T>
+            using ToStringFormatterSelectCharArrayViewOrNot = typename std::conditional<
+                std::is_same<typename std::remove_cv<T>::type, ArrayView<TChar>>::value,
+                CharArrayViewToStringFormatter<TChar, T>,
+                ToStringFormatterSelectCustomExOrNot<TChar, T>>::type;
+
+            template <typename TChar, typename T>
             using ToStringFormatterSelectEnumOrNot = typename std::conditional<
                 std::is_enum<T>::value,
                 EnumToStringFormatter<TChar, T>,
-                ToStringFormatterSelectCustomExOrNot<TChar, T>>::type;
+                ToStringFormatterSelectCharArrayViewOrNot<TChar, T>>::type;
 
             template <typename TChar, typename T>
             using ToStringFormatterSelectNullptrOrNot = typename std::conditional<
