@@ -8,6 +8,7 @@
 #include <string>
 
 #include "Convert.hpp"
+#include "ArrayView.hpp"
 
 namespace moe
 {
@@ -1445,13 +1446,24 @@ namespace moe
             template <typename TChar, typename T>
             struct CustomExToStringFormatter
             {
+                template <typename P>
+                static void AppendToStringHelper(std::basic_string<TChar>& output, const P& input)
+                {
+                    output.append(input);
+                }
+
+                static void AppendToStringHelper(std::basic_string<TChar>& output, ArrayView<TChar> input)
+                {
+                    output.append(input.GetBuffer(), input.GetSize());
+                }
+
                 static bool AppendToString(std::basic_string<TChar>& output, const void* object,
                     const ArrayView<TChar>& format)
                 {
                     const T& value = *static_cast<const T*>(object);
                     auto str = value.ToString(format);
 
-                    output.append(std::move(str));
+                    AppendToStringHelper(output, str);
                     return true;
                 }
             };
@@ -1459,6 +1471,17 @@ namespace moe
             template <typename TChar, typename T>
             struct CustomToStringFormatter
             {
+                template <typename P>
+                static void AppendToStringHelper(std::basic_string<TChar>& output, const P& input)
+                {
+                    output.append(input);
+                }
+
+                static void AppendToStringHelper(std::basic_string<TChar>& output, ArrayView<TChar> input)
+                {
+                    output.append(input.GetBuffer(), input.GetSize());
+                }
+
                 static bool AppendToString(std::basic_string<TChar>& output, const void* object,
                     const ArrayView<TChar>& format)
                 {
@@ -1467,16 +1490,36 @@ namespace moe
                     const T& value = *static_cast<const T*>(object);
                     auto str = value.ToString();
 
-                    output.append(std::move(str));
+                    AppendToStringHelper(output, str);
                     return true;
                 }
             };
 
             template <typename TChar, typename T>
+            struct CharArrayViewToStringFormatter
+            {
+                static bool AppendToString(std::basic_string<TChar>& output, const void* object,
+                    const ArrayView<TChar>& format)
+                {
+                    MOE_UNUSED(format);
+
+                    const T& value = *static_cast<const T*>(object);
+                    output.append(value.GetBuffer(), value.GetSize());
+                    return true;
+                }
+            };
+
+            template <typename TChar, typename T>
+            using ToStringFormatterSelectCharArrayView = typename std::conditional<
+                std::is_same<typename std::remove_cv<T>::type, ArrayView<TChar>>::value,
+                CharArrayViewToStringFormatter<TChar, T>,
+                void>::type;
+
+            template <typename TChar, typename T>
             using ToStringFormatterSelectCustomOrNot = typename std::conditional<
                 HasMethodToString<TChar, T>::value,
                 CustomToStringFormatter<TChar, T>,
-                void>::type;
+                ToStringFormatterSelectCharArrayView<TChar, T>>::type;
 
             template <typename TChar, typename T>
             using ToStringFormatterSelectCustomExOrNot = typename std::conditional<

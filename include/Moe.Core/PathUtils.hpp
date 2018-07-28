@@ -4,7 +4,7 @@
  */
 #pragma once
 #include <vector>
-
+#include "ArrayView.hpp"
 #include "Exception.hpp"
 
 namespace moe
@@ -212,7 +212,7 @@ namespace moe
          * 若最后以'/'或'\'结尾则被认定为文件夹，返回空值
          */
         template <typename TChar = char>
-        std::basic_string<TChar> GetFileName(const TChar* path)
+        ArrayView<TChar> GetFileName(const TChar* path)noexcept
         {
             const TChar* lastFilenameStart = path;
 
@@ -224,7 +224,23 @@ namespace moe
                 ++path;
             }
 
-            return std::basic_string<TChar>(lastFilenameStart);
+            auto end = path + std::char_traits<TChar>::length(path);
+            return ArrayView<TChar>(lastFilenameStart, end - lastFilenameStart);
+        }
+
+        template <typename TChar = char>
+        ArrayView<TChar> GetFileName(const std::basic_string<TChar>& path)noexcept
+        {
+            size_t lastFilenameStart = 0;
+            for (size_t i = 0; i < path.length(); ++i)
+            {
+                TChar c = path[i];
+                if (c == '\\' || c == '/')
+                    lastFilenameStart = i + 1;
+            }
+            if (lastFilenameStart >= path.length())
+                return ArrayView<TChar>();
+            return ArrayView<TChar>(path.data() + lastFilenameStart, path.length() - lastFilenameStart);
         }
 
         /**
@@ -240,7 +256,7 @@ namespace moe
          * 返回扩展名不包含'.'
          */
         template <typename TChar = char>
-        std::basic_string<TChar> GetExtension(const TChar* path)
+        ArrayView<TChar> GetExtension(const TChar* path)noexcept
         {
             const TChar* lastFilenameStart = path;
             const TChar* lastExtensionStart = nullptr;
@@ -256,9 +272,33 @@ namespace moe
             }
 
             if (lastExtensionStart <= lastFilenameStart)
-                return std::basic_string<TChar>();
+                return ArrayView<TChar>();
             else
-                return std::basic_string<TChar>(lastExtensionStart);
+            {
+                auto end = path + std::char_traits<TChar>::length(path);
+                return ArrayView<TChar>(lastExtensionStart, end - lastExtensionStart);
+            }
+        }
+
+        template <typename TChar = char>
+        ArrayView<TChar> GetExtension(const std::basic_string<TChar>& path)noexcept
+        {
+            size_t lastFilenameStart = 0;
+            size_t lastExtensionStart = static_cast<size_t>(-1);
+
+            for (size_t i = 0; i < path.length(); ++i)
+            {
+                TChar c = path[i];
+                if (c == '\\' || c == '/')
+                    lastFilenameStart = i + 1;
+                else if (c == '.')
+                    lastExtensionStart = i + 1;
+            }
+
+            if (lastExtensionStart == static_cast<size_t>(-1) || lastExtensionStart <= lastFilenameStart)
+                return ArrayView<TChar>();
+            else
+                return ArrayView<TChar>(path.data() + lastExtensionStart, path.length() - lastExtensionStart);
         }
     }
 }
