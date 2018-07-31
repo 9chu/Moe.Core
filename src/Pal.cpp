@@ -76,8 +76,8 @@ namespace
 #if !defined(MOE_WINDOWS)
     uint64_t GetRealTimeClockFallback()noexcept
     {
-        static const auto s_stEpoch(chrono::system_clock::from_time_t(0));
-        auto now = chrono::system_clock::now() - s_stEpoch;
+        static const auto kEpoch(chrono::system_clock::from_time_t(0));
+        auto now = chrono::system_clock::now() - kEpoch;
         return static_cast<uint64_t>(chrono::duration_cast<chrono::milliseconds>(now).count());
     }
 #endif
@@ -551,7 +551,7 @@ bool Pal::IsColorTerminal()noexcept
 #if defined(MOE_WINDOWS)
     return true;
 #else
-    static constexpr const char* s_stTerms[] = {
+    static constexpr const char* kTerms[] = {
         "ansi", "color", "console", "cygwin", "gnome", "konsole", "kterm", "linux", "msys", "putty", "rxvt", "screen",
         "vt100", "xterm"
     };
@@ -560,9 +560,9 @@ bool Pal::IsColorTerminal()noexcept
     if (env == nullptr)
         return false;
 
-    for (size_t i = 0; i < CountOf(s_stTerms); ++i)
+    for (size_t i = 0; i < CountOf(kTerms); ++i)
     {
-        if (std::strstr(env, s_stTerms[i]) != nullptr)
+        if (std::strstr(env, kTerms[i]) != nullptr)
             return true;
     }
     return false;

@@ -112,8 +112,8 @@ const size_t Logging::kAllocErrorMsgLength = strlen(kAllocErrorMsg);
 
 uint64_t Logging::Context::GetThreadIdCached()noexcept
 {
-    thread_local const uint64_t s_uTid = Pal::GetCurrentThreadId();
-    return s_uTid;
+    thread_local const uint64_t s_ullTid = Pal::GetCurrentThreadId();
+    return s_ullTid;
 }
 
 //////////////////////////////////////////////////////////////////////////////// PlainFormatter
@@ -148,6 +148,9 @@ Logging::SinkBase::SinkBase(const SinkBase& rhs)
 
 void Logging::SinkBase::Log(Level level, const Context& context, const char* msg)const noexcept
 {
+    if (!ShouldLog(level))
+        return;
+
     if (!m_pFormatter)
         Sink(level, context, msg, msg, strlen(msg));
     else
@@ -202,6 +205,187 @@ namespace
         return stderr;
     }
 #endif
+
+#if defined(MOE_WINDOWS)
+    class WindowsTerminalDefaultStateSaver
+    {
+    public:
+        WindowsTerminalDefaultStateSaver()noexcept
+        {
+            CONSOLE_SCREEN_BUFFER_INFO stdOutInfo;
+            CONSOLE_SCREEN_BUFFER_INFO sttdErrInfo;
+
+            memset(&stdOutInfo, 0, sizeof(stdOutInfo));
+            memset(&sttdErrInfo, 0, sizeof(sttdErrInfo));
+
+            ::GetConsoleScreenBufferInfo(GetStdOut(), &stdOutInfo);
+            m_uStdOutOldAttr = stdOutInfo.wAttributes;
+
+            ::GetConsoleScreenBufferInfo(GetStdErr(), &sttdErrInfo);
+            m_uStdErrOldAttr = stdOutInfo.wAttributes;
+        }
+
+    public:
+        WORD GetStdOutOldAttr()const noexcept { return m_uStdOutOldAttr; }
+        WORD GetStdErrOldAttr()const noexcept { return m_uStdErrOldAttr; }
+
+    private:
+        WORD m_uStdOutOldAttr = 0u;
+        WORD m_uStdErrOldAttr = 0u;
+    };
+
+    // See: https://en.wikipedia.org/wiki/ANSI_escape_code
+    class WindowsTerminalEscapeSequenceSimulator
+    {
+    public:
+        WindowsTerminalEscapeSequenceSimulator(HANDLE handle, WORD defaultStatus)noexcept
+            : m_hHandle(handle), m_iDefaultStatus(defaultStatus) {}
+
+    public:
+        void Print(const char* input, size_t length)
+        {
+            m_iState = 0;
+            m_uLastRegionStart = 0;
+            m_uParameterRegionStart = 0;
+
+            for (size_t i = 0; i <= length; ++i)
+            {
+                auto ch = static_cast<char>(i >= length ? '\0' : input[i]);
+
+                switch (m_iState)
+                {
+                    case 0:
+                        if (ch == 0)
+                        {
+                            if (m_uLastRegionStart < i)
+                            {
+                                PrintText(&input[m_uLastRegionStart], i - m_uLastRegionStart);
+                                m_uLastRegionStart = i;
+                            }
+                        }
+                        else if (ch == 27)  // ESC
+                            m_iState = 1;
+                        break;
+                    case 1:
+                        if (ch == '[')
+                        {
+                            m_iState = 2;
+                            m_uParameterRegionStart = i + 1;
+                        }
+                        else
+                        {
+                            m_iState = 0;
+                            PrintText(&input[m_uLastRegionStart], i - m_uLastRegionStart);
+                            m_uLastRegionStart = i;
+                        }
+                        break;
+                    case 2:
+                        if (ch == 'm')
+                        {
+                            m_iState = 0;
+                            PrintText(&input[m_uLastRegionStart], i - m_uLastRegionStart -
+                                (i - m_uParameterRegionStart + 2));
+                            m_uLastRegionStart = i + 1;
+
+                            ParseParameters(&input[m_uParameterRegionStart], i - m_uParameterRegionStart);
+                        }
+                        else if (!StringUtils::IsDigit(ch) && ch != ';')
+                        {
+                            m_iState = 0;
+                            PrintText(&input[m_uLastRegionStart], i - m_uLastRegionStart);
+                            m_uLastRegionStart = i;
+                        }
+                        break;
+                    default:
+                        assert(false);
+                        break;
+                }
+            }
+        }
+
+    private:
+        void PrintText(const char* start, size_t length)
+        {
+            thread_local wstring s_stBuffer;
+            Encoding::Convert<Encoding::Utf8, Encoding::Utf16, char, wchar_t>(s_stBuffer,
+                ArrayView<char>(start, length),
+                Encoding::DefaultUnicodeFallbackHandler);
+
+            ::WriteConsoleW(m_hHandle, s_stBuffer.c_str(), static_cast<DWORD>(s_stBuffer.length()), nullptr, nullptr);
+        }
+
+        void ParseParameters(const char* start, size_t length)
+        {
+            CONSOLE_SCREEN_BUFFER_INFO info;
+            memset(&info, 0, sizeof(info));
+            ::GetConsoleScreenBufferInfo(m_hHandle, &info);
+
+            auto it = StringUtils::SplitByCharsFirst(ArrayView<char>(start, length), ArrayView<char>(";", 1));
+            while (it != StringUtils::SplitByCharsLast())
+            {
+                auto split = *it;
+                if (split.GetSize() == 0)
+                    InterpretCommand(info.wAttributes, 0);
+                else
+                {
+                    size_t processed = 0;
+                    auto result = Convert::ParseInt(split.GetBuffer(), split.GetSize(), processed);
+                    InterpretCommand(info.wAttributes, static_cast<int>(result));
+                }
+
+                ++it;
+            }
+
+            ::SetConsoleTextAttribute(m_hHandle, info.wAttributes);
+        }
+
+        void InterpretCommand(WORD& current, int cmd)noexcept
+        {
+            // 30~37
+            static const WORD kFgColors[] = {
+                0,  // Black
+                FOREGROUND_RED,  // Red
+                FOREGROUND_GREEN,  // Green
+                FOREGROUND_RED | FOREGROUND_GREEN,  // Yellow
+                FOREGROUND_BLUE,  // Blue
+                FOREGROUND_RED | FOREGROUND_BLUE,  // Magenta
+                FOREGROUND_GREEN | FOREGROUND_BLUE,  // Cyan
+                FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE,  // White
+            };
+
+            // 40~47
+            static const WORD kBgColors[] = {
+                0,  // Black
+                BACKGROUND_RED,  // Red
+                BACKGROUND_GREEN,  // Green
+                BACKGROUND_RED | BACKGROUND_GREEN,  // Yellow
+                BACKGROUND_BLUE,  // Blue
+                BACKGROUND_RED | BACKGROUND_BLUE,  // Magenta
+                BACKGROUND_GREEN | BACKGROUND_BLUE,  // Cyan
+                BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE,  // White
+            };
+
+
+            if (cmd == 0)
+                current = m_iDefaultStatus;
+            else if (cmd >= 30 && cmd <= 37)
+                current = static_cast<WORD>((current & ~0xFu) | kFgColors[cmd - 30]);
+            else if (cmd >= 90 && cmd <= 97)
+                current = static_cast<WORD>((current & ~0xFu) | kFgColors[cmd - 90] | FOREGROUND_INTENSITY);
+            else if (cmd >= 40 && cmd <= 47)
+                current = static_cast<WORD>((current & ~0xF0u) | kBgColors[cmd - 40]);
+            else if (cmd >= 100 && cmd <= 107)
+                current = static_cast<WORD>((current & ~0xF0u) | kBgColors[cmd - 100] | BACKGROUND_INTENSITY);
+        }
+
+    private:
+        HANDLE m_hHandle = nullptr;
+        WORD m_iDefaultStatus = 0;
+        int m_iState = 0;
+        size_t m_uLastRegionStart = 0;
+        size_t m_uParameterRegionStart = 0;
+    };
+#endif
 }
 
 std::mutex& Logging::TerminalSink::GetStdOutMutex()noexcept
@@ -245,23 +429,16 @@ void Logging::TerminalSink::Sink(Level level, const Context& context, const char
 
     try
     {
-#if defined(MOE_WINDOWS)
-        // TODO
-        thread_local wstring s_stBuffer;
-        Encoding::Convert<Encoding::Utf8, Encoding::Utf16, char, wchar_t>(s_stBuffer,
-            ArrayView<char>(formatted, length),
-            Encoding::DefaultUnicodeFallbackHandler);
-        s_stBuffer.append(L"\r\n");
-
-        {
-            unique_lock<mutex> guard(m_iType == OutputType::StdErr ? GetStdErrMutex() : GetStdOutMutex());
-            ::WriteConsoleW(m_pFile, s_stBuffer.c_str(), static_cast<DWORD>(s_stBuffer.length()), nullptr, nullptr);
-        }
-#else
         unique_lock<mutex> guard(m_iType == OutputType::StdErr ? GetStdErrMutex() : GetStdOutMutex());
+#if defined(MOE_WINDOWS)
+        static const WindowsTerminalDefaultStateSaver s_stSaver;
 
-        // 忽略所有错误
-        ::fwrite(formatted, sizeof(char), length, m_pFile);
+        WindowsTerminalEscapeSequenceSimulator simulator(m_pFile, m_iType == OutputType::StdErr ?
+            s_stSaver.GetStdErrOldAttr() : s_stSaver.GetStdOutOldAttr());
+        simulator.Print(formatted, length);
+        simulator.Print("\r\n", 2);
+#else
+        ::fwrite(formatted, sizeof(char), length, m_pFile);  // 忽略所有错误
         ::fwrite("\n", sizeof(char), 1, m_pFile);
 #endif
     }
