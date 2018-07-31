@@ -68,13 +68,13 @@ namespace moe
          * @brief UTC时间到本地时间
          * @param utc 被转换的UTC时间
          */
-        inline Timestamp ToLocalTime(Timestamp utc)noexcept { return utc - GetTimeZoneOffset(); }
+        inline Timestamp ToLocalTime(Timestamp utc)noexcept { return utc + GetTimeZoneOffset(); }
 
         /**
          * @brief 本地时间到UTC时间
          * @param local 被转换的本地时间
          */
-        inline Timestamp ToUtcTime(Timestamp local)noexcept { return local + GetTimeZoneOffset(); }
+        inline Timestamp ToUtcTime(Timestamp local)noexcept { return local - GetTimeZoneOffset(); }
 
         /**
          * @brief 获取UTC时间戳

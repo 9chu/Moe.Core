@@ -4,22 +4,342 @@
  */
 #include <Moe.Core/Logging.hpp>
 #include <Moe.Core/Exception.hpp>
+#include <Moe.Core/Encoding.hpp>
 
 #include <mutex>
 #include <vector>
 #include <atomic>
 #include <iostream>
 #include <iomanip>
+#include <sstream>
 
-#ifndef MOE_WINDOWS
-#include <unistd.h>
-#else
+#ifdef MOE_WINDOWS
 #include <Windows.h>
+#else
+#include <unistd.h>
 #endif
 
 using namespace std;
 using namespace moe;
-using namespace Logging;
+
+namespace
+{
+    const char* GetLogLevelString(Logging::Level level)noexcept
+    {
+        switch (level)
+        {
+            case Logging::Level::Debug:
+                return "DEBUG";
+            case Logging::Level::Trace:
+                return "TRACE";
+            case Logging::Level::Info:
+                return "INFO";
+            case Logging::Level::Warn:
+                return "WARN";
+            case Logging::Level::Error:
+                return "ERROR";
+            case Logging::Level::Fatal:
+                return "FATAL";
+            default:
+                return "";
+        }
+    }
+
+    struct DateTimeLazyCalc
+    {
+        bool ShortVersion;
+        Time::Timestamp Time;
+        mutable char Buffer[16];
+
+        DateTimeLazyCalc(bool shortVersion, Time::Timestamp time)noexcept
+            : ShortVersion(shortVersion), Time(time) {}
+
+        const char* ToString()const noexcept
+        {
+            auto dt = Time::ToDateTime(Time);
+            if (ShortVersion)
+            {
+                snprintf(Buffer, sizeof(Buffer) - 1, "%02d-%02d-%02d", dt.Year % 100, dt.Month, dt.Day);
+                Buffer[sizeof(Buffer) - 1] = '\0';
+            }
+            else
+            {
+                snprintf(Buffer, sizeof(Buffer) - 1, "%04d-%02d-%02d", dt.Year, dt.Month, dt.Day);
+                Buffer[sizeof(Buffer) - 1] = '\0';
+            }
+            return Buffer;
+        }
+    };
+
+    struct TimeLazyCalc
+    {
+        Time::Timestamp Time = 0;
+        mutable char Buffer[16];
+
+        TimeLazyCalc(Time::Timestamp time)noexcept
+            : Time(time) {}
+
+        const char* ToString()const noexcept
+        {
+            auto dt = Time::ToDateTime(Time);
+            snprintf(Buffer, sizeof(Buffer) - 1, "%02d:%02d:%02d.%03d", dt.Hour, dt.Minutes, dt.Seconds,
+                dt.MilliSeconds);
+            Buffer[sizeof(Buffer) - 1] = '\0';
+            return Buffer;
+        }
+    };
+
+    struct FilenameLazyCalc
+    {
+        const char* Path = nullptr;
+
+        FilenameLazyCalc(const char* path)noexcept
+            : Path(path) {}
+
+        ArrayView<char> ToString()const noexcept
+        {
+            return PathUtils::GetFileName(Path);
+        }
+    };
+}
+
+const char* Logging::kFormatErrorMsg = "(Format message failed while logging message)";
+const size_t Logging::kFormatErrorMsgLength = strlen(kFormatErrorMsg);
+const char* Logging::kAllocErrorMsg = "(Alloc memory failed while logging message)";
+const size_t Logging::kAllocErrorMsgLength = strlen(kAllocErrorMsg);
+
+//////////////////////////////////////////////////////////////////////////////// Context
+
+uint64_t Logging::Context::GetThreadIdCached()noexcept
+{
+    thread_local const uint64_t s_uTid = Pal::GetCurrentThreadId();
+    return s_uTid;
+}
+
+//////////////////////////////////////////////////////////////////////////////// PlainFormatter
+
+void Logging::PlainFormatter::Format(std::string& dest, Level level, const Context& context, const char* msg)const
+{
+    DateTimeLazyCalc date(false, context.Time);
+    DateTimeLazyCalc shortDate(true, context.Time);
+    TimeLazyCalc time(context.Time);
+    FilenameLazyCalc filename(context.File);
+
+    StringUtils::VariableFormat(dest, m_stFormat.c_str(), make_pair("date", reference_wrapper<DateTimeLazyCalc>(date)),
+        make_pair("short_date", reference_wrapper<DateTimeLazyCalc>(shortDate)),
+        make_pair("time", reference_wrapper<TimeLazyCalc>(time)), make_pair("level", GetLogLevelString(level)),
+        make_pair("path", context.File), make_pair("file", reference_wrapper<FilenameLazyCalc>(filename)),
+        make_pair("func", context.Function), make_pair("line", context.Line), make_pair("thread", context.ThreadId),
+        make_pair("msg", msg));
+}
+
+std::shared_ptr<Logging::FormatterBase> Logging::PlainFormatter::Clone()const
+{
+    return static_pointer_cast<Logging::FormatterBase>(make_shared<Logging::PlainFormatter>(*this));
+}
+
+//////////////////////////////////////////////////////////////////////////////// SinkBase
+
+Logging::SinkBase::SinkBase(const SinkBase& rhs)
+    : m_bAlwaysFlush(rhs.m_bAlwaysFlush), m_iMinLevel(rhs.m_iMinLevel), m_iMaxLevel(rhs.m_iMaxLevel),
+    m_pFormatter(rhs.m_pFormatter ? rhs.m_pFormatter->Clone() : nullptr)
+{
+}
+
+void Logging::SinkBase::Log(Level level, const Context& context, const char* msg)const noexcept
+{
+    if (!m_pFormatter)
+        Sink(level, context, msg, msg, strlen(msg));
+    else
+    {
+        thread_local string formatted;
+
+        try
+        {
+            m_pFormatter->Format(formatted, level, context, msg);
+        }
+        catch (...)
+        {
+            Sink(level, context, msg, kFormatErrorMsg, kFormatErrorMsgLength);
+            if (IsAlwaysFlush())
+                Flush();
+            return;
+        }
+
+        Sink(level, context, msg, formatted.c_str(), formatted.length());
+    }
+
+    if (IsAlwaysFlush())
+        Flush();
+}
+
+void Logging::SinkBase::Flush()const noexcept
+{
+}
+
+//////////////////////////////////////////////////////////////////////////////// ConsoleSink
+
+namespace
+{
+#if defined(MOE_WINDOWS)
+    HANDLE GetStdOut()
+    {
+        return ::GetStdHandle(STD_OUTPUT_HANDLE);
+    }
+
+    HANDLE GetStdErr()
+    {
+        return ::GetStdHandle(STD_ERROR_HANDLE);
+    }
+#else
+    FILE* GetStdOut()
+    {
+        return stdout;
+    }
+
+    FILE* GetStdErr()
+    {
+        return stderr;
+    }
+#endif
+}
+
+std::mutex& Logging::TerminalSink::GetStdOutMutex()noexcept
+{
+    static std::mutex s_stLock;
+    return s_stLock;
+}
+
+std::mutex& Logging::TerminalSink::GetStdErrMutex()noexcept
+{
+    static std::mutex s_stLock;
+    return s_stLock;
+}
+
+Logging::TerminalSink::TerminalSink(OutputType type)
+    : m_iType(type), m_pFile(type == OutputType::StdErr ? GetStdErr() : GetStdOut())
+{
+#if defined(MOE_WINDOWS)
+    m_bDoColor = Pal::IsColorTerminal();
+#else
+    m_bDoColor = Pal::IsInTerminal() && Pal::IsColorTerminal();
+#endif
+}
+
+Logging::TerminalSink::TerminalSink(const TerminalSink& rhs)
+    : SinkBase(rhs), m_iType(rhs.m_iType), m_pFile(rhs.m_pFile), m_bDoColor(rhs.m_bDoColor)
+{
+}
+
+std::shared_ptr<Logging::SinkBase> Logging::TerminalSink::Clone()const
+{
+    return static_pointer_cast<Logging::SinkBase>(make_shared<Logging::TerminalSink>(*this));
+}
+
+void Logging::TerminalSink::Sink(Level level, const Context& context, const char* msg, const char* formatted,
+    size_t length)const noexcept
+{
+    MOE_UNUSED(level);
+    MOE_UNUSED(context);
+    MOE_UNUSED(msg);
+
+    try
+    {
+#if defined(MOE_WINDOWS)
+        // TODO
+        thread_local wstring s_stBuffer;
+        Encoding::Convert<Encoding::Utf8, Encoding::Utf16, char, wchar_t>(s_stBuffer,
+            ArrayView<char>(formatted, length),
+            Encoding::DefaultUnicodeFallbackHandler);
+        s_stBuffer.append(L"\r\n");
+
+        {
+            unique_lock<mutex> guard(m_iType == OutputType::StdErr ? GetStdErrMutex() : GetStdOutMutex());
+            ::WriteConsoleW(m_pFile, s_stBuffer.c_str(), static_cast<DWORD>(s_stBuffer.length()), nullptr, nullptr);
+        }
+#else
+        unique_lock<mutex> guard(m_iType == OutputType::StdErr ? GetStdErrMutex() : GetStdOutMutex());
+
+        // 忽略所有错误
+        ::fwrite(formatted, sizeof(char), length, m_pFile);
+        ::fwrite("\n", sizeof(char), 1, m_pFile);
+#endif
+    }
+    catch (...)
+    {
+    }
+}
+
+void Logging::TerminalSink::Flush()const noexcept
+{
+#if !defined(MOE_WINDOWS)
+    try
+    {
+        unique_lock<mutex> guard(m_iType == OutputType::StdErr ? GetStdErrMutex() : GetStdOutMutex());
+        ::fflush(m_pFile);
+    }
+    catch (...)
+    {
+    }
+#endif
+}
+
+//////////////////////////////////////////////////////////////////////////////// Logging
+
+Logging& Logging::GetInstance()noexcept
+{
+    static Logging s_stLogging;
+    return s_stLogging;
+}
+
+void Logging::Commit()
+{
+    // 构造Sinks的拷贝
+    SinkContainerPtr p = make_shared<SinkContainerType>();
+    p->reserve(m_stSinks.size());
+
+    for (auto& i : m_stSinks)
+        p->emplace_back(i->Clone());
+
+    // 锁定m_stSinksInUse并赋予新值
+    {
+        unique_lock<mutex> lock(m_stLock);
+        m_stSinksInUse = p;
+    }
+}
+
+std::string& Logging::GetFormatStringThreadCache()const noexcept
+{
+    thread_local string s_stBuffer;
+    return s_stBuffer;
+}
+
+void Logging::Sink(Level level, const Context& context, const char* msg)const noexcept
+{
+    // 获取指针
+    SinkContainerPtr p;
+
+    try
+    {
+        unique_lock<mutex> lock(m_stLock);
+        p = m_stSinksInUse;
+    }
+    catch (...)
+    {
+        // 直接吃掉异常
+        assert(false);
+        return;
+    }
+
+    // 分发日志
+    if (p)
+    {
+        for (auto it = p->begin(); it != p->end(); ++it)
+            (*it)->Log(level, context, msg);
+    }
+}
+
+#if 0
 
 //////////////////////////////////////////////////////////////////////////////// ConsoleLogger
 
@@ -255,3 +575,4 @@ void Logging::SetFilterMinLevel(LogLevel level)noexcept
 {
     s_iFilterMinLevel.store(static_cast<unsigned>(level), memory_order_release);
 }
+#endif
