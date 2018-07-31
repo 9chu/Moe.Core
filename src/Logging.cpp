@@ -138,6 +138,176 @@ std::shared_ptr<Logging::FormatterBase> Logging::PlainFormatter::Clone()const
     return static_pointer_cast<Logging::FormatterBase>(make_shared<Logging::PlainFormatter>(*this));
 }
 
+//////////////////////////////////////////////////////////////////////////////// AnsiColorFormatter
+
+Logging::AnsiColorFormatter::AnsiColorFormatter()
+{
+    SetColor(Level::Debug, Colors::Default, Colors::Default);
+    SetColor(Level::Trace, Colors::BrightCyan, Colors::Default);
+    SetColor(Level::Info, Colors::BrightGreen, Colors::Default);
+    SetColor(Level::Warn, Colors::BrightYellow, Colors::Default);
+    SetColor(Level::Error, Colors::BrightRed, Colors::Default);
+    SetColor(Level::Fatal, Colors::BrightWhite, Colors::Red);
+}
+
+void Logging::AnsiColorFormatter::Format(std::string& dest, Level level, const Context& context, const char* msg)const
+{
+    DateTimeLazyCalc date(false, context.Time);
+    DateTimeLazyCalc shortDate(true, context.Time);
+    TimeLazyCalc time(context.Time);
+    FilenameLazyCalc filename(context.File);
+
+    StringUtils::VariableFormat(dest, m_stFormat.c_str(), make_pair("date", reference_wrapper<DateTimeLazyCalc>(date)),
+        make_pair("short_date", reference_wrapper<DateTimeLazyCalc>(shortDate)),
+        make_pair("time", reference_wrapper<TimeLazyCalc>(time)), make_pair("level", GetLogLevelString(level)),
+        make_pair("path", context.File), make_pair("file", reference_wrapper<FilenameLazyCalc>(filename)),
+        make_pair("func", context.Function), make_pair("line", context.Line), make_pair("thread", context.ThreadId),
+        make_pair("msg", msg));
+
+    // Color it
+    auto pair = GetColor(level);
+    int fg = 0, bg = 0;
+    switch (pair.first)
+    {
+        case Colors::Black:
+            fg = 30;
+            break;
+        case Colors::Red:
+            fg = 31;
+            break;
+        case Colors::Green:
+            fg = 32;
+            break;
+        case Colors::Yellow:
+            fg = 33;
+            break;
+        case Colors::Blue:
+            fg = 34;
+            break;
+        case Colors::Magenta:
+            fg = 35;
+            break;
+        case Colors::Cyan:
+            fg = 36;
+            break;
+        case Colors::White:
+            fg = 37;
+            break;
+        case Colors::BrightBlack:
+            fg = 90;
+            break;
+        case Colors::BrightRed:
+            fg = 91;
+            break;
+        case Colors::BrightGreen:
+            fg = 92;
+            break;
+        case Colors::BrightYellow:
+            fg = 93;
+            break;
+        case Colors::BrightBlue:
+            fg = 94;
+            break;
+        case Colors::BrightMagenta:
+            fg = 95;
+            break;
+        case Colors::BrightCyan:
+            fg = 96;
+            break;
+        case Colors::BrightWhite:
+            fg = 97;
+            break;
+        default:
+            break;
+    }
+
+    switch (pair.second)
+    {
+        case Colors::Black:
+            bg = 40;
+            break;
+        case Colors::Red:
+            bg = 41;
+            break;
+        case Colors::Green:
+            bg = 42;
+            break;
+        case Colors::Yellow:
+            bg = 43;
+            break;
+        case Colors::Blue:
+            bg = 44;
+            break;
+        case Colors::Magenta:
+            bg = 45;
+            break;
+        case Colors::Cyan:
+            bg = 46;
+            break;
+        case Colors::White:
+            bg = 47;
+            break;
+        case Colors::BrightBlack:
+            bg = 100;
+            break;
+        case Colors::BrightRed:
+            bg = 101;
+            break;
+        case Colors::BrightGreen:
+            bg = 102;
+            break;
+        case Colors::BrightYellow:
+            bg = 103;
+            break;
+        case Colors::BrightBlue:
+            bg = 104;
+            break;
+        case Colors::BrightMagenta:
+            bg = 105;
+            break;
+        case Colors::BrightCyan:
+            bg = 106;
+            break;
+        case Colors::BrightWhite:
+            bg = 107;
+            break;
+        default:
+            break;
+    }
+
+    if (fg != 0 || bg != 0)
+    {
+        char indicator[16] = { 0 };
+        char buf[16] = { 0 };
+
+        indicator[0] = '\033';
+        indicator[1] = '[';
+
+        if (fg != 0)
+        {
+            Convert::ToDecimalString(fg, buf);
+            strcat(indicator, buf);
+        }
+        if (bg != 0)
+        {
+            if (fg != 0)
+                strcat(indicator, ";");
+
+            Convert::ToDecimalString(bg, buf);
+            strcat(indicator, buf);
+        }
+
+        strcat(indicator, "m");
+        dest.insert(0, indicator);
+        dest.append("\033[m");
+    }
+}
+
+std::shared_ptr<Logging::FormatterBase> Logging::AnsiColorFormatter::Clone()const
+{
+    return static_pointer_cast<Logging::FormatterBase>(make_shared<Logging::AnsiColorFormatter>(*this));
+}
+
 //////////////////////////////////////////////////////////////////////////////// SinkBase
 
 Logging::SinkBase::SinkBase(const SinkBase& rhs)
@@ -515,241 +685,3 @@ void Logging::Sink(Level level, const Context& context, const char* msg)const no
             (*it)->Log(level, context, msg);
     }
 }
-
-#if 0
-
-//////////////////////////////////////////////////////////////////////////////// ConsoleLogger
-
-namespace
-{
-#ifndef MOE_WINDOWS
-    const char* GetLogLevelColor(LogLevel level)
-    {
-        switch (level)
-        {
-            case LogLevel::Debug:
-                return "\033[37m";  // 白色
-            case LogLevel::Trace:
-                return "\033[36m";  // 青色
-            case LogLevel::Info:
-                return "\033[32m";  // 绿色
-            case LogLevel::Warn:
-                return "\033[33m";  // 黄色
-            case LogLevel::Error:
-                return "\033[31m";  // 红色
-            case LogLevel::Fatal:
-                return "\033[41m";  // 红色高亮
-        }
-
-        return "";
-    }
-#else
-    class WindowsConsoleHelper :
-        public NonCopyable
-    {
-    public:
-        WindowsConsoleHelper()
-        {
-            ::CONSOLE_SCREEN_BUFFER_INFO consoleBufferInfo;
-            ::memset(&consoleBufferInfo, 0, sizeof(consoleBufferInfo));
-
-            m_hOutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-            m_hErrorHandle = GetStdHandle(STD_ERROR_HANDLE);
-
-            ::GetConsoleScreenBufferInfo(m_hOutputHandle, &consoleBufferInfo);
-            m_wOutputOldAttrs = consoleBufferInfo.wAttributes;
-
-            ::GetConsoleScreenBufferInfo(m_hErrorHandle, &consoleBufferInfo);
-            m_wErrorOldAttrs = consoleBufferInfo.wAttributes;
-        }
-
-    public:
-        void RestoreStdOutput()
-        {
-            ::SetConsoleTextAttribute(m_hOutputHandle, m_wOutputOldAttrs);
-        }
-
-        void SetColorStdOutput(::WORD attrs)
-        {
-            ::SetConsoleTextAttribute(m_hOutputHandle, attrs);
-        }
-
-        void RestoreStdError()
-        {
-            ::SetConsoleTextAttribute(m_hErrorHandle, m_wErrorOldAttrs);
-        }
-
-        void SetColorStdError(::WORD attrs)
-        {
-            ::SetConsoleTextAttribute(m_hErrorHandle, attrs);
-        }
-
-    private:
-        ::HANDLE m_hOutputHandle = INVALID_HANDLE_VALUE;
-        ::HANDLE m_hErrorHandle = INVALID_HANDLE_VALUE;
-        ::WORD m_wOutputOldAttrs = 0;
-        ::WORD m_wErrorOldAttrs = 0;
-    };
-
-    ::WORD GetLogLevelColor(LogLevel level)
-    {
-        switch (level)
-        {
-            case LogLevel::Debug:
-                return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;  // 白色
-            case LogLevel::Trace:
-                return FOREGROUND_BLUE | FOREGROUND_INTENSITY;  // 青色
-            case LogLevel::Info:
-                return FOREGROUND_GREEN | FOREGROUND_INTENSITY;  // 绿色
-            case LogLevel::Warn:
-                return FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_INTENSITY;  // 黄色
-            case LogLevel::Error:
-                return FOREGROUND_RED | FOREGROUND_INTENSITY;  // 红色
-            case LogLevel::Fatal:
-                // 红色高亮
-                return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | BACKGROUND_RED | FOREGROUND_INTENSITY;
-        }
-
-        return 0;
-    }
-#endif
-}
-
-void ConsoleLogger::Log(LogLevel level, const std::string& message, const char* file, unsigned line,
-    const char* function, std::thread::id thread, LoggingTimePoint time)noexcept
-{
-    auto dt = Time::ToDateTime(time);
-    auto& out = level < LogLevel::Warn ? cout : cerr;
-
-#ifndef MOE_WINDOWS
-    static const auto istty = ::isatty(STDOUT_FILENO);
-    if (istty)
-        out << GetLogLevelColor(level);
-#else
-    static WindowsConsoleHelper s_stHelper;
-    if (level < LogLevel::Warn)
-        s_stHelper.SetColorStdOutput(GetLogLevelColor(level));
-    else
-        s_stHelper.SetColorStdError(GetLogLevelColor(level));
-#endif
-
-    out << "[" << LogLevelToString(level) << "]";
-    out << "[" << Time::ToString(dt) << "]";
-    out << "[thread-" << thread << "]";
-    out << " " << function << ": " << message << " @ " << file << ":" << line;
-
-#ifndef MOE_WINDOWS
-    if (istty)
-        out << "\033[0m";
-    out << endl;
-    out.flush();
-#else
-    out << endl;
-    out.flush();
-    if (level < LogLevel::Warn)
-        s_stHelper.RestoreStdOutput();
-    else
-        s_stHelper.RestoreStdError();
-#endif
-}
-
-//////////////////////////////////////////////////////////////////////////////// FileLogger
-
-FileLogger::FileLogger(const char* path)
-    : m_stFile(path, ios::out)
-{
-    if (!m_stFile)
-        MOE_THROW(IOException, "Failed to open file \"{0}\".", path);
-}
-
-void FileLogger::Log(LogLevel level, const std::string& message, const char* file, unsigned line, const char* function,
-    std::thread::id thread, LoggingTimePoint time)noexcept
-{
-    auto dt = Time::ToDateTime(time);
-
-    m_stFile << "[" << LogLevelToString(level) << "]";
-    m_stFile << "[" << Time::ToString(dt) << "]";
-    m_stFile << "[thread-" << thread << "]";
-    m_stFile << " " << function << ": " << message << " @ " << file << ":" << line;
-    m_stFile << endl;
-
-    m_stFile.flush();
-}
-
-//////////////////////////////////////////////////////////////////////////////// Logging
-
-static mutex s_stLoggerLock;
-static vector<shared_ptr<Logger>> s_stLoggerList = { make_shared<ConsoleLogger>() };
-
-#ifdef NDEBUG
-static std::atomic<unsigned> s_iFilterMinLevel(static_cast<unsigned>(LogLevel::Info));
-#else
-static std::atomic<unsigned> s_iFilterMinLevel(static_cast<unsigned>(LogLevel::Debug));
-#endif
-
-void Logging::details::DispatchLogMessage(LogLevel level, const std::string& message, const char* file, unsigned line,
-    const char* function, thread::id thread, LoggingTimePoint time)noexcept
-{
-    unique_lock<mutex> lockGuard(s_stLoggerLock);
-
-    for (auto it = s_stLoggerList.begin(); it != s_stLoggerList.end(); ++it)
-        (*it)->Log(level, message, file, line, function, thread, time);
-}
-
-const char* Logging::LogLevelToString(LogLevel level)noexcept
-{
-    switch (level)
-    {
-        case LogLevel::Debug:
-            return "Debug";
-        case LogLevel::Trace:
-            return "Trace";
-        case LogLevel::Info:
-            return "Info";
-        case LogLevel::Warn:
-            return "Warn";
-        case LogLevel::Error:
-            return "Error";
-        case LogLevel::Fatal:
-            return "Fatal";
-    }
-
-    return "Unknown";
-}
-
-void Logging::AddLogger(std::shared_ptr<Logger> logger)
-{
-    unique_lock<mutex> lockGuard(s_stLoggerLock);
-    s_stLoggerList.emplace_back(logger);
-}
-
-void Logging::RemoveLogger(Logger* logger)noexcept
-{
-    unique_lock<mutex> lockGuard(s_stLoggerLock);
-    for (auto it = s_stLoggerList.begin(); it != s_stLoggerList.end(); ++it)
-    {
-        if (it->get() == logger)
-        {
-            s_stLoggerList.erase(it);
-            return;
-        }
-    }
-}
-
-void Logging::ClearLogger()noexcept
-{
-    unique_lock<mutex> lockGuard(s_stLoggerLock);
-    s_stLoggerList.clear();
-}
-
-LogLevel Logging::GetFilterMinLevel()noexcept
-{
-    auto ret = s_iFilterMinLevel.load(memory_order_consume);
-    return static_cast<LogLevel>(ret);
-}
-
-void Logging::SetFilterMinLevel(LogLevel level)noexcept
-{
-    s_iFilterMinLevel.store(static_cast<unsigned>(level), memory_order_release);
-}
-#endif

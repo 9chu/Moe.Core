@@ -131,13 +131,81 @@ namespace moe
             std::string m_stFormat = "[{short_date} {time}][{level,-5}][0x{thread:H}][{file}:{line},{func}] {msg}";
         };
 
-        /*
+        /**
+         * @brief ANSI标准颜色格式化输出
+         *
+         * 格式参照PlainFormatter。
+         */
         class AnsiColorFormatter :
             public FormatterBase
         {
+        public:
+            enum class Colors
+            {
+                Default = 0,
+                Black,
+                Red,
+                Green,
+                Yellow,
+                Blue,
+                Magenta,
+                Cyan,
+                White,
+                BrightBlack,
+                BrightRed,
+                BrightGreen,
+                BrightYellow,
+                BrightBlue,
+                BrightMagenta,
+                BrightCyan,
+                BrightWhite,
+            };
 
+        public:
+            AnsiColorFormatter();
+
+        public:
+            /**
+             * @brief 获取格式描述
+             */
+            const std::string& GetFormat()const noexcept { return m_stFormat; }
+
+            /**
+             * @brief 设置格式描述
+             */
+            void SetFormat(const std::string& format) { m_stFormat = format; }
+            void SetFormat(std::string&& format) { m_stFormat = std::move(format); }
+
+            /**
+             * @brief 获取颜色
+             * @param level 日志级别
+             */
+            std::pair<Colors, Colors> GetColor(Level level)const noexcept
+            {
+                assert(static_cast<unsigned>(level) < CountOf(m_stColors));
+                return m_stColors[static_cast<unsigned>(level)];
+            }
+
+            /**
+             * @brief 设置颜色
+             * @param level 日志级别
+             * @param fg 前景色
+             * @param bg 背景色
+             */
+            void SetColor(Level level, Colors fg, Colors bg)
+            {
+                assert(static_cast<unsigned>(level) < CountOf(m_stColors));
+                m_stColors[static_cast<unsigned>(level)] = std::pair<Colors, Colors>(fg, bg);
+            }
+
+        protected:
+            void Format(std::string& dest, Level level, const Context& context, const char* msg)const override;
+            std::shared_ptr<FormatterBase> Clone()const override;
+
+        private:
+            std::string m_stFormat = "[{short_date} {time}][{level,-5}][0x{thread:H}][{file}:{line},{func}] {msg}";
+            std::pair<Colors, Colors> m_stColors[static_cast<unsigned>(Level::Fatal) + 1];
         };
-         */
 
         /**
          * @brief 日志落地对象基类

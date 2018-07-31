@@ -295,7 +295,7 @@ namespace moe
     template <typename T>
     const T& EmptyRefOf()noexcept
     {
-        static const T kEmptyInstance = {};
+        static const T kEmptyInstance {};
         return kEmptyInstance;
     }
 

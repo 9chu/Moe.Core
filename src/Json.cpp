@@ -902,7 +902,7 @@ namespace
         void BufferUnicodeCharacter(char32_t ch)
         {
             uint32_t count = 0;
-            array<char, Encoding::Utf8::Encoder::kMaxOutputCount> buffer {};
+            array<char, Encoding::Utf8::Encoder::kMaxOutputCount> buffer;
             Encoding::Utf8::Encoder encoder;
 
             if (Encoding::EncodingResult::Accept != encoder(ch, buffer, count))

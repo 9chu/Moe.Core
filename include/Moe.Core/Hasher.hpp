@@ -200,6 +200,7 @@ namespace moe
                 m_uH1 = Seed;
                 m_uRest = 0;
                 m_uLength = 0;
+                m_stBuf.fill(0);
                 return *this;
             }
 
@@ -304,7 +305,7 @@ namespace moe
             uint32_t m_uH1 = 0;
             uint32_t m_uRest = 0;
             uint32_t m_uLength = 0;
-            std::array<uint8_t, sizeof(uint32_t)> m_stBuf {};
+            std::array<uint8_t, sizeof(uint32_t)> m_stBuf;
         };
 
         /**
@@ -395,6 +396,7 @@ namespace moe
                 m_uC = 0x98BADCFEu;
                 m_uD = 0x10325476u;
                 m_stBuffer.fill(0);
+                m_stResult.fill(0);
                 return *this;
             }
 
@@ -415,8 +417,8 @@ namespace moe
         private:
             STATE m_iState = STATE_DEFAULT;
             uint32_t m_uLo = 0, m_uHi = 0, m_uA = 0, m_uB = 0, m_uC = 0, m_uD = 0;
-            std::array<uint8_t, 64> m_stBuffer {};
-            ResultType m_stResult {};
+            std::array<uint8_t, 64> m_stBuffer;
+            ResultType m_stResult;
         };
 
         /**
@@ -451,6 +453,7 @@ namespace moe
                 m_uCount[0] = 0;
                 m_uCount[1] = 0;
                 m_stBuffer.fill(0);
+                m_stResult.fill(0);
                 return *this;
             }
 
@@ -470,10 +473,10 @@ namespace moe
 
         private:
             STATE m_iState = STATE_DEFAULT;
-            std::array<uint32_t, 5> m_uState {};
-            std::array<uint32_t, 2> m_uCount {};
-            std::array<uint8_t, 64> m_stBuffer {};
-            ResultType m_stResult {};
+            std::array<uint32_t, 5> m_uState;
+            std::array<uint32_t, 2> m_uCount;
+            std::array<uint8_t, 64> m_stBuffer;
+            ResultType m_stResult;
         };
 
         /**
@@ -512,6 +515,7 @@ namespace moe
                 m_uState[6] = 0x1F83D9ABu;
                 m_uState[7] = 0x5BE0CD19u;
                 m_stBuffer.fill(0);
+                m_stResult.fill(0);
                 return *this;
             }
 
@@ -532,10 +536,10 @@ namespace moe
         private:
             STATE m_iState = STATE_DEFAULT;
             uint64_t m_uLength = 0;
-            std::array<uint32_t, 8> m_uState {};
+            std::array<uint32_t, 8> m_uState;
             uint32_t m_uCurrent = 0;
-            std::array<uint8_t, 64> m_stBuffer {};
-            ResultType m_stResult {};
+            std::array<uint8_t, 64> m_stBuffer;
+            ResultType m_stResult;
         };
     }
 

@@ -184,7 +184,7 @@ namespace moe
         ~Url() = default;
 
         Url& operator=(const Url& rhs) = default;
-        Url& operator=(Url&& rhs)noexcept = default;
+        Url& operator=(Url&& rhs) = default;
 
         bool operator==(const Url& rhs)const noexcept;
         bool operator!=(const Url& rhs)const noexcept;

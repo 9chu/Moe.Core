@@ -282,7 +282,7 @@ namespace moe
 
             private:
                 uint32_t m_iState = 0;
-                std::array<uint8_t, 3> m_stBuf {};
+                std::array<uint8_t, 3> m_stBuf;
             };
 
             class Encoder
@@ -308,7 +308,7 @@ namespace moe
 
             private:
                 uint32_t m_iState = 0;
-                std::array<char, 2> m_stBuf {};
+                std::array<char, 2> m_stBuf;
             };
         };
 
