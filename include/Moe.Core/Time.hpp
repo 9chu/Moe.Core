@@ -3,10 +3,7 @@
  * @date 2017/7/8
  */
 #pragma once
-#include <ctime>
-#include <cstdint>
-
-#include <string>
+#include "Pal.hpp"
 
 namespace moe
 {
@@ -23,8 +20,8 @@ namespace moe
         using Timestamp = uint64_t;
         using TimestampOffset = int64_t;
         using UnixTimestamp = ::time_t;
+
         using Tick = uint64_t;  // 滴答数，精确到毫秒
-        using HiResTick = double;  // 滴答数，整形部分为毫秒，小数部分依据平台精度而定
 
         /**
          * @brief 日期
@@ -46,14 +43,7 @@ namespace moe
          * @brief 从Utc时间戳转到Unix时间戳
          * @param ts Utc时间戳
          */
-        constexpr Timestamp ToUnixTimestamp(Timestamp ts)noexcept { return static_cast<uint32_t>(ts / 1000); }
-
-        /**
-         * @brief 获取Utc时间戳
-         *
-         * 从1970/1/1日起经过的毫秒数。
-         */
-        Timestamp GetUtcTime()noexcept;
+        constexpr time_t ToUnixTimestamp(Timestamp ts)noexcept { return static_cast<uint32_t>(ts / 1000); }
 
         /**
          * @brief 获取当前时区下相对Utc时间的偏移量
@@ -61,6 +51,18 @@ namespace moe
          * 注意该方法只会取一次TimeZone，这意味着当系统TimeZone变化时需要重启程序才会生效。
          */
         TimestampOffset GetTimeZoneOffset()noexcept;
+
+        /**
+         * @brief 转换时间戳到时间日期
+         * @param ts 时间戳
+         */
+        DateTime ToDateTime(Timestamp ts)noexcept;
+
+        /**
+         * @brief 转换时间日期到时间戳
+         * @param dt 时间日期
+         */
+        Timestamp ToTimestamp(const DateTime& dt)noexcept;
 
         /**
          * @brief UTC时间到本地时间
@@ -75,31 +77,21 @@ namespace moe
         inline Timestamp ToUtcTime(Timestamp local)noexcept { return local + GetTimeZoneOffset(); }
 
         /**
+         * @brief 获取UTC时间戳
+         *
+         * 从1970/1/1日起经过的毫秒数。
+         */
+        inline Timestamp UtcNow()noexcept { return Pal::GetRealTimeClock(); }
+
+        /**
          * @brief 转换UTC时间到本地时间
          */
-        inline Timestamp GetLocalTime()noexcept { return ToLocalTime(GetUtcTime()); }
+        inline Timestamp Now()noexcept { return ToLocalTime(UtcNow()); }
 
         /**
-         * @brief 获取系统滴答数
+         * @brief 获取单调时间
          */
-        Tick GetTickCount()noexcept;
-
-        /**
-         * @brief 获取高分辨率滴答数
-         */
-        HiResTick GetHiResTickCount()noexcept;
-
-        /**
-         * @brief 转换时间戳到时间日期
-         * @param ts 时间戳
-         */
-        DateTime ToDateTime(Timestamp ts)noexcept;
-
-        /**
-         * @brief 转换时间日期到时间戳
-         * @param dt 时间日期
-         */
-        Timestamp ToTimestamp(const DateTime& dt)noexcept;
+        inline Tick TickNow()noexcept { return Pal::GetMonotonicClock().first; }
 
         /**
          * @brief 转换到字符串

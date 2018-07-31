@@ -1630,7 +1630,7 @@ namespace moe
             static const unsigned kWidthLimit = 1000000u;
 
             out.clear();
-            out.reserve(256);
+            out.reserve(format.GetSize());
 
             TChar ch = '\0';
             size_t pos = 0;
@@ -1926,7 +1926,7 @@ namespace moe
             static const unsigned kWidthLimit = 1000000u;
 
             out.clear();
-            out.reserve(256);
+            out.reserve(format.GetSize());
 
             TChar ch = '\0';
             size_t pos = 0;

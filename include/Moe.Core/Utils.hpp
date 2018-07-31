@@ -1,5 +1,6 @@
 /**
  * @file
+ * @author chu
  * @date 2017/4/30
  */
 #pragma once
@@ -10,44 +11,6 @@
 #include <string>
 
 //////////////////////////////////////// <editor-fold desc="辅助宏">
-
-/**
- * @brief 平台宏
- *
- * 根据编译期定义推导出当前的目标平台。
- * 目前支持：
- *   - Windows平台：
- *     MOE_WINDOWS
- *     MOE_PLATFORM = "win"
- *   - Linux平台：
- *     MOE_LINUX
- *     MOE_PLATFORM = "linux"
- *   - OSX平台：
- *     MOE_OSX
- *     MOE_PLATFORM = "osx"
- *
- *   - IOS平台：
- *     MOE_IOS
- *     MOE_PLATFORM = "ios"
- */
-#if defined(WIN32) || defined(__MINGW32__) || defined(_MSC_VER)
-    #define MOE_WINDOWS
-    #define MOE_PLATFORM "win"
-#elif defined(__linux__)
-    #define MOE_LINUX
-    #define MOE_PLATFORM "linux"
-#elif defined(__APPLE__)
-    #include <TargetConditionals.h>
-    #if defined(TARGET_OS_IPHONE)
-        #define MOE_IOS
-        #define MOE_PLATFORM "ios"
-    #else
-        #define MOE_OSX
-        #define MOE_PLATFORM "osx"
-    #endif  // defined(TARGET_OS_IPHONE)
-#else
-    #error "Unknown platform"
-#endif
 
 /**
  * @brief 不可执行分支宏
@@ -106,8 +69,6 @@
     op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_13(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
 #define MOE_PP_ARG_OP_15(op, sep, arg, ...) \
     op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_14(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
-#define MOE_PP_ARG_OP_16(op, sep, arg, ...) \
-    op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_15(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
 #define MOE_PP_ARG_OP_16(op, sep, arg, ...) \
     op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_15(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
 #define MOE_PP_ARG_OP_17(op, sep, arg, ...) \

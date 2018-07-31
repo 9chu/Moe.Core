@@ -11,10 +11,7 @@
 #include <cstdint>
 #include <condition_variable>
 
-#ifdef _MSC_VER
-#include <intrin.h>
-#endif
-
+#include "Pal.hpp"
 #include "Utils.hpp"
 
 namespace moe
@@ -38,26 +35,19 @@ namespace moe
             static const uint32_t kMaxActiveSpin = 4000;
 
         public:
-            static inline void AsmVolatilePause()
-            {
-#if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
-                ::_mm_pause();
-#elif defined(__i386__) || (defined(__x86_64__) || defined(_M_X64))
-                asm volatile("pause");
-#elif defined(__aarch64__) || defined(__arm__)
-                asm volatile("yield");
-#elif defined(__powerpc64__)
-                asm volatile("or 27,27,27");
-#else
-                #error "Unknown platform"
-#endif
-            }
-
-        public:
             Sleeper() = default;
 
         public:
-            void Wait();
+            void Wait()
+            {
+                if (m_uSpinCount < kMaxActiveSpin)
+                {
+                    ++m_uSpinCount;
+                    Pal::Pause();
+                }
+                else
+                    Pal::FastSleep();
+            }
 
         private:
             uint32_t m_uSpinCount = 0;
@@ -164,127 +154,6 @@ namespace moe
 
             bool m_bEventSet;
             bool m_bAutoReset;
-        };
-
-        /**
-         * @brief 共享内存
-         */
-        class SharedMemory :
-            public NonCopyable
-        {
-            struct Header
-            {
-                char Magic[4];
-                char Padding[4];
-                uint64_t Size;
-                char Data[1];
-            };
-
-        public:
-#ifdef MOE_WINDOWS
-            using PlatformSpecificNameType = std::u16string;
-#else
-            using PlatformSpecificNameType = std::string;
-#endif
-
-            /**
-             * @brief 共享内存挂载模式
-             */
-            enum class AttachMode
-            {
-                AttachOnly,
-                CreateOnly,
-                CreateOrAttach,
-            };
-
-        public:
-            SharedMemory()noexcept;
-
-            /**
-             * @brief 构造共享内存
-             * @param name 共享内存名称
-             * @param sz 大小
-             * @param mode 创建模式
-             *
-             * 方法会创建特定格式的共享内存，这意味着会校验共享内存的大小，当大小不匹配时会抛出异常。
-             * 
-             * 注意到：
-             *  - Windows平台下当所有进程不再引用某个共享内存时，该共享内存会被自动销毁。
-             */
-            SharedMemory(const char* name, size_t sz, AttachMode mode=AttachMode::CreateOrAttach);
-
-            SharedMemory(SharedMemory&& org)noexcept;
-            ~SharedMemory();
-
-            operator bool()const noexcept;
-            SharedMemory& operator=(SharedMemory&& rhs)noexcept;
-
-        public:
-            /**
-             * @brief 获取名称
-             */
-            const std::string& GetName()const noexcept { return m_stName; }
-
-            /**
-             * @brief 获取平台特定名称
-             */
-            const PlatformSpecificNameType& GetPlatformSpecificName()const noexcept { return m_stPlatformName; }
-
-            /**
-             * @brief 获取大小
-             */
-            size_t GetSize()const noexcept { return m_uSize - sizeof(Header); }
-
-            /**
-             * @breif 获取映射的内存地址
-             */
-            const void* GetPointer()const noexcept
-            {
-                if (!m_pMappingData)
-                    return nullptr;
-                return m_pMappingData->Data;
-            }
-            void* GetPointer()noexcept
-            {
-                if (!m_pMappingData)
-                    return nullptr;
-                return m_pMappingData->Data;
-            }
-
-            /**
-             * @brief 是否是首次创建
-             */
-            bool IsCreateMode()const noexcept { return m_bCreateMode; }
-
-            /**
-             * @brief 获取或设置是否自动释放
-             *
-             * 若自动释放则在析构时自动销毁共享内存。
-             * Windows下无意义。
-             * 默认不自动释放。
-             */
-            bool IsAutoFree()const noexcept { return m_bAutoFree; }
-            void SetAutoFree(bool free)noexcept { m_bAutoFree = free; }
-
-            /**
-             * @brief 释放内存
-             */
-            void Free()noexcept;
-
-        private:
-            std::string m_stName;
-            PlatformSpecificNameType m_stPlatformName;
-
-#ifdef MOE_WINDOWS
-            void* m_hHandle = nullptr;
-#else
-            int m_iFd = -1;
-#endif
-
-            size_t m_uSize = 0;
-            Header* m_pMappingData = nullptr;
-            bool m_bCreateMode = false;
-            bool m_bAutoFree = false;
         };
     }
 }
