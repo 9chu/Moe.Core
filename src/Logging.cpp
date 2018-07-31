@@ -222,7 +222,7 @@ Logging::TerminalSink::TerminalSink(OutputType type)
 #if defined(MOE_WINDOWS)
     m_bDoColor = Pal::IsColorTerminal();
 #else
-    m_bDoColor = Pal::IsInTerminal() && Pal::IsColorTerminal();
+    m_bDoColor = Pal::IsInTerminal(m_pFile) && Pal::IsColorTerminal();
 #endif
 }
 

@@ -82,6 +82,7 @@ namespace
     }
 #endif
 
+#if !define(MOE_POSIX)
     std::pair<uint64_t, uint64_t> GetMonotonicClockFallback()noexcept
     {
         auto now = chrono::high_resolution_clock::now().time_since_epoch();
@@ -89,6 +90,7 @@ namespace
         auto ns = chrono::duration_cast<chrono::nanoseconds>(now - ms);
         return make_pair<uint64_t, uint32_t>(static_cast<uint64_t>(ms.count()), static_cast<uint32_t>(ns.count()));
     }
+#endif
 }
 
 uint64_t Pal::GetRealTimeClock()noexcept
