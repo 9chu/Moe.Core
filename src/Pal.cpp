@@ -82,7 +82,7 @@ namespace
     }
 #endif
 
-#if !define(MOE_POSIX)
+#if !defined(MOE_POSIX)
     std::pair<uint64_t, uint64_t> GetMonotonicClockFallback()noexcept
     {
         auto now = chrono::high_resolution_clock::now().time_since_epoch();
