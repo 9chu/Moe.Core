@@ -6,9 +6,11 @@
 #pragma once
 #include <cstdint>
 #include <cstdlib>
+#include <cstdio>
 #include <cassert>
 #include <type_traits>
 #include <string>
+#include <memory>
 
 //////////////////////////////////////// <editor-fold desc="辅助宏">
 
@@ -397,6 +399,21 @@ namespace moe
         T m_stFunc;
         bool m_bDismiss = false;
     };
+
+    struct FileCloser
+    {
+        void operator()(FILE* p)const noexcept
+        {
+            if (p)
+                ::fclose(p);
+        }
+    };
+
+    /**
+     * @brief 文件句柄
+     */
+    using UniqueFileHandle = std::unique_ptr<FILE, FileCloser>;
+    using SharedFileHandle = std::shared_ptr<FILE>;
 
     /**
      * @brief 读取整个文件（二进制的）

@@ -10,9 +10,9 @@
 #include <vector>
 #include <mutex>
 #include <algorithm>
-#include <memory>
 
 #include "Time.hpp"
+#include "Utils.hpp"
 #include "PathUtils.hpp"
 #include "StringUtils.hpp"
 
@@ -269,7 +269,7 @@ namespace moe
              * @param context 日志上下文
              * @param msg 日志消息
              */
-            void Log(Level level, const Context& context, const char* msg)const noexcept;
+            void Log(Level level, const Context& context, const char* msg)noexcept;
 
             /**
              * @brief 创建副本
@@ -278,8 +278,8 @@ namespace moe
 
         protected:
             virtual void Sink(Level level, const Context& context, const char* msg, const char* formatted,
-                size_t length)const noexcept = 0;
-            virtual void Flush()const noexcept;
+                size_t length)noexcept = 0;
+            virtual void Flush()noexcept;
 
         private:
             bool m_bAlwaysFlush = false;
@@ -322,8 +322,8 @@ namespace moe
 
         protected:
             void Sink(Level level, const Context& context, const char* msg, const char* formatted,
-                size_t length)const noexcept override;
-            void Flush()const noexcept override;
+                size_t length)noexcept override;
+            void Flush()noexcept override;
 
         private:
             OutputType m_iType = OutputType::StdOut;
@@ -332,7 +332,72 @@ namespace moe
 #else
             FILE* m_pFile = nullptr;
 #endif
-            bool m_bDoColor = false;
+        };
+
+        /**
+         * @brief 基本文件落地实现
+         */
+        class BasicFileSink :
+            public SinkBase
+        {
+        public:
+            BasicFileSink(const char* path, bool truncate=false);
+            BasicFileSink(const BasicFileSink& rhs);
+
+        public:
+            std::shared_ptr<SinkBase> Clone()const override;
+
+        protected:
+            void Sink(Level level, const Context& context, const char* msg, const char* formatted,
+                size_t length)noexcept override;
+            void Flush()noexcept override;
+
+        private:
+            std::mutex m_stLock;
+            SharedFileHandle m_pFile;  // 虽然是Shared，实际上只有一个写者
+        };
+
+        /**
+         * @brief 滚动文件输出支持
+         */
+        class RotatingFileSink :
+            public SinkBase
+        {
+        public:
+            /**
+             * @brief 构造滚动日志
+             * @param path 基本路径，例如传入a.log，则相应生成滚动日志a.log,a.1.log,a.2.log...
+             * @param size 单个文件大小
+             * @param count 滚动后备文件总数
+             */
+            RotatingFileSink(const char* path, uint64_t size=16*1024*1024, unsigned count=5, bool alwaysSinkFirst=true);
+            RotatingFileSink(const RotatingFileSink& rhs);
+
+        public:
+            std::shared_ptr<SinkBase> Clone()const override;
+
+        protected:
+            void Sink(Level level, const Context& context, const char* msg, const char* formatted,
+                size_t length)noexcept override;
+            void Flush()noexcept override;
+
+        private:
+            void MakeRotatingFilename(std::string& buf, unsigned index);
+            void OpenCurrentFile();
+            void Rotate();
+
+        private:
+            std::mutex m_stLock;
+            SharedFileHandle m_pFile;  // 虽然是Shared，实际上只有一个写者
+            std::string m_stBaseFilename;
+            std::string m_stExtension;
+            uint64_t m_uMaxSize = 0;
+            unsigned m_uMaxCount = 0;
+            uint64_t m_uCurrentSize = 0;
+
+            uint64_t m_uLastTryingOpenTime = 0;
+            std::string m_stNameBuf1;
+            std::string m_stNameBuf2;
         };
 
         /**

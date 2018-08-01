@@ -4,6 +4,7 @@
  */
 #pragma once
 #include <vector>
+#include <utility>
 #include "ArrayView.hpp"
 #include "Exception.hpp"
 
@@ -246,7 +247,7 @@ namespace moe
         /**
          * @brief 获取文件扩展名
          * @tparam TChar 字符类型
-         * @param path
+         * @param path 路径
          * @return 扩展名
          *
          * 该方法用于获取路径中文件的扩展名
@@ -299,6 +300,44 @@ namespace moe
                 return ArrayView<TChar>();
             else
                 return ArrayView<TChar>(path.data() + lastExtensionStart, path.length() - lastExtensionStart);
+        }
+
+        /**
+         * @brief 分割基本文件路径和扩展名
+         * @tparam TChar 字符类型
+         * @param path 路径
+         * @return (基本路径,扩展名)
+         *
+         * 该方法用于获取路径中文件的扩展名
+         * 允许以'/'和'\'作路径分隔符
+         * 若最后以'/'或'\'结尾则被认定为文件夹，返回空值
+         * 使用'.'作扩展名的分界符，若文件名有多个'.'，则取最后一个
+         * 返回扩展名不包含'.'
+         * 返回的基本路径为除扩展名以外的全路径（不含'.'）
+         */
+        template <typename TChar = char>
+        std::pair<ArrayView<TChar>, ArrayView<TChar>> SplitByExtension(ArrayView<TChar> path)noexcept
+        {
+            size_t lastFilenameStart = 0;
+            size_t lastExtensionStart = static_cast<size_t>(-1);
+
+            for (size_t i = 0; i < path.GetSize(); ++i)
+            {
+                TChar c = path[i];
+                if (c == '\\' || c == '/')
+                    lastFilenameStart = i + 1;
+                else if (c == '.')
+                    lastExtensionStart = i + 1;
+            }
+
+            if (lastExtensionStart == static_cast<size_t>(-1) || lastExtensionStart <= lastFilenameStart)
+                return std::pair<ArrayView<TChar>, ArrayView<TChar>>(path, ArrayView<TChar>());
+            else
+            {
+                return std::pair<ArrayView<TChar>, ArrayView<TChar>>(
+                    ArrayView<TChar>(path.GetBuffer(), lastExtensionStart - 1),
+                    ArrayView<TChar>(path.GetBuffer() + lastExtensionStart, path.GetSize() - lastExtensionStart));
+            }
         }
     }
 }

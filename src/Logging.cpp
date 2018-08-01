@@ -316,7 +316,7 @@ Logging::SinkBase::SinkBase(const SinkBase& rhs)
 {
 }
 
-void Logging::SinkBase::Log(Level level, const Context& context, const char* msg)const noexcept
+void Logging::SinkBase::Log(Level level, const Context& context, const char* msg)noexcept
 {
     if (!ShouldLog(level))
         return;
@@ -346,7 +346,7 @@ void Logging::SinkBase::Log(Level level, const Context& context, const char* msg
         Flush();
 }
 
-void Logging::SinkBase::Flush()const noexcept
+void Logging::SinkBase::Flush()noexcept
 {
 }
 
@@ -573,15 +573,10 @@ std::mutex& Logging::TerminalSink::GetStdErrMutex()noexcept
 Logging::TerminalSink::TerminalSink(OutputType type)
     : m_iType(type), m_pFile(type == OutputType::StdErr ? GetStdErr() : GetStdOut())
 {
-#if defined(MOE_WINDOWS)
-    m_bDoColor = Pal::IsColorTerminal();
-#else
-    m_bDoColor = Pal::IsInTerminal(m_pFile) && Pal::IsColorTerminal();
-#endif
 }
 
 Logging::TerminalSink::TerminalSink(const TerminalSink& rhs)
-    : SinkBase(rhs), m_iType(rhs.m_iType), m_pFile(rhs.m_pFile), m_bDoColor(rhs.m_bDoColor)
+    : SinkBase(rhs), m_iType(rhs.m_iType), m_pFile(rhs.m_pFile)
 {
 }
 
@@ -591,7 +586,7 @@ std::shared_ptr<Logging::SinkBase> Logging::TerminalSink::Clone()const
 }
 
 void Logging::TerminalSink::Sink(Level level, const Context& context, const char* msg, const char* formatted,
-    size_t length)const noexcept
+    size_t length)noexcept
 {
     MOE_UNUSED(level);
     MOE_UNUSED(context);
@@ -617,7 +612,7 @@ void Logging::TerminalSink::Sink(Level level, const Context& context, const char
     }
 }
 
-void Logging::TerminalSink::Flush()const noexcept
+void Logging::TerminalSink::Flush()noexcept
 {
 #if !defined(MOE_WINDOWS)
     try
@@ -629,6 +624,181 @@ void Logging::TerminalSink::Flush()const noexcept
     {
     }
 #endif
+}
+
+//////////////////////////////////////////////////////////////////////////////// BasicFileSink
+
+Logging::BasicFileSink::BasicFileSink(const char* path, bool truncate)
+{
+    m_pFile.reset(Pal::OpenFile(path, truncate ? "w" : "a"), FileCloser());
+}
+
+Logging::BasicFileSink::BasicFileSink(const BasicFileSink& rhs)
+    : SinkBase(rhs), m_pFile(rhs.m_pFile)
+{
+}
+
+std::shared_ptr<Logging::SinkBase> Logging::BasicFileSink::Clone()const
+{
+    return static_pointer_cast<Logging::SinkBase>(make_shared<Logging::BasicFileSink>(*this));
+}
+
+void Logging::BasicFileSink::Sink(Level level, const Context& context, const char* msg, const char* formatted,
+    size_t length)noexcept
+{
+    MOE_UNUSED(level);
+    MOE_UNUSED(context);
+    MOE_UNUSED(msg);
+
+    try
+    {
+        unique_lock<mutex> guard(m_stLock);
+        ::fwrite(formatted, sizeof(char), length, m_pFile.get());  // 忽略所有错误
+        ::fwrite("\n", sizeof(char), 1, m_pFile.get());
+    }
+    catch (...)
+    {
+    }
+}
+
+void Logging::BasicFileSink::Flush()noexcept
+{
+    try
+    {
+        unique_lock<mutex> guard(m_stLock);
+        ::fflush(m_pFile.get());
+    }
+    catch (...)
+    {
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////// RotatingFileSink
+
+Logging::RotatingFileSink::RotatingFileSink(const char* path, uint64_t size, unsigned count, bool alwaysSinkFirst)
+    : m_uMaxSize(size), m_uMaxCount(count)
+{
+    auto split = PathUtils::SplitByExtension(ArrayView<char>(path, strlen(path)));
+    m_stBaseFilename.assign(split.first.GetBuffer(), split.first.GetSize());
+    m_stExtension.assign(split.second.GetBuffer(), split.second.GetSize());
+
+    // 打开第一个文件
+    if (alwaysSinkFirst)
+        Rotate();
+    else
+        OpenCurrentFile();
+}
+
+Logging::RotatingFileSink::RotatingFileSink(const RotatingFileSink& rhs)
+    : SinkBase(rhs), m_pFile(rhs.m_pFile), m_stBaseFilename(rhs.m_stBaseFilename), m_stExtension(rhs.m_stExtension),
+    m_uMaxSize(rhs.m_uMaxSize), m_uMaxCount(rhs.m_uMaxCount), m_uCurrentSize(rhs.m_uCurrentSize)
+{
+}
+
+std::shared_ptr<Logging::SinkBase> Logging::RotatingFileSink::Clone()const
+{
+    // Clone之后需要释放文件所有权，防止无法Rotate
+    auto ret = static_pointer_cast<Logging::SinkBase>(make_shared<Logging::RotatingFileSink>(*this));
+    const_cast<SharedFileHandle&>(m_pFile).reset();
+    return ret;
+}
+
+void Logging::RotatingFileSink::Sink(Level level, const Context& context, const char* msg, const char* formatted,
+    size_t length)noexcept
+{
+    MOE_UNUSED(level);
+    MOE_UNUSED(context);
+    MOE_UNUSED(msg);
+
+    try
+    {
+        unique_lock<mutex> guard(m_stLock);
+        if (!m_pFile)
+        {
+            static const unsigned kRetryDuration = 1000;
+            if (context.Time > m_uLastTryingOpenTime + kRetryDuration)
+            {
+                m_uLastTryingOpenTime = context.Time;
+                OpenCurrentFile();
+            }
+        }
+
+        ::fwrite(formatted, sizeof(char), length, m_pFile.get());  // 忽略所有错误
+        ::fwrite("\n", sizeof(char), 1, m_pFile.get());
+
+        m_uCurrentSize += length + 1;
+        if (m_uCurrentSize >= m_uMaxSize)
+            Rotate();
+    }
+    catch (...)
+    {
+    }
+}
+
+void Logging::RotatingFileSink::Flush()noexcept
+{
+    try
+    {
+        unique_lock<mutex> guard(m_stLock);
+        if (m_pFile)
+            ::fflush(m_pFile.get());
+    }
+    catch (...)
+    {
+    }
+}
+
+void Logging::RotatingFileSink::MakeRotatingFilename(std::string& buf, unsigned index)
+{
+    if (index == 0)
+        StringUtils::Format(buf, "{0}.{1}", m_stBaseFilename, m_stExtension);
+    else
+        StringUtils::Format(buf, "{0}.{1}.{2}", m_stBaseFilename, index, m_stExtension);
+}
+
+void Logging::RotatingFileSink::OpenCurrentFile()
+{
+    MakeRotatingFilename(m_stNameBuf1, 0);
+    m_pFile.reset(Pal::OpenFile(m_stNameBuf1.c_str(), "a"), FileCloser());
+    m_uCurrentSize = Pal::GetFileSize(m_pFile.get());
+    m_uLastTryingOpenTime = 0;
+}
+
+void Logging::RotatingFileSink::Rotate()
+{
+    m_pFile.reset();
+
+    static const unsigned kRetryTimes = 3;
+    for (unsigned retry = 0, i = m_uMaxCount; retry < kRetryTimes; ++retry)  // 重试三次
+    {
+        try
+        {
+            // log.txt -> log.1.txt
+            // log.1.txt -> log.2.txt
+            // log.2.txt -> delete
+            for (; i > 0; --i)
+            {
+                MakeRotatingFilename(m_stNameBuf1, i - 1);
+                MakeRotatingFilename(m_stNameBuf2, i);
+
+                if (!Pal::IsFileExists(m_stNameBuf1.c_str()))
+                    continue;
+
+                if (Pal::IsFileExists(m_stNameBuf2.c_str()))
+                    Pal::RemoveFile(m_stNameBuf2.c_str());
+
+                Pal::RenameFile(m_stNameBuf2.c_str(), m_stNameBuf1.c_str());
+            }
+        }
+        catch (...)
+        {
+            Pal::FastSleep();
+            continue;
+        }
+        break;
+    }
+
+    OpenCurrentFile();
 }
 
 //////////////////////////////////////////////////////////////////////////////// Logging

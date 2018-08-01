@@ -591,7 +591,8 @@ FILE* Pal::OpenFile(const char* path, const char* mode)
     Encoding::Convert<Encoding::Utf8, Encoding::Utf16, char, wchar_t>(wmode, ArrayView<char>(mode, strlen(mode)),
         Encoding::DefaultUnicodeFallbackHandler);
 
-    ret = ::_wfsopen(wpath.c_str(), wmode.c_str(), strstr(mode, "w") != nullptr ? _SH_DENYWR : 0);
+    ret = ::_wfsopen(wpath.c_str(), wmode.c_str(), (strstr(mode, "w") != nullptr || strstr(mode, "a") != nullptr) ?
+        _SH_DENYWR : 0);
 #else
     ret = ::fopen(path, mode);
 #endif
