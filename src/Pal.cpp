@@ -702,6 +702,12 @@ uint64_t Pal::GetFileSize(FILE* f)
     if (ret == -1ll)
         MOE_THROW(ApiException, "Stat on file failed, errno={0}", errno);
     return static_cast<uint64_t>(ret);
+#elif defined(MOE_APPLE)
+    auto fd = fileno(f);
+    struct stat st;  // darwin喜欢64BIT，stat64被标记为deprecated
+    if (::fstat(fd, &st) != 0)
+        MOE_THROW(ApiException, "Stat on file failed, errno={0}", errno);
+    return static_cast<uint64_t>(st.st_size);
 #else
     auto fd = fileno(f);
     struct stat64 st;
@@ -720,6 +726,11 @@ uint64_t Pal::GetFileSize(const char* path)
 
     struct _stat64 st;
     if (::_wstat64(wpath.c_str(), &st) != 0)
+        MOE_THROW(ApiException, "Stat on file \"{0}\" failed, errno={1}", path, errno);
+    return static_cast<uint64_t>(st.st_size);
+#elif defined(MOE_APPLE)
+    struct stat st;
+    if (::stat(path, &st) != 0)
         MOE_THROW(ApiException, "Stat on file \"{0}\" failed, errno={1}", path, errno);
     return static_cast<uint64_t>(st.st_size);
 #else

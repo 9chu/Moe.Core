@@ -696,7 +696,7 @@ void Url::Host::SetIpv4(uint32_t value)noexcept
 
 const Url::Host::Ipv6AddressType& Url::Host::GetIpv6()const noexcept
 {
-    static const Ipv6AddressType kEmptyArray { 0, 0, 0, 0, 0, 0, 0, 0 };
+    static const Ipv6AddressType kEmptyArray { { 0, 0, 0, 0, 0, 0, 0, 0 } };
     // return m_iType == HostTypes::Ipv6 ? m_stValue.Ipv6 : EmptyRefOf<Ipv6AddressType>();
     return m_iType == HostTypes::Ipv6 ? m_stValue.Ipv6 : kEmptyArray;  // fix for gcc4.8
 }
