@@ -477,7 +477,9 @@ namespace moe
         };
 
     public:
-        using HeadersCompleteCallback = std::function<void()>;
+        using HttpParserBase::HeadersCompleteResult;
+
+        using HeadersCompleteCallback = std::function<HeadersCompleteResult()>;
         using BodyDataCallback = std::function<void(BytesView)>;
 
     public:

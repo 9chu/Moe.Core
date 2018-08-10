@@ -2077,7 +2077,7 @@ HttpParserBase::HeadersCompleteResult HttpSimpleParser::OnHeadersComplete()
     }
 
     if (m_pHeadersCompleteCallback)
-        m_pHeadersCompleteCallback();
+        return m_pHeadersCompleteCallback();
     return HeadersCompleteResult::Default;
 }
 
