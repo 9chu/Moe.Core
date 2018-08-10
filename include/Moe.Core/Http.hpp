@@ -354,14 +354,7 @@ namespace moe
         {
             bool operator()(const std::string& lhs, const std::string& rhs)const noexcept
             {
-                if (lhs.length() != rhs.length())
-                    return false;
-                for (size_t i = 0; i < lhs.length(); ++i)
-                {
-                    if (StringUtils::ToLower(lhs[i]) != StringUtils::ToLower(rhs[i]))
-                        return false;
-                }
-                return true;
+                return StringUtils::CaseInsensitiveCompare(lhs, rhs) == 0;
             }
         };
 
@@ -455,28 +448,20 @@ namespace moe
     };
 
     /**
-     * @brief HTTP解析器
+     * @brief HTTP协议
      *
-     * 用于简单处理HTTP请求和响应的解析，以及请求和响应的序列化过程。
+     * 实现了HTTP协议的解析和序列化。
      */
-    class HttpSimpleParser :
+    class HttpProtocol :
         protected HttpParserBase
     {
-    private:
-        enum States
+    public:
+        enum class ProtocolType
         {
-            STATE_INIT,  // 初始化状态
-            STATE_PARSING,  // 解析请求的状态
-            STATE_PARSING_URL,
-            STATE_PARSING_STATUS,
-            STATE_PARSING_HEADER_KEY,
-            STATE_PARSING_HEADER_VALUE,
-            STATE_PARSING_BODY,
-            STATE_COMPLETE,  // 解析完成
-            STATE_UPGRADED,  // 协议已升级
+            Request,
+            Response,
         };
 
-    public:
         using HttpParserBase::HeadersCompleteResult;
 
         using HeadersCompleteCallback = std::function<HeadersCompleteResult()>;
@@ -484,23 +469,17 @@ namespace moe
 
     public:
         /**
-         * @brief 构造HTTP解析器
-         * @param type 解析器解析类型
+         * @brief 构造HTTP协议
+         * @param type 协议类型
          * @param settings 解析器配置
          */
-        HttpSimpleParser(HttpParserTypes type=HttpParserTypes::Both,
-            const HttpParserSettings& settings=EmptyRefOf<HttpParserSettings>())noexcept;
+        HttpProtocol(ProtocolType type, const HttpParserSettings& settings=EmptyRefOf<HttpParserSettings>())noexcept;
 
     public:
-        using HttpParserBase::ShouldKeepAlive;
-        using HttpParserBase::IsUpgrade;
-
         /**
-         * @brief 获取解析器类型
-         *
-         * 如果配置的类型为 HttpParserTypes::Both，则在第一次解析后方能确定解析器类型。
+         * @brief 获取协议类型
          */
-        HttpParserTypes GetType()const noexcept;
+        ProtocolType GetType()const noexcept { return m_uType; }
 
         /**
          * @brief 获取或设置方法
@@ -572,11 +551,20 @@ namespace moe
         bool Parse(BytesView input, size_t* processed=nullptr);
 
         /**
+         * @brief 是否应当升级协议
+         */
+        bool IsUpgraded()const noexcept;
+
+        /**
+         * @brief 是否应当保持连接
+         */
+        bool ShouldKeepAlive()const noexcept;
+
+        /**
          * @brief 序列化追加到
          * @param out 输出
          *
          * 仅序列化非正文部分。
-         * 注意到：如果在构造时指定了 HttpParserType::Both 将会导致该方法不产生输出。
          */
         void SerializeTo(std::string& out)const;
 
@@ -598,18 +586,151 @@ namespace moe
         void OnChunkComplete()override;
 
     private:
-        States m_uState = STATE_INIT;
-        std::string m_stKeyBuffer;
-        std::string m_stBuffer;
+        ProtocolType m_uType = ProtocolType::Request;
 
-        HeadersCompleteCallback m_pHeadersCompleteCallback;
-        BodyDataCallback m_pBodyDataCallback;
-
+        // 协议属性
         HttpMethods m_uMethod = HttpMethods::Unknown;
         uint8_t m_uHttpMajor = 0;
         uint8_t m_uHttpMinor = 0;
         HttpStatus m_uStatusCode = HttpStatus::Ok;
         std::string m_stUrl;
         HttpHeaders m_stHeaders;
+
+        // 解析器状态
+        unsigned m_uState = 0;
+        std::string m_stKeyBuffer;
+        std::string m_stBuffer;
+        HeadersCompleteCallback m_pHeadersCompleteCallback;
+        BodyDataCallback m_pBodyDataCallback;
+    };
+
+    /**
+     * @brief WebSocket协议
+     */
+    class WebSocketProtocol
+    {
+    public:
+        using HeadersCompleteCallback = std::function<void()>;
+        using DataCallback = std::function<void(BytesView)>;
+        using MessageCompleteCallback = std::function<void()>;
+
+        using ReservedDataType = std::array<bool, 3>;
+        using MaskKeyType = std::array<uint8_t, 4>;
+
+    public:
+        WebSocketProtocol()noexcept;
+
+    public:
+        /**
+         * @brief 获取或设置是否是最后一个包
+         */
+        bool IsLastPacket()const noexcept { return m_bFin; }
+        void SetLastPacket(bool fin)noexcept { m_bFin = fin; }
+
+        /**
+         * @brief 获取或设置保留标志位
+         */
+        ReservedDataType GetReserves()const noexcept { return m_stReserves; }
+        void SetReserves(const ReservedDataType& data)noexcept { m_stReserves = data; }
+
+        /**
+         * @brief 获取或设置操作码
+         */
+        uint8_t GetOpCode()const noexcept { return m_bOpCode; }
+        void SetOpCode(uint8_t op)noexcept { m_bOpCode = op; }
+
+        /**
+         * @brief 获取或设置消息是否有做掩码
+         */
+        bool IsMasked()const noexcept { return m_bMask; }
+        void SetMasked(bool mask)noexcept { m_bMask = mask; }
+
+        /**
+         * @brief 获取或设置负载长度
+         */
+        uint64_t GetPayloadLength()const noexcept { return m_uPayloadLength; }
+        void SetPayloadLength(uint64_t length)noexcept { m_uPayloadLength = length; }
+
+        /**
+         * @brief 获取或设置掩码字节数组
+         */
+        MaskKeyType GetMaskKey()const noexcept { return m_stMaskKey; }
+        void SetMaskKey(const MaskKeyType& key)noexcept { m_stMaskKey = key; }
+
+        /**
+         * @brief 获取或设置当WebSocket头部解析完毕时的回调
+         */
+        HeadersCompleteCallback GetHeadersCompleteCallback()const noexcept { return m_pHeadersCompleteCallback; }
+        void SetHeadersCompleteCallback(const HeadersCompleteCallback& cb) { m_pHeadersCompleteCallback = cb; }
+
+        /**
+         * @brief 获取或设置当从WebSocket数据流中取得负载时的回调
+         *
+         * 注意：调用方需要自行解决数据流的解密操作。
+         */
+        DataCallback GetDataCallback()const noexcept { return m_pDataCallback; }
+        void SetDataCallback(const DataCallback& cb) { m_pDataCallback = cb; }
+
+        /**
+         * @brief 获取或设置当一个WebSocket消息被处理完成后的回调
+         */
+        MessageCompleteCallback GetMessageCompleteCallback()const noexcept { return m_pMessageCompleteCallback; }
+        void SetMessageCompleteCallback(const MessageCompleteCallback& cb) { m_pMessageCompleteCallback = cb; }
+
+        /**
+         * @brief 重置状态
+         */
+        void Reset()noexcept;
+
+        /**
+         * @brief 解析
+         * @param input 输入数据
+         */
+        void Parse(BytesView input)
+        {
+            try
+            {
+                ParseImpl(input);
+            }
+            catch (...)
+            {
+                Reset();
+                throw;
+            }
+        }
+
+        /**
+         * @brief 序列化追加到
+         * @param out 输出
+         *
+         * 仅序列化非正文部分。
+         */
+        void SerializeTo(std::string& out)const;
+
+        /**
+         * @brief 序列化
+         */
+        std::string ToString()const;
+
+    private:
+        void ParseImpl(BytesView input);
+
+    private:
+        // 协议属性
+        bool m_bFin = false;
+        ReservedDataType m_stReserves;
+        uint8_t m_bOpCode = 0;
+        bool m_bMask = false;
+        uint64_t m_uPayloadLength = 0;
+        MaskKeyType m_stMaskKey;
+
+        // 解析器状态
+        unsigned m_uState = 0;
+        bool m_bPayload16 = false;
+        bool m_bPayload64 = false;
+        unsigned m_uBodyRead = 0;
+        HeadersCompleteCallback m_pHeadersCompleteCallback;
+        DataCallback m_pDataCallback;
+        MessageCompleteCallback m_pMessageCompleteCallback;
     };
 }

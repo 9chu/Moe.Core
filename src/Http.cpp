@@ -1889,58 +1889,120 @@ std::string HttpHeaders::ToString()const
     return ret;
 }
 
-//////////////////////////////////////////////////////////////////////////////// HttpParser
+//////////////////////////////////////////////////////////////////////////////// HttpProtocol
 
-HttpSimpleParser::HttpSimpleParser(HttpParserTypes type, const HttpParserSettings& settings)noexcept
-    : HttpParserBase(type, settings)
+static const string kConnectionString = "Connection";
+static const string kContentLengthString = "Content-Length";
+static const string kUpgradeString = "upgrade";
+static const string kCloseString = "close";
+static const string kKeepAliveString = "keep-alive";
+static const string kChunkedString = "chunked";
+
+enum HttpParserStates
+{
+    HTTP_STATE_INIT,  // 初始化状态
+    HTTP_STATE_PARSING,  // 解析请求的状态
+    HTTP_STATE_PARSING_URL,
+    HTTP_STATE_PARSING_STATUS,
+    HTTP_STATE_PARSING_HEADER_KEY,
+    HTTP_STATE_PARSING_HEADER_VALUE,
+    HTTP_STATE_PARSING_BODY,
+    HTTP_STATE_COMPLETE,  // 解析完成
+    HTTP_STATE_UPGRADED,  // 协议已升级
+};
+
+HttpProtocol::HttpProtocol(ProtocolType type, const HttpParserSettings& settings)noexcept
+    : HttpParserBase(type == ProtocolType::Request ? HttpParserTypes::Request : HttpParserTypes::Response, settings),
+    m_uType(type)
 {
 }
 
-HttpParserTypes HttpSimpleParser::GetType()const noexcept
+void HttpProtocol::Reset()noexcept
 {
-    if (m_uState == STATE_COMPLETE)
-        return HttpParserBase::GetParsedType();
-    return HttpParserBase::GetType();
-}
+    HttpParserBase::Reset(HttpParserBase::GetType());
 
-void HttpSimpleParser::Reset()noexcept
-{
-    HttpParserBase::Reset(GetType());
-
-    m_uState = STATE_INIT;
-    m_stKeyBuffer.clear();
-    m_stBuffer.clear();
-
-    m_stUrl.clear();
-    m_stHeaders.Clear();
     m_uMethod = HttpMethods::Unknown;
     m_uHttpMajor = 0;
     m_uHttpMinor = 0;
     m_uStatusCode = HttpStatus::Ok;
+    m_stUrl.clear();
+    m_stHeaders.Clear();
+
+    m_uState = HTTP_STATE_INIT;
+    m_stKeyBuffer.clear();
+    m_stBuffer.clear();
 }
 
-bool HttpSimpleParser::Parse(BytesView input, size_t* processed)
+bool HttpProtocol::Parse(BytesView input, size_t* processed)
 {
-    if (m_uState == STATE_UPGRADED)
+    if (m_uState == HTTP_STATE_UPGRADED)
     {
         if (processed)
             *processed = 0;
         return true;
     }
-    else if (m_uState == STATE_COMPLETE)
+    else if (m_uState == HTTP_STATE_COMPLETE)
         Reset();
 
     size_t sz = HttpParserBase::Parse(input);
     if (processed)
         *processed = sz;
-    return (m_uState == STATE_COMPLETE || m_uState == STATE_UPGRADED);
+    return (m_uState == HTTP_STATE_COMPLETE || m_uState == HTTP_STATE_UPGRADED);
 }
 
-void HttpSimpleParser::SerializeTo(std::string& out)const
+bool HttpProtocol::IsUpgraded()const noexcept
+{
+    if (m_stHeaders.Contains(kUpgradeString) && m_stHeaders.Contains(kConnectionString) &&
+        StringUtils::CaseInsensitiveCompare(m_stHeaders[kConnectionString], kUpgradeString) == 0)
+    {
+        return m_uType == ProtocolType::Request || m_uStatusCode == HttpStatus::SwitchingProtocols;
+    }
+    else
+        return m_uMethod == HttpMethods::Connect;
+}
+
+bool HttpProtocol::ShouldKeepAlive()const noexcept
+{
+    if (m_uHttpMajor > 0 && m_uHttpMinor > 0)
+    {
+        if (m_stHeaders.Contains(kConnectionString) &&
+            StringUtils::CaseInsensitiveCompare(m_stHeaders[kConnectionString], kCloseString) == 0)
+        {
+            return false;
+        }
+    }
+    else
+    {
+        if (!(m_stHeaders.Contains(kConnectionString) &&
+            StringUtils::CaseInsensitiveCompare(m_stHeaders[kConnectionString], kKeepAliveString) == 0))
+        {
+            return false;
+        }
+    }
+
+    if (m_uType == ProtocolType::Request)
+        return false;
+
+    if (static_cast<int>(m_uStatusCode) / 100 == 1 || m_uStatusCode == HttpStatus::NoContent ||
+        m_uStatusCode == HttpStatus::NotModified)
+    {
+        return false;
+    }
+
+    if ((m_stHeaders.Contains(kConnectionString) &&
+        StringUtils::CaseInsensitiveCompare(m_stHeaders[kConnectionString], kChunkedString) == 0) ||
+        m_stHeaders.Contains(kContentLengthString))
+    {
+        return false;
+    }
+    return true;
+}
+
+void HttpProtocol::SerializeTo(std::string& out)const
 {
     char buf[64] = { 0 };
 
-    if (GetType() == HttpParserTypes::Request)
+    if (GetType() == ProtocolType::Request)
     {
         out.reserve(out.length() + 24 + m_stUrl.length());
         out.append(GetHttpMethodsText(m_uMethod));
@@ -1957,7 +2019,7 @@ void HttpSimpleParser::SerializeTo(std::string& out)const
         m_stHeaders.SerializeTo(out);
         out.append("\r\n");
     }
-    else if (GetType() == HttpParserTypes::Response)
+    else
     {
         out.reserve(out.length() + 24 + m_stUrl.length());
         out.append("HTTP/");
@@ -1977,64 +2039,64 @@ void HttpSimpleParser::SerializeTo(std::string& out)const
     }
 }
 
-std::string HttpSimpleParser::ToString()const
+std::string HttpProtocol::ToString()const
 {
     string ret;
     SerializeTo(ret);
     return ret;
 }
 
-void HttpSimpleParser::OnMessageBegin()
+void HttpProtocol::OnMessageBegin()
 {
-    if (m_uState == STATE_COMPLETE)
+    if (m_uState == HTTP_STATE_COMPLETE)
         MOE_THROW(BadFormatException, "Multiple HTTP request/response has been found");
-    m_uState = STATE_PARSING;
+    m_uState = HTTP_STATE_PARSING;
 }
 
-void HttpSimpleParser::OnUrl(BytesView data)
+void HttpProtocol::OnUrl(BytesView data)
 {
-    if (m_uState != STATE_PARSING_URL)
+    if (m_uState != HTTP_STATE_PARSING_URL)
     {
-        assert(m_uState == STATE_PARSING);
-        m_uState = STATE_PARSING_URL;
+        assert(m_uState == HTTP_STATE_PARSING);
+        m_uState = HTTP_STATE_PARSING_URL;
         m_stBuffer.clear();
     }
 
     m_stBuffer.append(reinterpret_cast<const char*>(data.GetBuffer()), data.GetSize());
 }
 
-void HttpSimpleParser::OnStatus(BytesView data)
+void HttpProtocol::OnStatus(BytesView data)
 {
-    if (m_uState != STATE_PARSING_STATUS)
+    if (m_uState != HTTP_STATE_PARSING_STATUS)
     {
-        assert(m_uState == STATE_PARSING);
-        m_uState = STATE_PARSING_STATUS;
+        assert(m_uState == HTTP_STATE_PARSING);
+        m_uState = HTTP_STATE_PARSING_STATUS;
     }
 
     MOE_UNUSED(data);  // Do nothing
 }
 
-void HttpSimpleParser::OnHeaderField(BytesView data)
+void HttpProtocol::OnHeaderField(BytesView data)
 {
-    if (m_uState != STATE_PARSING_HEADER_KEY)
+    if (m_uState != HTTP_STATE_PARSING_HEADER_KEY)
     {
-        if (m_uState == STATE_PARSING_URL)
+        if (m_uState == HTTP_STATE_PARSING_URL)
         {
             m_uMethod = HttpParserBase::GetMethod();
             m_uHttpMajor = HttpParserBase::GetMajorVersion();
             m_uHttpMinor = HttpParserBase::GetMinorVersion();
             m_stUrl = std::move(m_stBuffer);
         }
-        else if (m_uState == STATE_PARSING_STATUS)
+        else if (m_uState == HTTP_STATE_PARSING_STATUS)
         {
             m_uHttpMajor = HttpParserBase::GetMajorVersion();
             m_uHttpMinor = HttpParserBase::GetMinorVersion();
             m_uStatusCode = static_cast<HttpStatus>(HttpParserBase::GetStatusCode());
         }
-        else if (m_uState == STATE_PARSING_HEADER_VALUE)
+        else if (m_uState == HTTP_STATE_PARSING_HEADER_VALUE)
             m_stHeaders.Add(std::move(m_stKeyBuffer), std::move(m_stBuffer));
 
-        m_uState = STATE_PARSING_HEADER_KEY;
+        m_uState = HTTP_STATE_PARSING_HEADER_KEY;
         m_stKeyBuffer.clear();
         m_stBuffer.clear();
     }
@@ -2042,38 +2104,38 @@ void HttpSimpleParser::OnHeaderField(BytesView data)
     m_stKeyBuffer.append(reinterpret_cast<const char*>(data.GetBuffer()), data.GetSize());
 }
 
-void HttpSimpleParser::OnHeaderValue(BytesView data)
+void HttpProtocol::OnHeaderValue(BytesView data)
 {
-    if (m_uState != STATE_PARSING_HEADER_VALUE)
+    if (m_uState != HTTP_STATE_PARSING_HEADER_VALUE)
     {
-        assert(m_uState == STATE_PARSING_HEADER_KEY);
-        m_uState = STATE_PARSING_HEADER_VALUE;
+        assert(m_uState == HTTP_STATE_PARSING_HEADER_KEY);
+        m_uState = HTTP_STATE_PARSING_HEADER_VALUE;
     }
 
     m_stBuffer.append(reinterpret_cast<const char*>(data.GetBuffer()), data.GetSize());
 }
 
-HttpParserBase::HeadersCompleteResult HttpSimpleParser::OnHeadersComplete()
+HttpParserBase::HeadersCompleteResult HttpProtocol::OnHeadersComplete()
 {
-    if (m_uState != STATE_PARSING_BODY)
+    if (m_uState != HTTP_STATE_PARSING_BODY)
     {
-        if (m_uState == STATE_PARSING_URL)
+        if (m_uState == HTTP_STATE_PARSING_URL)
         {
             m_uMethod = HttpParserBase::GetMethod();
             m_uHttpMajor = HttpParserBase::GetMajorVersion();
             m_uHttpMinor = HttpParserBase::GetMinorVersion();
             m_stUrl = std::move(m_stBuffer);
         }
-        else if (m_uState == STATE_PARSING_STATUS)
+        else if (m_uState == HTTP_STATE_PARSING_STATUS)
         {
             m_uHttpMajor = HttpParserBase::GetMajorVersion();
             m_uHttpMinor = HttpParserBase::GetMinorVersion();
             m_uStatusCode = static_cast<HttpStatus>(HttpParserBase::GetStatusCode());
         }
-        else if (m_uState == STATE_PARSING_HEADER_VALUE)
+        else if (m_uState == HTTP_STATE_PARSING_HEADER_VALUE)
             m_stHeaders.Add(std::move(m_stKeyBuffer), std::move(m_stBuffer));
 
-        m_uState = STATE_PARSING_BODY;
+        m_uState = HTTP_STATE_PARSING_BODY;
     }
 
     if (m_pHeadersCompleteCallback)
@@ -2081,29 +2143,371 @@ HttpParserBase::HeadersCompleteResult HttpSimpleParser::OnHeadersComplete()
     return HeadersCompleteResult::Default;
 }
 
-void HttpSimpleParser::OnBody(BytesView data)
+void HttpProtocol::OnBody(BytesView data)
 {
-    if (m_uState != STATE_PARSING_BODY)
+    if (m_uState != HTTP_STATE_PARSING_BODY)
     {
-        if (m_uState == STATE_PARSING_HEADER_VALUE)
+        if (m_uState == HTTP_STATE_PARSING_HEADER_VALUE)
             m_stHeaders.Add(std::move(m_stKeyBuffer), std::move(m_stBuffer));
-        m_uState = STATE_PARSING_BODY;
+        m_uState = HTTP_STATE_PARSING_BODY;
     }
 
     if (m_pBodyDataCallback)
         m_pBodyDataCallback(data);
 }
 
-void HttpSimpleParser::OnMessageComplete()
+void HttpProtocol::OnMessageComplete()
 {
-    m_uState = STATE_COMPLETE;
+    m_uState = HTTP_STATE_COMPLETE;
 }
 
-void HttpSimpleParser::OnChunkHeader(size_t length)
+void HttpProtocol::OnChunkHeader(size_t length)
 {
     MOE_UNUSED(length);
 }
 
-void HttpSimpleParser::OnChunkComplete()
+void HttpProtocol::OnChunkComplete()
 {
+}
+
+//////////////////////////////////////////////////////////////////////////////// WebSocketProtocol
+
+enum WebSocketParserStates
+{
+    WS_STATE_HEADER_0 = 0,
+    WS_STATE_HEADER_1,
+    WS_STATE_HEADER_2,
+    WS_STATE_HEADER_3,
+    WS_STATE_HEADER_4,
+    WS_STATE_HEADER_5,
+    WS_STATE_HEADER_6,
+    WS_STATE_HEADER_7,
+    WS_STATE_HEADER_8,
+    WS_STATE_HEADER_9,
+    WS_STATE_HEADER_10,
+    WS_STATE_HEADER_11,
+    WS_STATE_HEADER_12,
+    WS_STATE_HEADER_13,
+    WS_STATE_BODY,
+};
+
+WebSocketProtocol::WebSocketProtocol()noexcept
+{
+    Reset();
+}
+
+void WebSocketProtocol::Reset()noexcept
+{
+    m_bFin = false;
+    m_stReserves.fill(false);
+    m_bOpCode = 0;
+    m_bMask = false;
+    m_uPayloadLength = 0;
+    m_stMaskKey.fill(0);
+
+    m_uState = WS_STATE_HEADER_0;
+    m_bPayload16 = false;
+    m_bPayload64 = false;
+    m_uBodyRead = 0;
+}
+
+void WebSocketProtocol::ParseImpl(BytesView input)
+{
+    auto p = input.GetBuffer();
+    auto end = p + input.GetSize();
+    while (p < end)
+    {
+        auto b = *p;
+        switch (m_uState)
+        {
+            case WS_STATE_HEADER_0:
+                m_bFin = ((b >> 7) & 0x01) != 0;
+                m_stReserves[0] = ((b >> 6) & 0x01) != 0;
+                m_stReserves[1] = ((b >> 5) & 0x01) != 0;
+                m_stReserves[2] = ((b >> 4) & 0x01) != 0;
+                m_bOpCode = static_cast<uint8_t>(b & 0x0F);
+                m_bMask = false;
+                m_uPayloadLength = 0;
+                m_bPayload16 = false;
+                m_bPayload64 = false;
+                m_stMaskKey[0] = m_stMaskKey[1] = m_stMaskKey[2] = m_stMaskKey[3] = 0;
+                m_uState = WS_STATE_HEADER_1;
+                break;
+            case WS_STATE_HEADER_1:
+                m_bMask = ((b >> 7) & 0x01) != 0;
+                m_uPayloadLength = b & 0x7Fu;
+                if (m_uPayloadLength == 127)
+                {
+                    m_bPayload64 = true;
+                    m_uPayloadLength = 0;
+                }
+                else if (m_uPayloadLength == 126)
+                {
+                    m_bPayload16 = true;
+                    m_uPayloadLength = 0;
+                }
+                else if (!m_bMask)
+                {
+                    if (m_uPayloadLength > 0)
+                    {
+                        if (m_pHeadersCompleteCallback)
+                            m_pHeadersCompleteCallback();
+                        m_uBodyRead = 0;
+                        m_uState = WS_STATE_BODY;
+                    }
+                    else
+                    {
+                        if (m_pHeadersCompleteCallback)
+                            m_pHeadersCompleteCallback();
+                        if (m_pMessageCompleteCallback)
+                            m_pMessageCompleteCallback();
+                        m_uState = WS_STATE_HEADER_0;
+                    }
+                    break;
+                }
+                m_uState = WS_STATE_HEADER_2;
+                break;
+            case WS_STATE_HEADER_2:
+                if (m_bPayload16)
+                    m_uPayloadLength += (b << 8);
+                else if (m_bPayload64)
+                    m_uPayloadLength += (static_cast<uint64_t>(b) << 56ull);
+                else
+                    m_stMaskKey[0] = b;
+                m_uState = WS_STATE_HEADER_3;
+                break;
+            case WS_STATE_HEADER_3:
+                if (m_bPayload16)
+                {
+                    m_uPayloadLength += b;
+                    if (!m_bMask)
+                    {
+                        if (m_uPayloadLength > 0)
+                        {
+                            if (m_pHeadersCompleteCallback)
+                                m_pHeadersCompleteCallback();
+                            m_uBodyRead = 0;
+                            m_uState = WS_STATE_BODY;
+                        }
+                        else
+                        {
+                            if (m_pHeadersCompleteCallback)
+                                m_pHeadersCompleteCallback();
+                            if (m_pMessageCompleteCallback)
+                                m_pMessageCompleteCallback();
+                            m_uState = WS_STATE_HEADER_0;
+                        }
+                        break;
+                    }
+                }
+                else if (m_bPayload64)
+                    m_uPayloadLength += (static_cast<uint64_t>(b) << 48ull);
+                else
+                    m_stMaskKey[1] = b;
+                m_uState = WS_STATE_HEADER_4;
+                break;
+            case WS_STATE_HEADER_4:
+                if (m_bPayload16)
+                    m_stMaskKey[0] = b;
+                else if (m_bPayload64)
+                    m_uPayloadLength += (static_cast<uint64_t>(b) << 40ull);
+                else
+                    m_stMaskKey[2] = b;
+                m_uState = WS_STATE_HEADER_5;
+                break;
+            case WS_STATE_HEADER_5:
+                if (m_bPayload16)
+                    m_stMaskKey[1] = b;
+                else if (m_bPayload64)
+                    m_uPayloadLength += (static_cast<uint64_t>(b) << 32ull);
+                else
+                {
+                    m_stMaskKey[3] = b;
+                    if (m_uPayloadLength > 0)
+                    {
+                        if (m_pHeadersCompleteCallback)
+                            m_pHeadersCompleteCallback();
+                        m_uBodyRead = 0;
+                        m_uState = WS_STATE_BODY;
+                    }
+                    else
+                    {
+                        if (m_pHeadersCompleteCallback)
+                            m_pHeadersCompleteCallback();
+                        if (m_pMessageCompleteCallback)
+                            m_pMessageCompleteCallback();
+                        m_uState = WS_STATE_HEADER_0;
+                    }
+                    break;
+                }
+                m_uState = WS_STATE_HEADER_6;
+                break;
+            case WS_STATE_HEADER_6:
+                if (m_bPayload16)
+                    m_stMaskKey[2] = b;
+                else
+                {
+                    assert(m_bPayload64);
+                    m_uPayloadLength += (b << 24);
+                }
+                m_uState = WS_STATE_HEADER_7;
+                break;
+            case WS_STATE_HEADER_7:
+                if (m_bPayload16)
+                {
+                    m_stMaskKey[3] = b;
+                    if (m_uPayloadLength > 0)
+                    {
+                        if (m_pHeadersCompleteCallback)
+                            m_pHeadersCompleteCallback();
+                        m_uBodyRead = 0;
+                        m_uState = WS_STATE_BODY;
+                    }
+                    else
+                    {
+                        if (m_pHeadersCompleteCallback)
+                            m_pHeadersCompleteCallback();
+                        if (m_pMessageCompleteCallback)
+                            m_pMessageCompleteCallback();
+                        m_uState = WS_STATE_HEADER_0;
+                    }
+                    break;
+                }
+                assert(m_bPayload64);
+                m_uPayloadLength += (b << 16);
+                m_uState = WS_STATE_HEADER_8;
+                break;
+            case WS_STATE_HEADER_8:
+                assert(m_bPayload64);
+                m_uPayloadLength += b << 8;
+                m_uState = WS_STATE_HEADER_9;
+                break;
+            case WS_STATE_HEADER_9:
+                assert(m_bPayload64);
+                m_uPayloadLength += b;
+                m_uState = WS_STATE_HEADER_10;
+                break;
+            case WS_STATE_HEADER_10:
+                assert(m_bPayload64);
+                m_stMaskKey[0] = b;
+                m_uState = WS_STATE_HEADER_11;
+                break;
+            case WS_STATE_HEADER_11:
+                assert(m_bPayload64);
+                m_stMaskKey[1] = b;
+                m_uState = WS_STATE_HEADER_12;
+                break;
+            case WS_STATE_HEADER_12:
+                assert(m_bPayload64);
+                m_stMaskKey[2] = b;
+                m_uState = WS_STATE_HEADER_13;
+                break;
+            case WS_STATE_HEADER_13:
+                assert(m_bPayload64);
+                m_stMaskKey[3] = b;
+                if (m_uPayloadLength > 0)
+                {
+                    if (m_pHeadersCompleteCallback)
+                        m_pHeadersCompleteCallback();
+                    m_uBodyRead = 0;
+                    m_uState = WS_STATE_BODY;
+                }
+                else
+                {
+                    if (m_pHeadersCompleteCallback)
+                        m_pHeadersCompleteCallback();
+                    if (m_pMessageCompleteCallback)
+                        m_pMessageCompleteCallback();
+                    m_uState = WS_STATE_HEADER_0;
+                }
+                break;
+            case WS_STATE_BODY:
+                {
+                    uint64_t read = m_uPayloadLength - m_uBodyRead;
+                    if (read == 0)
+                    {
+                        m_uState = WS_STATE_HEADER_0;
+                        break;
+                    }
+
+                    if (read <= static_cast<size_t>(end - p))
+                    {
+                        if (m_pDataCallback)
+                            m_pDataCallback(BytesView(p, read));
+                        if (m_pMessageCompleteCallback)
+                            m_pMessageCompleteCallback();
+                        m_uState = WS_STATE_HEADER_0;
+                        p += read;
+                    }
+                    else
+                    {
+                        read = end - p;
+                        if (m_pDataCallback)
+                            m_pDataCallback(BytesView(p, read));
+                        p += read;
+                        m_uBodyRead += read;
+                    }
+                }
+                continue;
+            default:
+                assert(false);
+                break;
+        }
+
+        ++p;
+    }
+}
+
+void WebSocketProtocol::SerializeTo(std::string& out)const
+{
+    int b = 0;
+    out.reserve(out.size() + 16);
+
+    // 第一个字节
+    b = (static_cast<uint8_t>(m_bFin) << 7) | (static_cast<uint8_t>(m_stReserves[0]) << 6) |
+        (static_cast<uint8_t>(m_stReserves[1]) << 5) | (static_cast<uint8_t>(m_stReserves[2]) << 4) |
+        (m_bOpCode & 0x0F);
+    out.push_back(static_cast<char>(b));
+
+    // 第二个字节
+    b = (static_cast<uint8_t>(m_bMask) << 7) | static_cast<uint8_t>(m_uPayloadLength <= 125 ? m_uPayloadLength :
+        (m_uPayloadLength <= numeric_limits<uint16_t>::max() ? 126 : 127));
+    out.push_back(static_cast<char>(b));
+
+    if (m_uPayloadLength > 125)
+    {
+        if (m_uPayloadLength <= numeric_limits<uint16_t>::max())
+        {
+            // 第三\四个字节
+            out.push_back(static_cast<char>((m_uPayloadLength & 0xFF00) >> 8));
+            out.push_back(static_cast<char>(m_uPayloadLength & 0xFF));
+        }
+        else
+        {
+            // 第三~十个字节
+            out.push_back(static_cast<char>((m_uPayloadLength & 0xFF00000000000000ull) >> 56ull));
+            out.push_back(static_cast<char>((m_uPayloadLength & 0xFF000000000000ull) >> 48ull));
+            out.push_back(static_cast<char>((m_uPayloadLength & 0xFF0000000000ull) >> 40ull));
+            out.push_back(static_cast<char>((m_uPayloadLength & 0xFF00000000ull) >> 32ull));
+            out.push_back(static_cast<char>((m_uPayloadLength & 0xFF000000ull) >> 24ull));
+            out.push_back(static_cast<char>((m_uPayloadLength & 0xFF0000ull) >> 16ull));
+            out.push_back(static_cast<char>((m_uPayloadLength & 0xFF00ull) >> 8ull));
+            out.push_back(static_cast<char>(m_uPayloadLength & 0xFFull));
+        }
+    }
+
+    if (m_bMask)
+    {
+        out.push_back(static_cast<char>(m_stMaskKey[0]));
+        out.push_back(static_cast<char>(m_stMaskKey[1]));
+        out.push_back(static_cast<char>(m_stMaskKey[2]));
+        out.push_back(static_cast<char>(m_stMaskKey[3]));
+    }
+}
+
+std::string WebSocketProtocol::ToString()const
+{
+    string ret;
+    SerializeTo(ret);
+    return ret;
 }

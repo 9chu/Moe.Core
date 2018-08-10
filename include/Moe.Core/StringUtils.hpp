@@ -1012,6 +1012,20 @@ namespace moe
             return Repr(ArrayView<char32_t>(input.c_str(), input.length()));
         }
 
+        /**
+         * 不区分大小写比较（ASCII）
+         * @tparam TChar 字符类型
+         * @param a 字符串A
+         * @param b 字符串B
+         */
+        template <typename TChar>
+        int CaseInsensitiveCompare(const std::basic_string<TChar>& a, const std::basic_string<TChar>& b)noexcept
+        {
+            size_t i = 0, l = std::min(a.length(), b.length());
+            for (; i < l && ToLower(a[i]) == ToLower(b[i]); ++i);
+            return i == l ? a.length() - b.length() : ToLower(a[i]) - ToLower(b[i]);
+        }
+
         //////////////////////////////////////// </editor-fold>
 
         //////////////////////////////////////// <editor-fold desc="字符串格式化">
