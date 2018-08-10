@@ -184,6 +184,11 @@ namespace moe
         return MutableBytesView(reinterpret_cast<const uint8_t*>(data.data()), data.size());
     }
 
+    inline BytesView StringToBytesView(const char* data)noexcept
+    {
+        return BytesView(reinterpret_cast<const uint8_t*>(data), std::char_traits<char>::length(data));
+    }
+
     template <typename T, typename P>
     inline ArrayView<T> ToArrayView(const P& container)noexcept
     {
