@@ -75,6 +75,17 @@ namespace
     }
 }
 
+ObjectPool* ObjectPool::GetPoolFromPointer(void* p)noexcept
+{
+    if (!p)
+        return nullptr;
+
+    Node* n = reinterpret_cast<Node*>(static_cast<uint8_t*>(p) - offsetof(Node, Data));
+    assert(n->Header.Status == NodeStatus::Used);
+    assert(n->Header.Parent);
+    return n->Header.Parent->Pool;
+}
+
 void ObjectPool::Free(void* p)noexcept
 {
     if (!p)
@@ -91,9 +102,15 @@ ObjectPool::ObjectPool()
 {
     m_stBuckets[0].NodeSize = 0;
     for (unsigned i = 1; i <= kSmallSizeBlocks; ++i)
+    {
+        m_stBuckets[i].Pool = this;
         m_stBuckets[i].NodeSize = i * kSmallSizeBlockSize;
+    }
     for (unsigned i = kSmallSizeBlocks + 1; i < kTotalBlocks; ++i)
+    {
+        m_stBuckets[i].Pool = this;
         m_stBuckets[i].NodeSize = (i - kSmallSizeBlocks) * kLargeSizeBlockSize + kSmallSizeThreshold;
+    }
 }
 
 ObjectPool::~ObjectPool()
@@ -245,9 +262,55 @@ void* ObjectPool::InternalAlloc(size_t sz)
     return static_cast<void*>(ret->Data);
 }
 
+#ifndef NDEBUG
+void* ObjectPool::InternalRealloc(void* p, size_t sz, const AllocContext& context)
+#else
+void* ObjectPool::InternalRealloc(void* p, size_t sz)
+#endif
+{
+    if (!p)  // 当传入的p为nullptr时，Realloc的行为和Alloc一致
+#ifndef NDEBUG
+        return InternalAlloc(sz, context);
+#else
+        return InternalAlloc(sz);
+#endif
+
+    Node* n = reinterpret_cast<Node*>(static_cast<uint8_t*>(p) - offsetof(Node, Data));
+    assert(n->Header.Parent->Pool == this);
+    if (sz == 0)  // 当大小为0，其行为和Free一致
+    {
+        InternalFree(n);
+        return nullptr;
+    }
+
+    auto nodeSize = n->Header.Parent->NodeSize;
+    if (nodeSize == 0)  // 超大对象，调用系统的realloc
+    {
+        auto ret = static_cast<Node*>(::realloc(n, sizeof(Node::Header) + sz));
+        if (!ret)
+            throw bad_alloc();
+        return static_cast<void*>(ret->Data);
+    }
+    if (nodeSize >= sz)  // 如果本身分配的内存就足够使用，则直接返回
+        return p;
+
+    // 这里，只能新分配一块内存（当bad_alloc发生时，不影响已分配的内存）
+#ifndef NDEBUG
+    auto* np = InternalAlloc(sz, context);
+#else
+    auto* np = InternalAlloc(sz);
+#endif
+    memcpy(np, p, nodeSize);
+
+    // 内存拷贝完毕，释放老内存，返回新内存
+    InternalFree(n);
+    return np;
+}
+
 void ObjectPool::InternalFree(Node* p)noexcept
 {
     assert(p);
+    assert(p->Header.Parent->Pool == this);
 
     p->Header.Status = NodeStatus::Free;
 #ifndef NDEBUG

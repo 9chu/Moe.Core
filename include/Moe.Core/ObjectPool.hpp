@@ -8,12 +8,34 @@
 #include <cstddef>
 #include <stdexcept>
 #include <memory>
+#include <functional>
 
 #include "Utils.hpp"
 #include "Exception.hpp"
 
 namespace moe
 {
+    namespace details
+    {
+        template <typename T>
+        struct Finalizer
+        {
+            void operator()(T* p)noexcept
+            {
+                p->~T();
+            }
+        };
+
+        template <>
+        struct Finalizer<void>
+        {
+            void operator()(void* p)noexcept
+            {
+                MOE_UNUSED(p);
+            }
+        };
+    }
+
     /**
      * @brief 基于定长对象的缓存分配器
      *
@@ -38,6 +60,7 @@ namespace moe
         {
             void operator()(T* p)const noexcept
             {
+                details::Finalizer<T>()(p);
                 Free(p);
             }
         };
@@ -52,6 +75,14 @@ namespace moe
                 : Filename(file), Line(line) {}
         };
 
+        /**
+         * @brief 通过指针获取对应的对象池
+         */
+        static ObjectPool* GetPoolFromPointer(void* p)noexcept;
+
+        /**
+         * @brief 释放对象
+         */
         static void Free(void* p)noexcept;
 
     private:
@@ -109,9 +140,9 @@ namespace moe
          * 非调试版本参数：（分配块大小，内存泄漏个数）
          */
 #ifndef NDEBUG
-        using MemLeakReportCallback = void(*)(void*, size_t, const AllocContext&);
+        using MemLeakReportCallback = std::function<void(void*, size_t, const AllocContext&)>;
 #else
-        using MemLeakReportCallback = void(*)(size_t, size_t);
+        using MemLeakReportCallback = std::function<void(size_t, size_t)>;
 #endif
 
     public:
@@ -137,13 +168,14 @@ namespace moe
         /**
          * @brief 获取内存泄漏报告对象
          */
-        MemLeakReportCallback GetLeakReporter()const noexcept { return m_pLeakReporter; }
+        const MemLeakReportCallback& GetLeakReporter()const noexcept { return m_pLeakReporter; }
 
         /**
          * @brief 设置内存泄漏报告对象
          * @param cb 回调
          */
-        void SetLeakReporter(MemLeakReportCallback cb)noexcept { m_pLeakReporter = cb; }
+        void SetLeakReporter(const MemLeakReportCallback& cb)noexcept { m_pLeakReporter = cb; }
+        void SetLeakReporter(MemLeakReportCallback&& cb)noexcept { m_pLeakReporter = std::move(cb); }
 
         /**
          * @brief 从每个池回收1/factor个空闲对象
@@ -177,17 +209,36 @@ namespace moe
             return ret;
         }
 
+#ifndef NDEBUG
+        std::unique_ptr<void, Deleter<void>>& Realloc(std::unique_ptr<void, Deleter<void>>& p, size_t sz,
+            const AllocContext& context=EmptyRefOf<AllocContext>())
+#else
+        std::unique_ptr<void, Deleter<void>>& Realloc(std::unique_ptr<void, Deleter<void>>& p, size_t sz)
+#endif
+        {
+#ifndef NDEBUG
+            auto ret = InternalRealloc(p.get(), sz, context);
+#else
+            auto ret = InternalRealloc(p.get(), sz);
+#endif
+            p.release();
+            p.reset(ret);
+            return p;
+        }
+
     private:
 #ifndef NDEBUG
         void* InternalAlloc(size_t sz, const AllocContext& context);
+        void* InternalRealloc(void* p, size_t sz, const AllocContext& context);
 #else
         void* InternalAlloc(size_t sz);
+        void* InternalRealloc(void* p, size_t sz);
 #endif
         void InternalFree(Node* p)noexcept;
 
     private:
         Bucket m_stBuckets[kTotalBlocks];
-        MemLeakReportCallback m_pLeakReporter = nullptr;
+        MemLeakReportCallback m_pLeakReporter;
     };
 
     template <typename T>
