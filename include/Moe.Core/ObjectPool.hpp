@@ -108,7 +108,8 @@ namespace moe
 #endif
             } Header;
 
-            uint8_t Data[1];  // 缓冲区
+            // 注意：OSX系统是16字节对齐的，这里必须做处理
+            alignas(16) uint8_t Data[1];  // 缓冲区
 
 #ifndef NDEBUG
             void Attach(Node* node)noexcept;  // 将节点插入到node后
@@ -118,7 +119,6 @@ namespace moe
             void Detach(Node* prev)noexcept;
 #endif
         };
-        static_assert(offsetof(Node, Data) == sizeof(Node::Header), "Error");
 
         struct Bucket
         {
