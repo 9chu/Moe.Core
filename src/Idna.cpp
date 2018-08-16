@@ -96,7 +96,7 @@ void Idna::PunycodeEncode(u32string& out, ArrayView<char32_t> input)
 
         if (m - n > (numeric_limits<uint32_t>::max() - delta) / (h + 1))
             MOE_THROW(BadFormatException, "Punycode overflowed: {0}", StringUtils::Repr(out));
-        delta += (m - n) * (h + 1);
+        delta += (m - n) * static_cast<unsigned>(h + 1);
         n = m;
 
         for (size_t i = 0; i < input.GetSize(); ++i)
@@ -637,7 +637,7 @@ void Idna::ToAscii(std::u32string& out, ArrayView<char32_t> domainName, bool che
 
     auto i = 0;
     auto cnt = verifyDnsLength ? std::count(tmp.begin(), tmp.end(), kDeliminators[0]) : 0;
-    auto totalLength = 0;
+    size_t totalLength = 0;
     auto it = StringUtils::SplitByCharsFirst(ToArrayView<char32_t>(tmp), ArrayView<char32_t>(kDeliminators, 1));
     while (it != StringUtils::SplitByCharsLast<char32_t>())
     {

@@ -728,7 +728,7 @@ namespace moe
         unsigned m_uState = 0;
         bool m_bPayload16 = false;
         bool m_bPayload64 = false;
-        unsigned m_uBodyRead = 0;
+        uint64_t m_uBodyRead = 0;
         HeadersCompleteCallback m_pHeadersCompleteCallback;
         DataCallback m_pDataCallback;
         MessageCompleteCallback m_pMessageCompleteCallback;

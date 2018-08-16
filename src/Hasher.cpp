@@ -488,10 +488,10 @@ Sha1& Sha1::Update(BytesView input)noexcept
 
     uint32_t i = 0;
     uint32_t j = (m_uCount[0] >> 3u) & 63u;
-    if ((m_uCount[0] += input.GetSize() << 3u) < (input.GetSize() << 3u))
+    if ((m_uCount[0] += static_cast<uint32_t>(input.GetSize() << 3u)) < (input.GetSize() << 3u))
         ++m_uCount[1];
 
-    m_uCount[1] += input.GetSize() >> 29u;
+    m_uCount[1] += static_cast<uint32_t>(input.GetSize() >> 29u);
     if ((j + input.GetSize()) > 63u)
     {
         i = 64u - j;

@@ -168,7 +168,7 @@ size_t ObjectPool::CollectGarbage(unsigned factor, size_t maxFree)noexcept
     factor = max<unsigned>(factor, 1);
 
     size_t ret = 0;
-    unsigned i = CountOf(m_stBuckets);
+    auto i = CountOf(m_stBuckets);
     while (i-- > 0)
     {
         auto& bucket = m_stBuckets[i];

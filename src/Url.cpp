@@ -1014,7 +1014,7 @@ bool Url::Host::ParseIpv4(const char* start, const char* end)
     for (unsigned n = 0; n < parts - 1; ++n)
     {
         double b = 3 - n;
-        val += numbers[n] * std::pow(256, b);
+        val += static_cast<uint64_t>(numbers[n] * std::pow(256, b));
     }
     SetIpv4(static_cast<uint32_t>(val));
     return true;
@@ -1137,7 +1137,7 @@ bool Url::Host::ParseIpv6(const char* start, const char* end)noexcept
     if (compress != 0xFFFFFFFFu)
     {
         auto swaps = current - compress;
-        current = address.max_size() - 1;
+        current = static_cast<unsigned>(address.max_size() - 1);
         while (current != 0 && swaps > 0)
         {
             auto swap = compress + swaps - 1;

@@ -8,6 +8,7 @@
 #include <Moe.Core/Utils.hpp>
 
 #include <cstring>
+#include <algorithm>
 
 #include "UnicodeData.inl"
 

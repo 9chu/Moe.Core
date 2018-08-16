@@ -1023,7 +1023,13 @@ namespace moe
         {
             size_t i = 0, l = std::min(a.length(), b.length());
             for (; i < l && ToLower(a[i]) == ToLower(b[i]); ++i);
-            return i == l ? a.length() - b.length() : ToLower(a[i]) - ToLower(b[i]);
+            if (i == l)
+                return a.length() == b.length() ? 0 : (a.length() > b.length() ? 1 : -1);
+            else
+            {
+                auto la = ToLower(a[i]), lb = ToLower(b[i]);
+                return la == lb ? 0 : (la > lb ? 1 : -1);
+            }
         }
 
         //////////////////////////////////////// </editor-fold>
