@@ -41,7 +41,7 @@
 #define MOE_ASSERT_EXPR(CHECK, EXPR) ((CHECK) ? (EXPR) : ([]{assert(!#CHECK);}(), (EXPR)))
 #endif
 
-#define MOE_PP_ARG_OP_1(op, sep, arg     ) \
+#define MOE_PP_ARG_OP_1(op, sep, arg, ...) \
     op(arg)
 #define MOE_PP_ARG_OP_2(op, sep, arg, ...) \
     op(arg) sep MOE_PP_EXPAND_(MOE_PP_ARG_OP_1(op, MOE_PP_EXPAND_(sep), ##__VA_ARGS__))
@@ -254,7 +254,7 @@
     _81,_82,_83,_84,_85,_86,_87,_88,_89,_90, _91,_92,_93,_94,_95,_96,_97,_98,_99, N, ...) N
 
 #define MOE_PP_EXPAND_(...) __VA_ARGS__
-#define MOE_PP_ARG_OP(...) MOE_PP_CONCAT(MOE_PP_ARG_OP_, MOE_PP_ARG_COUNT(__VA_ARGS__))
+#define MOE_PP_ARG_OP(N) MOE_PP_CONCAT(MOE_PP_ARG_OP_, N)
 #define MOE_PP_COMMA ,
 
 /**
