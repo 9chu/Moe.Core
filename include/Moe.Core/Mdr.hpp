@@ -26,12 +26,12 @@
  * tag务必递增。
  */
 #define MOE_DR_FIELDS(field, ...) \
-    MOE_PP_ARG_OP(MOE_PP_ARG_COUNT(__VA_ARGS__))(MOE_DR_EXPAND_MEMBER_, MOE_DR_SEP_, field, ##__VA_ARGS__); \
+    MOE_PP_ARG_OP(MOE_PP_ARG_COUNT(field, __VA_ARGS__))(MOE_DR_EXPAND_MEMBER_, MOE_DR_SEP_, field, ##__VA_ARGS__); \
     void ReadFrom(moe::Mdr::Reader* reader) { \
-        MOE_PP_ARG_OP(MOE_PP_ARG_COUNT(__VA_ARGS__))(MOE_DR_EXPAND_READ_, MOE_DR_SEP_, field, ##__VA_ARGS__); \
+        MOE_PP_ARG_OP(MOE_PP_ARG_COUNT(field, __VA_ARGS__))(MOE_DR_EXPAND_READ_, MOE_DR_SEP_, field, ##__VA_ARGS__); \
     } \
     void WriteTo(moe::Mdr::Writer* writer)const { \
-        MOE_PP_ARG_OP(MOE_PP_ARG_COUNT(__VA_ARGS__))(MOE_DR_EXPAND_WRITE_, MOE_DR_SEP_, field, ##__VA_ARGS__); \
+        MOE_PP_ARG_OP(MOE_PP_ARG_COUNT(field, __VA_ARGS__))(MOE_DR_EXPAND_WRITE_, MOE_DR_SEP_, field, ##__VA_ARGS__); \
     }
 
 #define MOE_DR_SEP_ ;
