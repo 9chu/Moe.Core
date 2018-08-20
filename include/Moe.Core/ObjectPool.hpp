@@ -115,8 +115,8 @@ namespace moe
             void Attach(Node* node)noexcept;  // 将节点插入到node后
             void Detach()noexcept;  // 将自己从链表脱离
 #else
-            void Attach(Node* node)noexcept;
-            void Detach(Node* prev)noexcept;
+            void Attach(Node* parent)noexcept;
+            void Detach(Node* parent)noexcept;
 #endif
         };
 
