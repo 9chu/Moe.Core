@@ -3,6 +3,7 @@
  * @date 2017/7/14
  */
 #pragma once
+#include <vector>
 #include <algorithm>
 
 #include "RefPtr.hpp"
@@ -231,6 +232,34 @@ namespace moe
         size_t m_uPosition = 0;
         BytesView m_stView;
         Optional<MutableBytesView> m_stMutableView;
+    };
+
+    /**
+     * @brief Vector到Stream包装器
+     */
+    class BytesVectorStream :
+        public Stream
+    {
+    public:
+        BytesVectorStream(std::vector<uint8_t>& vec);
+
+    public:
+        bool IsReadable()const noexcept;
+        bool IsWriteable()const noexcept;
+        bool IsSeekable()const noexcept;
+        size_t GetLength()const;
+        size_t GetPosition()const;
+        void Flush();
+        int ReadByte();
+        size_t Read(MutableBytesView out, size_t count);
+        size_t Seek(int64_t offset, StreamSeekOrigin origin);
+        void SetLength(size_t length);
+        void WriteByte(uint8_t b);
+        void Write(BytesView view, size_t count);
+
+    private:
+        size_t m_uPosition = 0;
+        std::vector<uint8_t>& m_stVec;
     };
 
     /**

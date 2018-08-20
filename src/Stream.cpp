@@ -140,3 +140,121 @@ void BytesViewStream::Write(BytesView view, size_t count)
     ::memcpy(m_stMutableView->GetBuffer() + m_uPosition, view.GetBuffer(), count);
     m_uPosition += count;
 }
+
+//////////////////////////////////////////////////////////////////////////////// BytesVectorStream
+
+BytesVectorStream::BytesVectorStream(std::vector<uint8_t>& vec)
+    : m_stVec(vec)
+{
+}
+
+bool BytesVectorStream::IsReadable()const noexcept
+{
+    return true;
+}
+
+bool BytesVectorStream::IsWriteable()const noexcept
+{
+    return true;
+}
+
+bool BytesVectorStream::IsSeekable()const noexcept
+{
+    return true;
+}
+
+size_t BytesVectorStream::GetLength()const
+{
+    return m_stVec.size();
+}
+
+size_t BytesVectorStream::GetPosition()const
+{
+    return m_uPosition;
+}
+
+void BytesVectorStream::Flush()
+{
+}
+
+int BytesVectorStream::ReadByte()
+{
+    if (m_uPosition >= m_stVec.size())
+        return -1;
+    return m_stVec[m_uPosition++];
+}
+
+size_t BytesVectorStream::Read(MutableBytesView out, size_t count)
+{
+    assert(m_stVec.size() >= m_uPosition);
+    assert(out.GetSize() >= count);
+    count = std::min(count, out.GetSize());
+    count = std::min(count, m_stVec.size() - m_uPosition);
+    ::memcpy(out.GetBuffer(), m_stVec.data() + m_uPosition, count);
+    m_uPosition += count;
+    return count;
+}
+
+size_t BytesVectorStream::Seek(int64_t offset, StreamSeekOrigin origin)
+{
+    switch (origin)
+    {
+        case StreamSeekOrigin::Begin:
+            m_uPosition = static_cast<size_t>(std::max<int64_t>(0, offset));
+            m_uPosition = std::min(m_uPosition, m_stVec.size());
+            break;
+        case StreamSeekOrigin::Current:
+            if (offset < 0)
+            {
+                auto positive = (size_t)-offset;
+                if (positive >= m_uPosition)
+                    m_uPosition = 0;
+                else
+                    m_uPosition -= positive;
+            }
+            else
+            {
+                m_uPosition += (size_t)offset;
+                m_uPosition = std::min(m_uPosition, m_stVec.size());
+            }
+            break;
+        case StreamSeekOrigin::End:
+            if (offset >= 0)
+                m_uPosition = m_stVec.size();
+            else
+            {
+                size_t positive = (size_t)-offset;
+                if (positive >= m_stVec.size())
+                    m_uPosition = 0;
+                else
+                    m_uPosition -= positive;
+            }
+            break;
+    }
+
+    return m_uPosition;
+}
+
+void BytesVectorStream::SetLength(size_t length)
+{
+    m_stVec.resize(length);
+}
+
+void BytesVectorStream::WriteByte(uint8_t b)
+{
+    if (m_uPosition == m_stVec.size())
+        m_stVec.push_back(b);
+    else if (m_uPosition > m_stVec.size())
+        MOE_THROW(OutOfRangeException, "Write out of range");
+    m_stVec[m_uPosition++] = b;
+}
+
+void BytesVectorStream::Write(BytesView view, size_t count)
+{
+    assert(view.GetSize() >= count);
+    count = std::min(count, view.GetSize());
+    if (m_uPosition + count > m_stVec.size())
+        m_stVec.resize(m_uPosition + count);
+    ::memcpy(m_stVec.data() + m_uPosition, view.GetBuffer(), count);
+    m_uPosition += count;
+}

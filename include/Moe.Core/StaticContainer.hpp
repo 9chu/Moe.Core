@@ -43,6 +43,19 @@ namespace moe
         CircularQueue(CircularQueue&&) = default;
 
     public:
+        T& operator[](size_t index)noexcept
+        {
+            assert(index < GetSize());
+            return *reinterpret_cast<T*>(&m_stStorage.Data[(m_iHead + index) % StorageType::kCapacity]);
+        }
+
+        const T& operator[](size_t index)const noexcept
+        {
+            assert(index < GetSize());
+            return *reinterpret_cast<const T*>(&m_stStorage.Data[(m_iHead + index) % StorageType::kCapacity]);
+        }
+
+    public:
         /**
          * @brief 是否为空
          */
@@ -120,7 +133,7 @@ namespace moe
         {
             if (IsEmpty())
                 MOE_THROW(OutOfRangeException, "Queue is empty");
-            auto& org = m_stStorage.Data[m_iHead];
+            auto& org = *reinterpret_cast<T*>(&m_stStorage.Data[m_iHead]);
             T ret = std::move(org);
             org.~T();
             m_iHead = (m_iHead + 1) % StorageType::kCapacity;
@@ -161,7 +174,7 @@ namespace moe
         {
             if (IsEmpty())
                 return false;
-            auto& org = m_stStorage.Data[m_iHead];
+            auto& org = *reinterpret_cast<T*>(&m_stStorage.Data[m_iHead]);
             ret = std::move(org);
             org.~T();
             m_iHead = (m_iHead + 1) % StorageType::kCapacity;
@@ -193,14 +206,16 @@ namespace moe
         {
             if (IsEmpty())
                 MOE_THROW(OutOfRangeException, "Queue is empty");
-            return m_stStorage.Data[(m_iTail + StorageType::kCapacity - 1) % StorageType::kCapacity];
+            return *reinterpret_cast<T*>(&m_stStorage.Data[(m_iTail + StorageType::kCapacity - 1) %
+                StorageType::kCapacity]);
         }
 
         const T& Last()const
         {
             if (IsEmpty())
                 MOE_THROW(OutOfRangeException, "Queue is empty");
-            return m_stStorage.Data[(m_iTail + StorageType::kCapacity - 1) % StorageType::kCapacity];
+            return *reinterpret_cast<T*>(&m_stStorage.Data[(m_iTail + StorageType::kCapacity - 1) %
+                StorageType::kCapacity]);
         }
 
         /**
@@ -210,7 +225,7 @@ namespace moe
         {
             while (!IsEmpty())
             {
-                auto& org = m_stStorage.Data[m_iHead];
+                auto& org = *reinterpret_cast<T*>(&m_stStorage.Data[m_iHead]);
                 org.~T();
                 m_iHead = (m_iHead + 1) % StorageType::kCapacity;
                 --m_stStorage.Size;
@@ -235,6 +250,19 @@ namespace moe
         StaticVector() = default;
         StaticVector(const StaticVector&) = default;
         StaticVector(StaticVector&&) = default;
+
+    public:
+        T& operator[](size_t index)noexcept
+        {
+            assert(index < GetSize());
+            return *reinterpret_cast<T*>(&m_stStorage.Data[index]);
+        }
+
+        const T& operator[](size_t index)const noexcept
+        {
+            assert(index < GetSize());
+            return *reinterpret_cast<const T*>(&m_stStorage.Data[index]);
+        }
 
     public:
         /**
@@ -289,7 +317,7 @@ namespace moe
         {
             if (IsEmpty())
                 MOE_THROW(OutOfRangeException, "Vector is empty");
-            auto& org = m_stStorage.Data[m_stStorage.Size - 1];
+            auto& org = *reinterpret_cast<T*>(&m_stStorage.Data[m_stStorage.Size - 1]);
             T ret = std::move(org);
             org.~T();
             --m_stStorage.Size;
@@ -337,7 +365,7 @@ namespace moe
         {
             while (!IsEmpty())
             {
-                auto& org = m_stStorage.Data[m_stStorage.Size - 1];
+                auto& org = *reinterpret_cast<T*>(&m_stStorage.Data[m_stStorage.Size - 1]);
                 org.~T();
                 --m_stStorage.Size;
             }
@@ -361,7 +389,7 @@ namespace moe
             for (size_t i = idx; i < m_stStorage.Size; ++i)
             {
                 auto pos = m_stStorage.Size - (i - idx);
-                new(m_stStorage.Data[pos]) T(std::move(m_stStorage.Data[pos - 1]));
+                new(m_stStorage.Data[pos]) T(std::move(*reinterpret_cast<T*>(&m_stStorage.Data[pos - 1])));
                 m_stStorage.Data[pos - 1].~T();
             }
 
@@ -386,7 +414,7 @@ namespace moe
             for (size_t i = idx; i < m_stStorage.Size; ++i)
             {
                 auto pos = m_stStorage.Size - (i - idx);
-                new(m_stStorage.Data[pos]) T(std::move(m_stStorage.Data[pos - 1]));
+                new(m_stStorage.Data[pos]) T(std::move(*reinterpret_cast<T*>(&m_stStorage.Data[pos - 1])));
                 m_stStorage.Data[pos - 1].~T();
             }
 
@@ -409,7 +437,7 @@ namespace moe
             // 移动元素，假定Move不抛出异常
             for (size_t i = idx + 1; i < m_stStorage.Size; ++i)
             {
-                new(m_stStorage.Data[i - 1]) T(std::move(m_stStorage.Data[i]));
+                new(m_stStorage.Data[i - 1]) T(std::move(*reinterpret_cast<T*>(&m_stStorage.Data[i])));
                 m_stStorage.Data[i].~T();
             }
 

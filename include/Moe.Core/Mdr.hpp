@@ -1083,6 +1083,26 @@ namespace moe
             return stream.GetPosition();
         }
 
+        template <typename T>
+        static size_t WriteStruct(const T& input, std::vector<uint8_t>& buf, TagType tag=0)
+        {
+            BytesVectorStream stream(buf);
+            Mdr::Writer writer(&stream);
+            writer.Write(input, tag);
+            return stream.GetPosition();
+        }
+
+        template <typename T>
+        static size_t AppendStruct(const T& input, std::vector<uint8_t>& buf, TagType tag=0)
+        {
+            BytesVectorStream stream(buf);
+            stream.Seek(0, StreamSeekOrigin::End);
+            auto pos = stream.GetPosition();
+            Mdr::Writer writer(&stream);
+            writer.Write(input, tag);
+            return stream.GetPosition() - pos;
+        }
+
         //////////////////////////////////////// </editor-fold>
         //////////////////////////////////////// <editor-fold desc="扩展&反射部分">
 
