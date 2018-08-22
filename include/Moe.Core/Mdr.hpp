@@ -557,9 +557,16 @@ namespace moe
                     MOE_THROW(BadFormatException, "Field with tag {0} type mismatched", tag);
 
                 out.ReadFrom(this);
+
+                // 跳过后续其他field
+                auto peek = PeekHead();
+                while (peek && peek->Type != WireTypes::Null)
+                {
+                    SkipNextField();
+                    peek = PeekHead();
+                }
                 head = ReadHead();
-                if (head.Type != WireTypes::Null)
-                    MOE_THROW(BadFormatException, "Structure boundary expected, but found {0}", head.Type);
+                assert(head.Type == WireTypes::Null);
             }
 
             template <typename T>
@@ -587,6 +594,7 @@ namespace moe
                     SkipNextField();
                     if (curTag == tag)
                         return true;
+                    head = PeekHead();
                 }
                 return false;
             }
@@ -596,7 +604,10 @@ namespace moe
                 assert(m_pStream);
                 auto head = PeekHead();
                 while (head && head->Tag < tag && head->Type != WireTypes::Null)
+                {
                     SkipNextField();
+                    head = PeekHead();
+                }
             }
 
             FieldHead ReadHead()
@@ -720,6 +731,9 @@ namespace moe
                 auto head = ReadHead();
                 switch (head.Type)
                 {
+                    case WireTypes::Zero:
+                    case WireTypes::One:
+                        break;
                     case WireTypes::Fixed8:
                         ReadFixed8(nullptr);
                         break;
@@ -754,8 +768,11 @@ namespace moe
                         {
                             auto adv = PeekHead();
                             while (adv && adv->Type != WireTypes::Null)
+                            {
                                 SkipNextField();
-                            ReadHead();
+                                adv = PeekHead();
+                            }
+                            head = ReadHead();
                             --m_uDepth;
                             assert(head.Type == WireTypes::Null);
                         }
