@@ -212,7 +212,7 @@ void* ObjectPool::InternalAlloc(size_t sz)
     sz = max<size_t>(sz, 1);
     if (sz > kLargeSizeThreshold)  // 直接从系统分配，并挂在大小为0的节点上
     {
-        ret = reinterpret_cast<Node*>(::malloc(offsetof(Node, Data) + sz));
+        ret = reinterpret_cast<Node*>(::malloc(sizeof(Node::Header) + sz));
         if (!ret)
             throw bad_alloc();
         ret->Header.Status = NodeStatus::Used;
@@ -244,7 +244,7 @@ void* ObjectPool::InternalAlloc(size_t sz)
     }
     else
     {
-        ret = reinterpret_cast<Node*>(::malloc(offsetof(Node, Data) + bucket.NodeSize));
+        ret = reinterpret_cast<Node*>(::malloc(sizeof(Node::Header) + bucket.NodeSize));
         if (!ret)
             throw bad_alloc();
         ret->Header.Parent = &bucket;
@@ -286,7 +286,7 @@ void* ObjectPool::InternalRealloc(void* p, size_t sz)
     auto nodeSize = n->Header.Parent->NodeSize;
     if (nodeSize == 0)  // 超大对象，调用系统的realloc
     {
-        auto ret = static_cast<Node*>(::realloc(n, offsetof(Node, Data) + sz));
+        auto ret = static_cast<Node*>(::realloc(n, sizeof(Node::Header) + sz));
         if (!ret)
             throw bad_alloc();
         return static_cast<void*>(ret->Data);
