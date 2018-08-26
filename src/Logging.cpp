@@ -112,7 +112,7 @@ const size_t Logging::kAllocErrorMsgLength = strlen(kAllocErrorMsg);
 
 uint64_t Logging::Context::GetThreadIdCached()noexcept
 {
-    thread_local const uint64_t s_ullTid = Pal::GetCurrentThreadId();
+    static thread_local const uint64_t s_ullTid = Pal::GetCurrentThreadId();
     return s_ullTid;
 }
 
@@ -325,7 +325,7 @@ void Logging::SinkBase::Log(Level level, const Context& context, const char* msg
         Sink(level, context, msg, msg, strlen(msg));
     else
     {
-        thread_local string formatted;
+        static thread_local string formatted;
 
         try
         {
@@ -476,7 +476,7 @@ namespace
     private:
         void PrintText(const char* start, size_t length)
         {
-            thread_local wstring s_stBuffer;
+            static thread_local wstring s_stBuffer;
             Encoding::Convert<Encoding::Utf8, Encoding::Utf16, char, wchar_t>(s_stBuffer,
                 ArrayView<char>(start, length),
                 Encoding::DefaultUnicodeFallbackHandler);
@@ -827,7 +827,7 @@ void Logging::Commit()
 
 std::string& Logging::GetFormatStringThreadCache()const noexcept
 {
-    thread_local string s_stBuffer;
+    static thread_local string s_stBuffer;
     return s_stBuffer;
 }
 

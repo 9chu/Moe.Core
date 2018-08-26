@@ -282,7 +282,7 @@ namespace moe
             virtual void Flush()noexcept;
 
         private:
-            bool m_bAlwaysFlush = false;
+            bool m_bAlwaysFlush = true;  // 默认应当总是Flush的，提高日志实时性
             Level m_iMinLevel = Level::Debug;
             Level m_iMaxLevel = Level::Fatal;
             FormatterPtr m_pFormatter;
