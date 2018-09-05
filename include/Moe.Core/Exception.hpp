@@ -222,7 +222,7 @@ namespace moe
  */
 #define MOE_DEFINE_EXCEPTION(Name) \
     class Name : \
-        public Exception<Name> \
+        public moe::Exception<Name> \
     { \
     public: \
         using Exception::Exception; \
