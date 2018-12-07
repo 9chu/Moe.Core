@@ -116,6 +116,12 @@ uint64_t Logging::Context::GetThreadIdCached()noexcept
     return s_ullTid;
 }
 
+//////////////////////////////////////////////////////////////////////////////// FormatterBase
+
+Logging::FormatterBase::~FormatterBase()
+{
+}
+
 //////////////////////////////////////////////////////////////////////////////// PlainFormatter
 
 void Logging::PlainFormatter::Format(std::string& dest, Level level, const Context& context, const char* msg)const
@@ -313,6 +319,10 @@ std::shared_ptr<Logging::FormatterBase> Logging::AnsiColorFormatter::Clone()cons
 Logging::SinkBase::SinkBase(const SinkBase& rhs)
     : m_bAlwaysFlush(rhs.m_bAlwaysFlush), m_iMinLevel(rhs.m_iMinLevel), m_iMaxLevel(rhs.m_iMaxLevel),
     m_pFormatter(rhs.m_pFormatter ? rhs.m_pFormatter->Clone() : nullptr)
+{
+}
+
+Logging::SinkBase::~SinkBase()
 {
 }
 
