@@ -2589,6 +2589,8 @@ namespace moe
 #else
                 static const bool kPlatformCorrectDoubleOperations = false;
 #endif  // _WIN32
+#elif defined(__EMSCRIPTEN__)
+                static const bool kPlatformCorrectDoubleOperations = false;
 #else
 #error Target architecture was not detected as supported by Double-Conversion.
 #endif

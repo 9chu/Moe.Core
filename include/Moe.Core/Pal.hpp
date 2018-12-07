@@ -66,6 +66,10 @@
     #define MOE_BSD
     #define MOE_POSIX
     #define MOE_PLATFORM "bsd_openbsd"
+#elif defined(__EMSCRIPTEN__)
+    #define MOE_EMSCRIPTEN
+    #define MOE_POSIX
+    #define MOE_PLATFORM "emscripten"
 #else
     #error "Unknown platform"
 #endif

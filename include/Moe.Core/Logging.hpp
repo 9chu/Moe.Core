@@ -75,6 +75,9 @@ namespace moe
         class FormatterBase
         {
         public:
+            virtual ~FormatterBase();
+
+        public:
             /**
              * @brief 格式化指定日志文本
              * @note 要求线程安全
@@ -215,6 +218,7 @@ namespace moe
         public:
             SinkBase() = default;
             SinkBase(const SinkBase& rhs);
+            virtual ~SinkBase();
 
         public:
             /**
