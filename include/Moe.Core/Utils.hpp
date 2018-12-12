@@ -430,6 +430,9 @@ namespace moe
         {}
 
     public:
+        TypeIndex()noexcept
+        {}
+
         TypeIndex(const TypeIndex &rhs)noexcept
             : m_uId(rhs.m_uId)
         {}
