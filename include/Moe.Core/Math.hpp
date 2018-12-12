@@ -1,6 +1,7 @@
 /**
  * @file
  * @date 2017/6/14
+ * @see https://github.com/opentk/opentk/blob/master/src/OpenTK.Mathematics/Matrix/Matrix4.cs
  */
 #pragma once
 #include <cmath>
@@ -1166,21 +1167,15 @@ namespace moe
         }
 
         template <typename T>
-        constexpr Vector3<T> Min(Vector3<T> v1, Vector3<T> v2, Vector3<T> v3)
+        constexpr Vector3<T> Min(Vector3<T> v1, Vector3<T> v2)
         {
-            return Vector3<T>(
-                Min(v1.x, v2.x, v3.x),
-                Min(v1.y, v2.y, v3.y),
-                Min(v1.z, v2.z, v3.z));
+            return Vector3<T>(Min(v1.x, v2.x), Min(v1.y, v2.y), Min(v1.z, v2.z));
         }
 
         template <typename T>
-        constexpr Vector3<T> Max(Vector3<T> v1, Vector3<T> v2, Vector3<T> v3)
+        constexpr Vector3<T> Max(Vector3<T> v1, Vector3<T> v2)
         {
-            return Vector3<T>(
-                Max(v1.x, v2.x, v3.x),
-                Max(v1.y, v2.y, v3.y),
-                Max(v1.z, v2.z, v3.z));
+            return Vector3<T>(Max(v1.x, v2.x), Max(v1.y, v2.y), Max(v1.z, v2.z));
         }
 
         template <typename T>
@@ -1193,7 +1188,383 @@ namespace moe
         }
 
         //////////////////////////////////////// </editor-fold>
+        //////////////////////////////////////// <editor-fold desc="四维向量">
+
+        /**
+         * @brief 四维向量
+         *
+         * 定义了四维向量模板和定义在四维向量上的运算。
+         * 对于四维向量，所有的运算符重载均以分量为单位进行运算。
+         */
+        template <typename T = float>
+        class Vector4
+        {
+            static_assert(std::is_arithmetic<T>::value, "T must be a numerical type.");
+
+        public:
+            T x, y, z, w;
+
+        public:
+            constexpr Vector4()
+                : x(T(0)), y(T(0)), z(T(0)), w(T(0)) {}
+            constexpr Vector4(T v)
+                : x(v), y(v), z(v), w(v) {}
+            constexpr Vector4(T vx, T vy, T vz, T vw)
+                : x(vx), y(vy), z(vz), w(vw) {}
+            constexpr Vector4(Vector3<T> v, T vw)
+                : x(v.x), y(v.y), z(v.z), w(vw) {}
+
+            Vector4(const Vector4& rhs)noexcept = default;
+            Vector4(Vector4&& rhs)noexcept = default;
+
+            Vector4& operator=(const Vector4& rhs)noexcept = default;
+            Vector4& operator=(Vector4&& rhs)noexcept = default;
+
+            T& operator[](unsigned index)
+            {
+                static T s_Invalid;
+
+                switch (index)
+                {
+                    case 0:
+                        return x;
+                    case 1:
+                        return y;
+                    case 2:
+                        return z;
+                    case 3:
+                        return w;
+                    default:
+                        assert(false);
+                        return s_Invalid;
+                }
+            }
+
+            T operator[](unsigned index)const
+            {
+                switch (index)
+                {
+                    case 0:
+                        return x;
+                    case 1:
+                        return y;
+                    case 2:
+                        return z;
+                    case 3:
+                        return w;
+                    default:
+                        assert(false);
+                        return 0;
+                }
+            }
+        public:
+            T SetX(T vx)
+            {
+                std::swap(x, vx);
+                return vx;
+            }
+
+            T SetY(T vy)
+            {
+                std::swap(y, vy);
+                return vy;
+            }
+
+            T SetZ(T vz)
+            {
+                std::swap(z, vz);
+                return vz;
+            }
+
+            T SetW(T vw)
+            {
+                std::swap(w, vw);
+                return vw;
+            }
+
+            void Set(T vx, T vy, T vz, T vw)
+            {
+                x = vx;
+                y = vy;
+                z = vz;
+                w = vw;
+            }
+
+            void Set(Vector3<T> v, T vw)
+            {
+                x = v.x;
+                y = v.y;
+                z = v.z;
+                w = vw;
+            }
+
+            void SetZero()
+            {
+                x = T(0);
+                y = T(0);
+                z = T(0);
+                w = T(0);
+            }
+
+            T SetNormalize()
+            {
+                T len = Length();
+                // assert(len != 0);
+                x /= len;
+                y /= len;
+                z /= len;
+                w /= len;
+                return len;
+            }
+
+            void SetAbsolute()
+            {
+                x = Abs(x);
+                y = Abs(y);
+                z = Abs(z);
+                w = Abs(w);
+            }
+
+            constexpr bool IsZero()const
+            {
+                return x == T(0) && y == T(0) && z == T(0) && w == T(0);
+            }
+
+            constexpr T Length()const
+            {
+                return Math::Sqrt(LengthSquared());
+            }
+
+            constexpr T LengthSquared()const
+            {
+                return x * x + y * y + z * z + w * w;
+            }
+
+            constexpr T Distance(Vector4 rhs)const
+            {
+                return (rhs - *this).Length();
+            }
+
+            constexpr T DistanceSquared(Vector4 rhs)const
+            {
+                return (rhs - *this).LengthSquared();
+            }
+
+            Vector4 Normalize()const
+            {
+                T len = Length();
+                assert(len != 0);
+                return Vector4(x / len, y / len, z / len, w / len);
+            }
+
+            constexpr T Dot(Vector4 rhs)const
+            {
+                return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w;
+            }
+
+            /**
+             * @brief 求与另一个向量的夹角
+             * @return 返回值在[0, π]之间
+             */
+            T Angle(Vector4 rhs)const
+            {
+                T s = Math::Sqrt(LengthSquared() * rhs.LengthSquared());
+                assert(s != 0);
+                return Math::Acos(Dot(rhs) / s);
+            }
+
+        public:
+            static const Vector4 UnitX;
+            static const Vector4 UnitY;
+            static const Vector4 UnitZ;
+            static const Vector4 UnitW;
+            static const Vector4 One;
+            static const Vector4 Zero;
+        };
+
+        template <typename T>
+        const Vector4<T> Vector4<T>::UnitX = Vector4(T(1), T(0), T(0), T(0));
+
+        template <typename T>
+        const Vector4<T> Vector4<T>::UnitY = Vector4(T(0), T(1), T(0), T(0));
+
+        template <typename T>
+        const Vector4<T> Vector4<T>::UnitZ = Vector4(T(0), T(0), T(1), T(0));
+
+        template <typename T>
+        const Vector4<T> Vector4<T>::UnitW = Vector4(T(0), T(0), T(0), T(1));
+
+        template <typename T>
+        const Vector4<T> Vector4<T>::One = Vector4(T(1));
+
+        template <typename T>
+        const Vector4<T> Vector4<T>::Zero = Vector4(T(0));
+
+        template <typename T>
+        constexpr Vector4<T> operator+(Vector4<T> v)
+        {
+            return Vector4<T>(+v.x, +v.y, +v.z, +v.w);
+        }
+
+        template <typename T>
+        constexpr Vector4<T> operator-(Vector4<T> v)
+        {
+            return Vector4<T>(-v.x, -v.y, -v.z, -v.w);
+        }
+
+        template <typename T>
+        constexpr Vector4<T> operator+(Vector4<T> lhs, Vector4<T> rhs)
+        {
+            return Vector4<T>(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z, lhs.w + rhs.w);
+        }
+
+        template <typename T>
+        constexpr Vector4<T> operator-(Vector4<T> lhs, Vector4<T> rhs)
+        {
+            return Vector4<T>(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z, lhs.w - lhs.w);
+        }
+
+        template <typename T>
+        constexpr Vector4<T> operator*(Vector4<T> lhs, T rhs)
+        {
+            return Vector4<T>(lhs.x * rhs, lhs.y * rhs, lhs.z * rhs, lhs.w * rhs);
+        }
+
+        template <typename T>
+        constexpr Vector4<T> operator*(T lhs, Vector4<T> rhs)
+        {
+            return Vector4<T>(lhs * rhs.x, lhs * rhs.y, lhs * rhs.z, lhs * rhs.w);
+        }
+
+        template <typename T>
+        constexpr Vector4<T> operator*(Vector4<T> lhs, Vector4<T> rhs)
+        {
+            return Vector4<T>(lhs.x * rhs.x, lhs.y * rhs.y, lhs.z * rhs.z, lhs.w * rhs.w);
+        }
+
+        template <typename T>
+        constexpr Vector4<T> operator/(Vector4<T> lhs, T rhs)
+        {
+            return Vector4<T>(lhs.x / rhs, lhs.y / rhs, lhs.z / rhs, lhs.w / rhs);
+        }
+
+        template <typename T>
+        constexpr Vector4<T> operator/(T lhs, Vector4<T> rhs)
+        {
+            return Vector4<T>(lhs / rhs.x, lhs / rhs.y, lhs / rhs.z, lhs / rhs.w);
+        }
+
+        template <typename T>
+        constexpr Vector4<T> operator/(Vector4<T> lhs, Vector4<T> rhs)
+        {
+            return Vector4<T>(lhs.x / rhs.x, lhs.y / rhs.y, lhs.z / rhs.z, lhs.w / rhs.w);
+        }
+
+        template <typename T>
+        constexpr bool operator==(Vector4<T> lhs, Vector4<T> rhs)
+        {
+            return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z && lhs.w == rhs.w;
+        }
+
+        template <typename T>
+        constexpr bool operator!=(Vector4<T> lhs, Vector4<T> rhs)
+        {
+            return lhs.x != rhs.x || lhs.y != rhs.y || lhs.z != rhs.z || lhs.w != rhs.w;
+        }
+
+        template <typename T>
+        Vector4<T>& operator+=(Vector4<T>& lhs, Vector4<T> rhs)
+        {
+            lhs.x += rhs.x;
+            lhs.y += rhs.y;
+            lhs.z += rhs.z;
+            lhs.w += rhs.w;
+            return lhs;
+        }
+
+        template <typename T>
+        Vector4<T>& operator-=(Vector4<T>& lhs, Vector4<T> rhs)
+        {
+            lhs.x -= rhs.x;
+            lhs.y -= rhs.y;
+            lhs.z -= rhs.z;
+            lhs.w -= rhs.w;
+            return lhs;
+        }
+
+        template <typename T>
+        Vector4<T>& operator*=(Vector4<T>& lhs, T rhs)
+        {
+            lhs.x *= rhs;
+            lhs.y *= rhs;
+            lhs.z *= rhs;
+            lhs.w *= rhs;
+            return lhs;
+        }
+
+        template <typename T>
+        Vector4<T>& operator*=(Vector4<T>& lhs, Vector4<T> rhs)
+        {
+            lhs.x *= rhs.x;
+            lhs.y *= rhs.y;
+            lhs.z *= rhs.z;
+            lhs.w *= rhs.w;
+            return lhs;
+        }
+
+        template <typename T>
+        Vector4<T>& operator/=(Vector4<T>& lhs, T rhs)
+        {
+            lhs.x /= rhs;
+            lhs.y /= rhs;
+            lhs.z /= rhs;
+            lhs.w /= rhs;
+            return lhs;
+        }
+
+        template <typename T>
+        Vector4<T>& operator/=(Vector4<T>& lhs, Vector4<T> rhs)
+        {
+            lhs.x /= rhs.x;
+            lhs.y /= rhs.y;
+            lhs.z /= rhs.z;
+            lhs.w /= rhs.w;
+            return lhs;
+        }
+
+        template <typename T>
+        constexpr Vector4<T> Abs(Vector4<T> v)
+        {
+            return Vector4<T>(Abs(v.x), Abs(v.y), Abs(v.z), Abs(v.w));
+        }
+
+        template <typename T>
+        constexpr Vector4<T> Min(Vector4<T> v1, Vector4<T> v2)
+        {
+            return Vector4<T>(Min(v1.x, v2.x), Min(v1.y, v2.y), Min(v1.z, v2.z), Min(v1.w, v2.w));
+        }
+
+        template <typename T>
+        constexpr Vector4<T> Max(Vector4<T> v1, Vector4<T> v2)
+        {
+            return Vector4<T>(Max(v1.x, v2.x), Max(v1.y, v2.y), Max(v1.z, v2.z), Max(v1.w, v2.w));
+        }
+
+        template <typename T>
+        constexpr Vector4<T> Clamp(Vector4<T> v, Vector4<T> minv, Vector4<T> maxv)
+        {
+            return Vector4<T>(
+                Clamp(v.x, minv.x, maxv.x),
+                Clamp(v.y, minv.y, maxv.y),
+                Clamp(v.z, minv.z, maxv.z),
+                Clamp(v.w, minv.w, maxv.w));
+        }
+
+        //////////////////////////////////////// </editor-fold>
         //////////////////////////////////////// <editor-fold desc="四元数">
+
+        template <typename T>
+        class Matrix4;
 
         /**
          * @brief 四元数
@@ -1239,6 +1610,62 @@ namespace moe
                 SetEuler(yaw, pitch, roll);
             }
 
+            /**
+             * @brief 从矩阵计算四元数
+             * @note 方法仅使用矩阵左上角的3x3部分
+             * @param mat 旋转矩阵
+             */
+            Quaternion(const Matrix4<T>& mat)
+            {
+                auto trace = mat.GetTrace();
+
+                if (trace > T(0))
+                {
+                    auto s = Sqrt(trace + T(1)) * T(2);
+                    auto invS = T(1) / s;
+
+                    w = s / T(4);
+                    x = (mat.a[2][1] - mat.a[1][2]) * invS;
+                    y = (mat.a[0][2] - mat.a[2][0]) * invS;
+                    z = (mat.a[1][0] - mat.a[0][1]) * invS;
+                }
+                else
+                {
+                    auto m00 = mat.a[0][0], m11 = mat.a[1][1], m22 = mat.a[2][2];
+
+                    if (m00 > m11 && m00 > m22)
+                    {
+                        auto s = Sqrt(T(1) + m00 - m11 - m22) * T(2);
+                        auto invS = T(1) / s;
+
+                        w = (mat.a[2][1] - mat.a[1][2]) * invS;
+                        x = s / T(4);
+                        y = (mat.a[0][1] + mat.a[1][0]) * invS;
+                        z = (mat.a[0][2] + mat.a[2][0]) * invS;
+                    }
+                    else if (m11 > m22)
+                    {
+                        auto s = Sqrt(T(1) + m11 - m00 - m22) * T(2);
+                        auto invS = T(1) / s;
+
+                        w = (mat.a[0][2] - mat.a[2][0]) * invS;
+                        x = (mat.a[0][1] + mat.a[1][0]) * invS;
+                        y = s / T(4);
+                        z = (mat.a[1][2] + mat.a[2][1]) * invS;
+                    }
+                    else
+                    {
+                        auto s = Sqrt(T(1) + m22 - m00 - m11) * T(2);
+                        auto invS = T(1) / s;
+
+                        w = (mat.a[1][0] - mat.a[0][1]) * invS;
+                        x = (mat.a[0][2] + mat.a[2][0]) * invS;
+                        y = (mat.a[1][2] + mat.a[2][1]) * invS;
+                        z = s / T(4);
+                    }
+                }
+            }
+
             Quaternion(const Quaternion& rhs)noexcept = default;
             Quaternion(Quaternion&& rhs)noexcept = default;
 
@@ -1282,6 +1709,7 @@ namespace moe
                         return 0;
                 }
             }
+
         public:
             T SetX(T vx)
             {
@@ -1432,6 +1860,11 @@ namespace moe
              */
             constexpr T Angle()const
             {
+                if (Abs(w) > T(1))
+                {
+                    auto q = Normalize();
+                    return T(2) * Math::Acos(q.w);
+                }
                 return T(2) * Math::Acos(w);
             }
 
@@ -1527,6 +1960,28 @@ namespace moe
                 Vector3<T> ret;
                 EulerZYX(ret.x, ret.y, ret.z);
                 return ret;
+            }
+
+            /**
+             * @brief 转换到对应的变换矩阵
+             */
+            Matrix4<T> ToMatrix()
+            {
+                Quaternion<T> q = *this;
+
+                if (Abs(w) > T(1))
+                    q = Normalize();
+
+                auto x2 = q.x + q.x;
+                auto y2 = q.y + q.y;
+                auto z2 = q.z + q.z;
+                auto w2 = q.w + q.w;
+                
+                return Matrix4<T>(
+                    T(1) - y2 * y - z2 * z, x2 * y + w2 * z, x2 * z - w2 * y, T(0),
+                    x2 * y - w2 * z, T(1) - x2 * x - z2 * z, y2 * z + w2 * x, T(0),
+                    x2 * z + w2 * y, y2 * z - w2 * x, T(1) - x2 * x - y2 * y, T(0),
+                    T(0), T(0), T(0), T(1));
             }
 
         public:
@@ -1762,9 +2217,1085 @@ namespace moe
         }
 
         //////////////////////////////////////// </editor-fold>
+        //////////////////////////////////////// <editor-fold desc="矩阵">
+
+        /**
+         * @brief 4x4矩阵
+         *
+         * 定义了4x4矩阵模板和定义在矩阵上的运算。
+         * 为确保矩阵的数学意义，其乘法运算重载为矩阵的乘法操作，而非分量相乘。
+         * 以行优先存储。
+         */
+        template <typename T = float>
+        class Matrix4
+        {
+            static_assert(std::is_arithmetic<T>::value, "T must be a numerical type.");
+
+        public:
+            static const unsigned kRow = 4;
+            static const unsigned kColumn = 4;
+
+            union {
+                struct
+                {
+                    T m11, m12, m13, m14;
+                    T m21, m22, m23, m24;
+                    T m31, m32, m33, m34;
+                    T m41, m42, m43, m44;
+                } m;
+                T a[4][4];
+            };
+
+            static_assert(sizeof(m) == sizeof(a), "Check alignment");
+
+        public:
+            Matrix4()noexcept
+            {
+                a[0][0] = T(0);  a[0][1] = T(0);  a[0][2] = T(0);  a[0][3] = T(0);
+                a[1][0] = T(0);  a[1][1] = T(0);  a[1][2] = T(0);  a[1][3] = T(0);
+                a[2][0] = T(0);  a[2][1] = T(0);  a[2][2] = T(0);  a[2][3] = T(0);
+                a[3][0] = T(0);  a[3][1] = T(0);  a[3][2] = T(0);  a[3][3] = T(0);
+            }
+
+            Matrix4(T v[4][4])noexcept
+            {
+                for (int i = 0; i < 4; ++i)
+                {
+                    for (int j = 0; j < 4; ++j)
+                        a[i][j] = v[i][j];
+                }
+            }
+
+            Matrix4(T m11, T m12, T m13, T m14, T m21, T m22, T m23, T m24, T m31, T m32, T m33, T m34, T m41, T m42,
+                T m43, T m44)noexcept
+            {
+                a[0][0] = m11;  a[0][1] = m12;  a[0][2] = m13;  a[0][3] = m14;
+                a[1][0] = m21;  a[1][1] = m22;  a[1][2] = m23;  a[1][3] = m24;
+                a[2][0] = m31;  a[2][1] = m32;  a[2][2] = m33;  a[2][3] = m34;
+                a[3][0] = m41;  a[3][1] = m42;  a[3][2] = m43;  a[3][3] = m44;
+            }
+
+            Matrix4(const Matrix4& rhs)noexcept = default;
+            Matrix4(Matrix4&& rhs)noexcept = default;
+
+            Matrix4& operator=(const Matrix4& rhs)noexcept = default;
+            Matrix4& operator=(Matrix4&& rhs)noexcept = default;
+
+            Vector4<T>& operator[](unsigned index)
+            {
+                static Vector4<T> s_Invalid;
+                static_assert(sizeof(a[0]) == sizeof(s_Invalid), "Check alignment");
+
+                if (index < 4)
+                    return *reinterpret_cast<Vector4<T>*>(a[index]);
+                assert(false);
+                return s_Invalid;
+            }
+
+            T operator[](unsigned index)const
+            {
+                static_assert(sizeof(a[0]) == sizeof(Vector4<T>), "Check alignment");
+
+                if (index < 4)
+                    return *reinterpret_cast<Vector4<T>*>(a[index]);
+                return Vector4<T>();
+            }
+
+        public:
+            void Clear()noexcept
+            {
+                a[0][0] = T(0);  a[0][1] = T(0);  a[0][2] = T(0);  a[0][3] = T(0);
+                a[1][0] = T(0);  a[1][1] = T(0);  a[1][2] = T(0);  a[1][3] = T(0);
+                a[2][0] = T(0);  a[2][1] = T(0);  a[2][2] = T(0);  a[2][3] = T(0);
+                a[3][0] = T(0);  a[3][1] = T(0);  a[3][2] = T(0);  a[3][3] = T(0);
+            }
+
+            void SetIdentity()noexcept
+            {
+                a[0][0] = T(1);  a[0][1] = T(0);  a[0][2] = T(0);  a[0][3] = T(0);
+                a[1][0] = T(0);  a[1][1] = T(1);  a[1][2] = T(0);  a[1][3] = T(0);
+                a[2][0] = T(0);  a[2][1] = T(0);  a[2][2] = T(1);  a[2][3] = T(0);
+                a[3][0] = T(0);  a[3][1] = T(0);  a[3][2] = T(0);  a[3][3] = T(1);
+            }
+
+            void Set(T v[4][4])noexcept
+            {
+                for (int i = 0; i < 4; ++i)
+                {
+                    for (int j = 0; j < 4; ++j)
+                        a[i][j] = v[i][j];
+                }
+            }
+
+            void Set(T m11, T m12, T m13, T m14, T m21, T m22, T m23, T m24, T m31, T m32, T m33, T m34, T m41, T m42,
+                T m43, T m44)noexcept
+            {
+                a[0][0] = m11;  a[0][1] = m12;  a[0][2] = m13;  a[0][3] = m14;
+                a[1][0] = m21;  a[1][1] = m22;  a[1][2] = m23;  a[1][3] = m24;
+                a[2][0] = m31;  a[2][1] = m32;  a[2][2] = m33;  a[2][3] = m34;
+                a[3][0] = m41;  a[3][1] = m42;  a[3][2] = m43;  a[3][3] = m44;
+            }
+
+            /**
+             * @brief 转置
+             */
+            void Transpose()const
+            {
+                return Matrix4<T>(
+                    a[0][0], a[1][0], a[2][0], a[3][0],
+                    a[0][1], a[1][1], a[2][1], a[3][1],
+                    a[0][2], a[1][2], a[2][2], a[3][2],
+                    a[0][3], a[1][3], a[2][3], a[3][3]);
+            };
+
+            void SetTranspose()
+            {
+                Set(
+                    a[0][0], a[1][0], a[2][0], a[3][0],
+                    a[0][1], a[1][1], a[2][1], a[3][1],
+                    a[0][2], a[1][2], a[2][2], a[3][2],
+                    a[0][3], a[1][3], a[2][3], a[3][3]);
+            };
+
+            /**
+             * @brief 计算行列式
+             */
+            T GetDeterminant()const
+            {
+                return
+                    (a[0][0] * a[1][1] * a[2][2] * a[3][3]) - (a[0][0] * a[1][1] * a[2][3] * a[3][2]) +
+                    (a[0][0] * a[1][2] * a[2][3] * a[3][1]) - (a[0][0] * a[1][2] * a[2][1] * a[3][3]) +
+                    (a[0][0] * a[1][3] * a[2][1] * a[3][2]) - (a[0][0] * a[1][3] * a[2][2] * a[3][1]) -
+                    (a[0][1] * a[1][2] * a[2][3] * a[3][0]) + (a[0][1] * a[1][2] * a[2][0] * a[3][3]) -
+                    (a[0][1] * a[1][3] * a[2][0] * a[3][2]) + (a[0][1] * a[1][3] * a[2][2] * a[3][0]) -
+                    (a[0][1] * a[1][0] * a[2][2] * a[3][3]) + (a[0][1] * a[1][0] * a[2][3] * a[3][2]) +
+                    (a[0][2] * a[1][3] * a[2][0] * a[3][1]) - (a[0][2] * a[1][3] * a[2][1] * a[3][0]) +
+                    (a[0][2] * a[1][0] * a[2][1] * a[3][3]) - (a[0][2] * a[1][0] * a[2][3] * a[3][1]) +
+                    (a[0][2] * a[1][1] * a[2][3] * a[3][0]) - (a[0][2] * a[1][1] * a[2][0] * a[3][3]) -
+                    (a[0][3] * a[1][0] * a[2][1] * a[3][2]) + (a[0][3] * a[1][0] * a[2][2] * a[3][1]) -
+                    (a[0][3] * a[1][1] * a[2][2] * a[3][0]) + (a[0][3] * a[1][1] * a[2][0] * a[3][2]) -
+                    (a[0][3] * a[1][2] * a[2][0] * a[3][1]) + (a[0][3] * a[1][2] * a[2][1] * a[3][0]);
+            }
+
+            /**
+             * @brief 获取主对角线
+             */
+            Vector4<T> GetDiagonal()const
+            {
+                return Vector4<T>(a[0][0], a[1][1], a[2][2], a[3][3]);
+            }
+
+            /**
+             * @brief 设置主对角线
+             */
+            void SetDiagonal(Vector4<T> v)
+            {
+                a[0][0] = v.x;
+                a[1][1] = v.y;
+                a[2][2] = v.z;
+                a[3][3] = v.w;
+            }
+
+            void SetDiagonal(T x, T y, T z, T w)
+            {
+                a[0][0] = x;
+                a[1][1] = y;
+                a[2][2] = z;
+                a[3][3] = w;
+            }
+
+            /**
+             * @brief 获取矩阵的迹
+             */
+            T GetTrace()const
+            {
+                return a[0][0] + a[1][1] + a[2][2] + a[3][3];
+            }
+
+            /**
+             * @brief 归一化
+             */
+            Matrix4<T> Normalize()const
+            {
+                auto det = GetDeterminant();
+                return *this / det;
+            }
+
+            T SetNormalize()
+            {
+                auto det = GetDeterminant();
+                *this /= det;
+                return det;
+            }
+
+            /**
+             * @brief 尝试计算逆矩阵
+             * @param ret 输出结果
+             * @return 若不存在逆矩阵则返回false。
+             */
+            bool TryInvert(Matrix4<T>& ret)const
+            {
+                ret = *this;
+
+                int colIdx[] = { 0, 0, 0, 0 };
+                int rowIdx[] = { 0, 0, 0, 0 };
+                int pivotIdx[] = { -1, -1, -1, -1 };
+
+                int icol = 0;
+                int irow = 0;
+                for (int i = 0; i < 4; ++i)
+                {
+                    // Find the largest pivot value
+                    T maxPivot = T(0);
+                    for (int j = 0; j < 4; ++j)
+                    {
+                        if (pivotIdx[j] != 0)
+                        {
+                            for (int k = 0; k < 4; ++k)
+                            {
+                                if (pivotIdx[k] == -1)
+                                {
+                                    auto absVal = Abs(ret.a[j][k]);
+                                    if (absVal > maxPivot)
+                                    {
+                                        maxPivot = absVal;
+                                        irow = j;
+                                        icol = k;
+                                    }
+                                }
+                                else if (pivotIdx[k] > 0)
+                                    return true;
+                            }
+                        }
+                    }
+
+                    ++pivotIdx[icol];
+
+                    // Swap rows over so pivot is on diagonal
+                    if (irow != icol)
+                    {
+                        for (int k = 0; k < 4; ++k)
+                        {
+                            auto f = ret.a[irow][k];
+                            ret.a[irow][k] = ret.a[icol][k];
+                            ret.a[icol][k] = f;
+                        }
+                    }
+
+                    rowIdx[i] = irow;
+                    colIdx[i] = icol;
+
+                    auto pivot = ret.a[icol][icol];
+
+                    // check for singular matrix
+                    if (pivot == T(0))
+                    {
+                        ret = *this;
+                        return false;
+                    }
+
+                    // Scale row so it has a unit diagonal
+                    auto oneOverPivot = T(1) / pivot;
+                    ret.a[icol][icol] = T(1);
+                    for (int k = 0; k < 4; ++k)
+                        ret.a[icol][k] *= oneOverPivot;
+
+                    // Do elimination of non-diagonal elements
+                    for (int j = 0; j < 4; ++j)
+                    {
+                        // check this isn't on the diagonal
+                        if (icol != j)
+                        {
+                            auto f = ret.a[j][icol];
+                            ret.a[j][icol] = T(0);
+                            for (int k = 0; k < 4; ++k)
+                                ret.a[j][k] -= ret.a[icol][k] * f;
+                        }
+                    }
+                }
+
+                for (int j = 3; j >= 0; --j)
+                {
+                    auto ir = rowIdx[j];
+                    auto ic = colIdx[j];
+                    for (int k = 0; k < 4; ++k)
+                    {
+                        auto f = ret.a[k][ir];
+                        ret.a[k][ir] = ret.a[k][ic];
+                        ret.a[k][ic] = f;
+                    }
+                }
+                return true;
+            }
+
+            /**
+             * @brief 计算逆矩阵
+             * @return 若不存在逆矩阵则返回原始值。
+             */
+            Matrix4<T> Invert()const
+            {
+                Matrix4<T> ret;
+                TryInvert(ret);
+                return ret;
+            }
+
+            /**
+             * @brief 计算逆矩阵
+             * @return 如果不存在逆矩阵，则返回false。否则返回true。
+             */
+            bool SetInvert()
+            {
+                Matrix4<T> t;
+                auto ret = TryInvert(t);
+                if (ret)
+                    *this = t;
+                return ret;
+            }
+
+            /**
+             * @brief 返回清空平移量的矩阵
+             */
+            Matrix4<T> ClearTranslation()const
+            {
+                auto ret = *this;
+                ret[3][0] = ret[3][1] = ret[3][2] = T(0);
+                return ret;
+            }
+
+            void SetClearTranslation()
+            {
+                a[3][0] = a[3][1] = a[3][2] = T(0);
+            }
+
+            /**
+             * @brief 返回清空缩放量的矩阵
+             */
+            Matrix4<T> ClearScale()const
+            {
+                auto ret = *this;
+                auto row0 = Vector3<T>(ret[0][0], ret[0][1], ret[0][2]);
+                auto row1 = Vector3<T>(ret[1][0], ret[1][1], ret[1][2]);
+                auto row2 = Vector3<T>(ret[2][0], ret[2][1], ret[2][2]);
+                row0.SetNormalize();
+                row1.SetNormalize();
+                row2.SetNormalize();
+                ret[0][0] = row0.x;  ret[0][1] = row0.y;  ret[0][2] = row0.z;
+                ret[1][0] = row1.x;  ret[1][1] = row1.y;  ret[1][2] = row1.z;
+                ret[2][0] = row2.x;  ret[2][1] = row2.y;  ret[2][2] = row2.z;
+                return ret;
+            }
+
+            void SetClearScale()
+            {
+                auto row0 = Vector3<T>(a[0][0], a[0][1], a[0][2]);
+                auto row1 = Vector3<T>(a[1][0], a[1][1], a[1][2]);
+                auto row2 = Vector3<T>(a[2][0], a[2][1], a[2][2]);
+                row0.SetNormalize();
+                row1.SetNormalize();
+                row2.SetNormalize();
+                a[0][0] = row0.x;  a[0][1] = row0.y;  a[0][2] = row0.z;
+                a[1][0] = row1.x;  a[1][1] = row1.y;  a[1][2] = row1.z;
+                a[2][0] = row2.x;  a[2][1] = row2.y;  a[2][2] = row2.z;
+            }
+
+            /**
+             * @brief 返回清空旋转量的矩阵
+             */
+            Matrix4<T> ClearRotation()const
+            {
+                auto ret = *this;
+                auto row0 = Vector3<T>(ret[0][0], ret[0][1], ret[0][2]);
+                auto row1 = Vector3<T>(ret[1][0], ret[1][1], ret[1][2]);
+                auto row2 = Vector3<T>(ret[2][0], ret[2][1], ret[2][2]);
+                auto len0 = row0.Length();
+                auto len1 = row1.Length();
+                auto len2 = row2.Length();
+                ret[0][0] = len0;  ret[0][1] = T(0);  ret[0][2] = T(0);
+                ret[1][0] = T(0);  ret[1][1] = len1;  ret[1][2] = T(0);
+                ret[2][0] = T(0);  ret[2][1] = T(0);  ret[2][2] = len2;
+                return ret;
+            }
+
+            void SetClearRotation()
+            {
+                auto row0 = Vector3<T>(a[0][0], a[0][1], a[0][2]);
+                auto row1 = Vector3<T>(a[1][0], a[1][1], a[1][2]);
+                auto row2 = Vector3<T>(a[2][0], a[2][1], a[2][2]);
+                auto len0 = row0.Length();
+                auto len1 = row1.Length();
+                auto len2 = row2.Length();
+                a[0][0] = len0;  a[0][1] = T(0);  a[0][2] = T(0);
+                a[1][0] = T(0);  a[1][1] = len1;  a[1][2] = T(0);
+                a[2][0] = T(0);  a[2][1] = T(0);  a[2][2] = len2;
+            }
+
+            /**
+             * @brief 返回清空投影量的矩阵
+             */
+            Matrix4<T> ClearProjection()const
+            {
+                auto ret = *this;
+                ret[0][3] = 0;
+                ret[1][3] = 0;
+                ret[2][3] = 0;
+                ret[3][3] = 0;
+                return ret;
+            }
+
+            void SetClearProjection()
+            {
+                a[0][3] = 0;
+                a[1][3] = 0;
+                a[2][3] = 0;
+                a[3][3] = 0;
+            }
+
+            /**
+             * @brief 提取平移量
+             */
+            Vector3<T> ExtractTranslation()const
+            {
+                return Vector3<T>(a[3][0], a[3][1], a[3][2]);
+            }
+
+            /**
+             * @brief 提取缩放量
+             */
+            Vector3<T> ExtractScale()const
+            {
+                auto row0 = Vector3<T>(a[0][0], a[0][1], a[0][2]);
+                auto row1 = Vector3<T>(a[1][0], a[1][1], a[1][2]);
+                auto row2 = Vector3<T>(a[2][0], a[2][1], a[2][2]);
+                return Vector3<T>(row0.Length(), row1.Length(), row2.Length());
+            }
+
+            /**
+             * @brief 提取旋转分量
+             * @param rowNormalize 如果矩阵尚未规格化，则传入true。否则传入false。
+             * @return 旋转分量
+             */
+            Quaternion<T> ExtractRotation(bool rowNormalize=true)const
+            {
+                auto row0 = Vector3<T>(a[0][0], a[0][1], a[0][2]);
+                auto row1 = Vector3<T>(a[1][0], a[1][1], a[1][2]);
+                auto row2 = Vector3<T>(a[2][0], a[2][1], a[2][2]);
+
+                if (rowNormalize)
+                {
+                    row0.SetNormalize();
+                    row1.SetNormalize();
+                    row2.SetNormalize();
+                }
+
+                // code below adapted from Blender
+                auto q = Quaternion<T>::Identity;
+                auto trace = (row0.x + row1.y + row2.z + T(1)) / T(4);
+
+                if (trace > 0)
+                {
+                    auto sq = Sqrt(trace);
+
+                    q.w = sq;
+                    sq = T(1) / (T(4) * sq);
+                    q.x = (row1[2] - row2[1]) * sq;
+                    q.y = (row2[0] - row0[2]) * sq;
+                    q.z = (row0[1] - row1[0]) * sq;
+                }
+                else if (row0[0] > row1[1] && row0[0] > row2[2])
+                {
+                    auto sq = T(2) * Sqrt(T(1) + row0[0] - row1[1] - row2[2]);
+
+                    q.x = sq / T(4);
+                    sq = T(1) / sq;
+                    q.w = (row2[1] - row1[2]) * sq;
+                    q.y = (row1[0] + row0[1]) * sq;
+                    q.z = (row2[0] + row0[2]) * sq;
+                }
+                else if (row1[1] > row2[2])
+                {
+                    auto sq = T(2) * Sqrt(T(1) + row1[1] - row0[0] - row2[2]);
+
+                    q.y = sq / T(4);
+                    sq = T(1) / sq;
+                    q.w = (row2[0] - row0[2]) * sq;
+                    q.x = (row1[0] + row0[1]) * sq;
+                    q.z = (row2[1] + row1[2]) * sq;
+                }
+                else
+                {
+                    auto sq = T(2) * Sqrt(T(1) + row2[2] - row0[0] - row1[1]);
+
+                    q.z = sq / T(4);
+                    sq = T(1) / sq;
+                    q.w = (row1[0] - row0[1]) * sq;
+                    q.x = (row2[0] + row0[2]) * sq;
+                    q.y = (row2[1] + row1[2]) * sq;
+                }
+
+                q.SetNormalize();
+                return q;
+            }
+
+            /**
+             * @brief 提取投影量
+             */
+            Vector4<T> ExtractProjection()
+            {
+                return Vector4<T>(a[0][3], a[1][3], a[2][3], a[3][3]);
+            }
+
+        public:
+            static const Matrix4 Identity;
+            
+            /**
+             * @brief 创建左右手系交换矩阵
+             */
+            static Matrix4<T> CreateSwaper()
+            {
+                return Matrix4<T>(
+                    T(1), T(0), T(0), T(0),
+                    T(0), T(0), T(1), T(0),
+                    T(0), T(1), T(0), T(0),
+                    T(0), T(0), T(0), T(1));
+            };
+
+            /**
+             * @brief 创建平移矩阵
+             */
+            static Matrix4<T> CreateTranslateMatrix(Vector3<T> vec)
+            {
+                return Matrix4<T>(
+                    T(1), T(0), T(0), T(0),
+                    T(0), T(1), T(0), T(0),
+                    T(0), T(0), T(1), T(0),
+                    vec.x, vec.y, vec.z, T(1));
+            };
+
+            /**
+             * @brief 创建缩放矩阵
+             */
+            static Matrix4<T> CreateScaleMatrix(T value)
+            {
+                return Matrix4<T>(
+                    value, T(0), T(0), T(0),
+                    T(0), value, T(0), T(0),
+                    T(0), T(0), value, T(0),
+                    T(0), T(0), T(0), T(1));
+            };
+
+            static Matrix4<T> CreateScaleMatrix(Vector3<T> vec)
+            {
+                return Matrix4<T>(
+                    vec.x, T(0), T(0), T(0),
+                    T(0), vec.y, T(0), T(0),
+                    T(0), T(0), vec.z, T(0),
+                    T(0), T(0), T(0), T(1));
+            }
+
+            /**
+             * @brief 返回绕X轴旋转的矩阵
+             */
+            static Matrix4<T> CreateRotateX(T angle)
+            {
+                auto angleS = Sin(angle), angleC = Cos(angle);
+
+                return Matrix4<T>(
+                    T(1), T(0), T(0), T(0),
+                    T(0), angleC, angleS, T(0),
+                    T(0), -angleS, angleC, T(0),
+                    T(0), T(0), T(0), T(1));
+            };
+
+            /**
+             * @brief 返回绕Y轴旋转的矩阵
+             */
+            static Matrix4<T> CreateRotateY(T angle)
+            {
+                auto angleS = Sin(angle), angleC = Cos(angle);
+
+                return Matrix4<T>(
+                    angleC, T(0), -angleS, T(0),
+                    T(0), T(1), T(0), T(0),
+                    angleS, T(0), angleC, T(0),
+                    T(0), T(0), T(0), T(1));
+            };
+
+            /**
+             * @brief 返回绕Z轴旋转的矩阵
+             */
+            static Matrix4<T> CreateRotateZ(T angle)
+            {
+                auto angleS = Sin(angle), angleC = Cos(angle);
+
+                return Matrix4<T>(
+                    angleC, angleS, T(0), T(0),
+                    -angleS, angleC, T(0), T(0),
+                    T(0), T(0), T(1), T(0),
+                    T(0), T(0), T(0), T(1));
+            };
+
+            /**
+             * @brief 返回绕XYZ三轴旋转矩阵
+             * @param yaw 横倾是绕 y 轴旋转的角度
+             * @param pitch 纵倾是绕 x 轴旋转的角度
+             * @param roll 横摆是绕 z 轴旋转的角度
+             */
+            static Matrix4<T> CreateRotationYawPitchRoll(T yaw, T pitch, T roll)
+            {
+                auto sinX = Sin(pitch);
+                auto cosX = Cos(pitch);
+                auto sinY = Sin(yaw);
+                auto cosY = Cos(yaw);
+                auto sinZ = Sin(roll);
+                auto cosZ = Cos(roll);
+
+                return Matrix4<T>(
+                    cosY * cosZ, cosY * sinZ, -sinY, T(0),
+                    sinX * sinY * cosZ - cosX * sinZ, sinX * sinY * sinZ + cosX * cosZ, sinX * cosY, T(0),
+                    cosX * sinY * cosZ + sinX * sinZ, cosX * sinY * sinZ - sinX * cosZ, cosX * cosY, T(0),
+                    T(0), T(0), T(0), T(1));
+            };
+
+            /**
+             * @brief 创建绕任意轴旋转矩阵（右手系）
+             * @param axisRotation 旋转向量
+             * @param angle 角度
+             */
+            static Matrix4<T> CreateRotationAxisRH(Vector3<T> axisRotation, T angle)
+            {
+                T angleS = Sin(-angle), angleC = Cos(-angle);
+                auto t = T(1) - angleC;
+
+                auto txx = t * axisRotation.x * axisRotation.x;
+                auto txy = t * axisRotation.x * axisRotation.y;
+                auto txz = t * axisRotation.x * axisRotation.z;
+                auto tyy = t * axisRotation.y * axisRotation.y;
+                auto tyz = t * axisRotation.y * axisRotation.z;
+                auto tzz = t * axisRotation.z * axisRotation.z;
+
+                auto xs = axisRotation.x * angleS;
+                auto ys = axisRotation.y * angleS;
+                auto zs = axisRotation.z * angleS;
+
+                return Matrix4<T>(
+                    angleC + txx, txy - zs, txz + ys, T(0),
+                    txy + zs, angleC + tyy, tyz - xs, T(0),
+                    txz - ys, tyz + xs, angleC + tzz, T(0),
+                    T(0), T(0), T(0), T(1));
+            };
+
+            /**
+             * @brief 创建绕任意轴旋转矩阵（左手系）
+             * @param axisRotation 旋转向量
+             * @param angle 角度
+             */
+            static Matrix4<T> CreateRotationAxisLH(Vector3<T> axisRotation, T angle)
+            {
+                T angleS = Sin(angle), angleC = Cos(angle);
+                auto t = T(1) - angleC;
+
+                auto txx = t * axisRotation.x * axisRotation.x;
+                auto txy = t * axisRotation.x * axisRotation.y;
+                auto txz = t * axisRotation.x * axisRotation.z;
+                auto tyy = t * axisRotation.y * axisRotation.y;
+                auto tyz = t * axisRotation.y * axisRotation.z;
+                auto tzz = t * axisRotation.z * axisRotation.z;
+
+                auto xs = axisRotation.x * angleS;
+                auto ys = axisRotation.y * angleS;
+                auto zs = axisRotation.z * angleS;
+
+                return Matrix4<T>(
+                    angleC + txx, txy - zs, txz + ys, T(0),
+                    txy + zs, angleC + tyy, tyz - xs, T(0),
+                    txz - ys, tyz + xs, angleC + tzz, T(0),
+                    T(0), T(0), T(0), T(1));
+            };
+
+            /**
+             * @brief 创建观察某点的矩阵（左手系）
+             * @param eye 眼睛位置
+             * @param lookat 观察位置
+             * @param up 上方向量
+             */
+            static Matrix4<T> CreateLookAtLH(Vector3<T> eye, Vector3<T> lookat, Vector3<T> up)
+            {
+                auto zaxis(lookat - eye);
+                zaxis.Normalize();
+                auto xaxis = up.Cross(zaxis);
+                xaxis.Normalize();
+                auto yaxis = zaxis.Cross(xaxis);
+
+                return Matrix4<T>(
+                    xaxis.x, yaxis.x, zaxis.x, T(0),
+                    xaxis.y, yaxis.y, zaxis.y, T(0),
+                    xaxis.z, yaxis.z, zaxis.z, T(0),
+                    -(xaxis * eye), -(yaxis * eye), -(zaxis * eye), T(1));
+            };
+
+            /**
+             * @brief 创建观察某点的矩阵（右手系）
+             * @param eye 眼睛位置
+             * @param lookat 观察位置
+             * @param up 上方向量
+             */
+            static Matrix4<T> CreateLookAtRH(Vector3<T> eye, Vector3<T> lookat, Vector3<T> up)
+            {
+                auto xaxis(up);
+                xaxis.Normalize();
+                auto zaxis(eye - lookat);
+                zaxis.Normalize();
+                xaxis = xaxis.Cross(zaxis);
+                auto yaxis = zaxis.Cross(xaxis);
+
+                return Matrix4<T>(
+                    xaxis.x, yaxis.x, zaxis.x, T(0),
+                    xaxis.y, yaxis.y, zaxis.y, T(0),
+                    xaxis.z, yaxis.z, zaxis.z, T(0),
+                    -(xaxis * eye), -(yaxis * eye), -(zaxis * eye), T(1));
+            };
+
+            /**
+             * @brief 创建正投影矩阵（左手系）
+             * @param w 横向可视范围
+             * @param h 纵向可视范围
+             * @param nearPlane 最近距离
+             * @param farPlane  最远距离
+             */
+            static Matrix4<T> CreateOrthoLH(T w, T h, T nearPlane, T farPlane)
+            {
+                return Matrix4<T>(
+                    T(2) / w, T(0), T(0), T(0),
+                    T(0), T(2) / h, T(0), T(0),
+                    T(0), T(0), T(1) / (farPlane - nearPlane), T(0),
+                    T(0), T(0), nearPlane / (nearPlane - farPlane), T(1));
+            };
+
+            /**
+             * @brief 创建正投影矩阵（右手系）
+             * @param w 横向可视范围
+             * @param h 纵向可视范围
+             * @param nearPlane 最近距离
+             * @param farPlane 最远距离
+             */
+            static Matrix4<T> CreateOrthoRH(T w, T h, T nearPlane, T farPlane)
+            {
+                return Matrix4<T>(
+                    T(2) / w, T(0), T(0), T(0),
+                    T(0), T(2) / h, T(0), T(0),
+                    T(0), T(0), T(1) / (nearPlane - farPlane), T(0),
+                    T(0), T(0), nearPlane / (nearPlane - farPlane), T(1));
+            };
+
+            /**
+             * @brief 创建透视投影矩阵（左手系）
+             * @param ration 屏幕纵横比（宽：高）
+             * @param fovY 纵向视野范围（弧度）
+             * @param nearPlane 最近距离
+             * @param farPlane 最远距离
+             */
+            static Matrix4<T> CreatePespctiveLH(T ration, T fovY, T nearPlane, T farPlane)
+            {
+                auto t = T(1) / Tan(fovY / T(2));
+
+                return Matrix4<T>(
+                    t / ration, T(0), T(0), T(0),
+                    T(0), t, T(0), T(0),
+                    T(0), T(0), farPlane / (farPlane - nearPlane), T(1),
+                    T(0), T(0), -(nearPlane * farPlane) / (farPlane - nearPlane), T(0));
+            };
+
+            /**
+             * @brief 创建透视投影矩阵（右手系）
+             * @param ration 屏幕纵横比（宽：高）
+             * @param fovY 纵向视野范围（弧度）
+             * @param nearPlane 最近距离
+             * @param farPlane 最远距离
+             */
+            static Matrix4<T> CreatePespctiveRH(T ration, T fovY, T nearPlane, T farPlane)
+            {
+                auto t = T(1) / Tan(fovY / T(2));
+
+                return Matrix4<T>(
+                    t / ration, T(0), T(0), T(0),
+                    T(0), t, T(0), T(0),
+                    T(0), T(0), farPlane / (nearPlane - farPlane), -T(1),
+                    T(0), T(0), (nearPlane * farPlane) / (nearPlane - farPlane), T(0));
+            };
+
+            /**
+             * @brief 创建自定义正交投影矩阵（左手系）
+             * @param l  最左侧X值
+             * @param r  最右侧X值
+             * @param b  最下方Y值
+             * @param t  最上方Y值
+             * @param zn 最近距离
+             * @param zf 最远距离
+             */
+            static Matrix4<T> CreateOrthoOffCenterLH(T l, T r, T b, T t, T zn, T zf)
+            {
+                return Matrix4<T>(
+                    T(2) / (r - l), T(0), T(0), T(0),
+                    T(0), T(2) / (t - b), T(0), T(0),
+                    T(0), T(0), T(1) / (zf - zn), T(0),
+                    (l + r) / (l - r), (t + b) / (b - t), zn / (zn - zf), T(1));
+            };
+            
+            /**
+             * @brief 创建自定义正交投影矩阵（右手系）
+             * @param l 最左侧X值
+             * @param r 最右侧X值
+             * @param b 最下方Y值
+             * @param t 最上方Y值
+             * @param zn 最近距离
+             * @param zf 最远距离
+             */
+            static Matrix4<T> CreateOrthoOffCenterRH(T l, T r, T b, T t, T zn, T zf)
+            {
+                return Matrix4<T>(
+                    T(2) / (r - l), T(0), T(0), T(0),
+                    T(0), T(2) / (t - b), T(0), T(0),
+                    T(0), T(0), T(1) / (zn - zf), T(0),
+                    (l + r) / (l - r), (t + b) / (b - t), zn / (zn - zf) , T(1));
+            };
+
+            /**
+             * @brief 创建SRT矩阵
+             * @param pos 位移坐标
+             * @param rot 旋转
+             * @param scale 缩放
+             * @return 变换结果
+             *
+             * 变换顺序为 scale -> rotation -> translate
+             */
+            static Matrix4<T> CreateSRT(Vector3<T> pos, Quaternion<T> rot, Vector3<T> scale)
+            {
+                if (Abs(rot.w) > T(1))
+                    rot = rot.Normalize();
+
+                auto x2 = rot.x + rot.x;
+                auto y2 = rot.y + rot.y;
+                auto z2 = rot.z + rot.z;
+                auto w2 = rot.w + rot.w;
+
+                Matrix4<T> ret(
+                    T(1) - y2 * rot.y - z2 * rot.z, x2 * rot.y + w2 * rot.z, x2 * rot.z - w2 * rot.y, T(0),
+                    x2 * rot.y - w2 * rot.z, T(1) - x2 * rot.x - z2 * rot.z, y2 * rot.z + w2 * rot.x, T(0),
+                    x2 * rot.z + w2 * rot.y, y2 * rot.z - w2 * rot.x, T(1) - x2 * rot.x - y2 * rot.y, T(0),
+                    pos.x, pos.y, pos.z, T(1));
+
+                ret.a[0][0] *= scale.x;
+                ret.a[0][1] *= scale.x;
+                ret.a[0][2] *= scale.x;
+
+                ret.a[1][0] *= scale.y;
+                ret.a[1][1] *= scale.y;
+                ret.a[1][2] *= scale.y;
+
+                ret.a[2][0] *= scale.z;
+                ret.a[2][1] *= scale.z;
+                ret.a[2][2] *= scale.z;
+                return ret;
+            }
+        };
+
+        template <typename T>
+        const Matrix4<T> Matrix4<T>::Identity = Matrix4(
+            T(1), T(0), T(0), T(0),
+            T(0), T(1), T(0), T(0),
+            T(0), T(0), T(1), T(0),
+            T(0), T(0), T(0), T(1));
+
+        template <typename T>
+        constexpr Matrix4<T> operator+(const Matrix4<T>& v)
+        {
+            return Matrix4<T>(
+                +v.a[0][0], +v.a[0][1], +v.a[0][2], +v.a[0][3],
+                +v.a[1][0], +v.a[1][1], +v.a[1][2], +v.a[1][3],
+                +v.a[2][0], +v.a[2][1], +v.a[2][2], +v.a[2][3],
+                +v.a[3][0], +v.a[3][1], +v.a[3][2], +v.a[3][3]);
+        }
+
+        template <typename T>
+        constexpr Matrix4<T> operator-(const Matrix4<T>& v)
+        {
+            return Matrix4<T>(
+                -v.a[0][0], -v.a[0][1], -v.a[0][2], -v.a[0][3],
+                -v.a[1][0], -v.a[1][1], -v.a[1][2], -v.a[1][3],
+                -v.a[2][0], -v.a[2][1], -v.a[2][2], -v.a[2][3],
+                -v.a[3][0], -v.a[3][1], -v.a[3][2], -v.a[3][3]);
+        }
+
+        template <typename T>
+        constexpr Matrix4<T> operator+(const Matrix4<T>& l, const Matrix4<T>& r)
+        {
+            return Matrix4<T>(
+                l.a[0][0] + r.a[0][0], l.a[0][1] + r.a[0][1], l.a[0][2] + r.a[0][2], l.a[0][3] + r.a[0][3],
+                l.a[1][0] + r.a[1][0], l.a[1][1] + r.a[1][1], l.a[1][2] + r.a[1][2], l.a[1][3] + r.a[1][3],
+                l.a[2][0] + r.a[2][0], l.a[2][1] + r.a[2][1], l.a[2][2] + r.a[2][2], l.a[2][3] + r.a[2][3],
+                l.a[3][0] + r.a[3][0], l.a[3][1] + r.a[3][1], l.a[3][2] + r.a[3][2], l.a[3][3] + r.a[3][3]);
+        }
+
+        template <typename T>
+        constexpr Matrix4<T> operator-(const Matrix4<T>& l, const Matrix4<T>& r)
+        {
+            return Matrix4<T>(
+                l.a[0][0] - r.a[0][0], l.a[0][1] - r.a[0][1], l.a[0][2] - r.a[0][2], l.a[0][3] - r.a[0][3],
+                l.a[1][0] - r.a[1][0], l.a[1][1] - r.a[1][1], l.a[1][2] - r.a[1][2], l.a[1][3] - r.a[1][3],
+                l.a[2][0] - r.a[2][0], l.a[2][1] - r.a[2][1], l.a[2][2] - r.a[2][2], l.a[2][3] - r.a[2][3],
+                l.a[3][0] - r.a[3][0], l.a[3][1] - r.a[3][1], l.a[3][2] - r.a[3][2], l.a[3][3] - r.a[3][3]);
+        }
+
+        template <typename T>
+        constexpr Matrix4<T> operator*(const Matrix4<T>& l, T r)
+        {
+            return Matrix4<T>(
+                l.a[0][0] * r, l.a[0][1] * r, l.a[0][2] * r, l.a[0][3] * r,
+                l.a[1][0] * r, l.a[1][1] * r, l.a[1][2] * r, l.a[1][3] * r,
+                l.a[2][0] * r, l.a[2][1] * r, l.a[2][2] * r, l.a[2][3] * r,
+                l.a[3][0] * r, l.a[3][1] * r, l.a[3][2] * r, l.a[3][3] * r);
+        }
+
+        template <typename T>
+        constexpr Matrix4<T> operator*(T l, const Matrix4<T>& r)
+        {
+            return Matrix4<T>(
+                l * r.a[0][0], l * r.a[0][1], l * r.a[0][2], l * r.a[0][3],
+                l * r.a[1][0], l * r.a[1][1], l * r.a[1][2], l * r.a[1][3],
+                l * r.a[2][0], l * r.a[2][1], l * r.a[2][2], l * r.a[2][3],
+                l * r.a[3][0], l * r.a[3][1], l * r.a[3][2], l * r.a[3][3]);
+        }
+
+        template <typename T>
+        constexpr Matrix4<T> operator*(const Matrix4<T>& l, const Matrix4<T>& r)
+        {
+            return Matrix4<T>(
+                l.a[0][0] * r.a[0][0] + l.a[0][1] * r.a[1][0] + l.a[0][2] * r.a[2][0] + l.a[0][3] * r.a[3][0],
+                l.a[0][0] * r.a[0][1] + l.a[0][1] * r.a[1][1] + l.a[0][2] * r.a[2][1] + l.a[0][3] * r.a[3][1],
+                l.a[0][0] * r.a[0][2] + l.a[0][1] * r.a[1][2] + l.a[0][2] * r.a[2][2] + l.a[0][3] * r.a[3][2],
+                l.a[0][0] * r.a[0][3] + l.a[0][1] * r.a[1][3] + l.a[0][2] * r.a[2][3] + l.a[0][3] * r.a[3][3],
+
+                l.a[1][0] * r.a[0][0] + l.a[1][1] * r.a[1][0] + l.a[1][2] * r.a[2][0] + l.a[1][3] * r.a[3][0],
+                l.a[1][0] * r.a[0][1] + l.a[1][1] * r.a[1][1] + l.a[1][2] * r.a[2][1] + l.a[1][3] * r.a[3][1],
+                l.a[1][0] * r.a[0][2] + l.a[1][1] * r.a[1][2] + l.a[1][2] * r.a[2][2] + l.a[1][3] * r.a[3][2],
+                l.a[1][0] * r.a[0][3] + l.a[1][1] * r.a[1][3] + l.a[1][2] * r.a[2][3] + l.a[1][3] * r.a[3][3],
+
+                l.a[2][0] * r.a[0][0] + l.a[2][1] * r.a[1][0] + l.a[2][2] * r.a[2][0] + l.a[2][3] * r.a[3][0],
+                l.a[2][0] * r.a[0][1] + l.a[2][1] * r.a[1][1] + l.a[2][2] * r.a[2][1] + l.a[2][3] * r.a[3][1],
+                l.a[2][0] * r.a[0][2] + l.a[2][1] * r.a[1][2] + l.a[2][2] * r.a[2][2] + l.a[2][3] * r.a[3][2],
+                l.a[2][0] * r.a[0][3] + l.a[2][1] * r.a[1][3] + l.a[2][2] * r.a[2][3] + l.a[2][3] * r.a[3][3],
+
+                l.a[3][0] * r.a[0][0] + l.a[3][1] * r.a[1][0] + l.a[3][2] * r.a[2][0] + l.a[3][3] * r.a[3][0],
+                l.a[3][0] * r.a[0][1] + l.a[3][1] * r.a[1][1] + l.a[3][2] * r.a[2][1] + l.a[3][3] * r.a[3][1],
+                l.a[3][0] * r.a[0][2] + l.a[3][1] * r.a[1][2] + l.a[3][2] * r.a[2][2] + l.a[3][3] * r.a[3][2],
+                l.a[3][0] * r.a[0][3] + l.a[3][1] * r.a[1][3] + l.a[3][2] * r.a[2][3] + l.a[3][3] * r.a[3][3]
+            );
+        }
+
+        template <typename T>
+        constexpr Matrix4<T> operator/(const Matrix4<T>& l, T r)
+        {
+            return Matrix4<T>(
+                l.a[0][0] / r, l.a[0][1] / r, l.a[0][2] / r, l.a[0][3] / r,
+                l.a[1][0] / r, l.a[1][1] / r, l.a[1][2] / r, l.a[1][3] / r,
+                l.a[2][0] / r, l.a[2][1] / r, l.a[2][2] / r, l.a[2][3] / r,
+                l.a[3][0] / r, l.a[3][1] / r, l.a[3][2] / r, l.a[3][3] / r);
+        }
+
+        template <typename T>
+        constexpr Matrix4<T> operator/(T l, const Matrix4<T>& r)
+        {
+            return Matrix4<T>(
+                l / r.a[0][0], l / r.a[0][1], l / r.a[0][2], l / r.a[0][3],
+                l / r.a[1][0], l / r.a[1][1], l / r.a[1][2], l / r.a[1][3],
+                l / r.a[2][0], l / r.a[2][1], l / r.a[2][2], l / r.a[2][3],
+                l / r.a[3][0], l / r.a[3][1], l / r.a[3][2], l / r.a[3][3]);
+        }
+
+        template <typename T>
+        constexpr Matrix4<T> operator/(const Matrix4<T>& l, const Matrix4<T>& r)
+        {
+            return l * r.Inverse();
+        }
+
+        template <typename T>
+        constexpr bool operator==(const Matrix4<T>& l, const Matrix4<T>& r)
+        {
+            return l.a[0][0] == r.a[0][0] && l.a[0][1] == r.a[0][1] && l.a[0][2] == r.a[0][2] && l.a[0][3] == r.a[0][3]
+                && l.a[1][0] == r.a[1][0] && l.a[1][1] == r.a[1][1] && l.a[1][2] == r.a[1][2] && l.a[1][3] == r.a[1][3]
+                && l.a[2][0] == r.a[2][0] && l.a[2][1] == r.a[2][1] && l.a[2][2] == r.a[2][2] && l.a[2][3] == r.a[2][3]
+                && l.a[3][0] == r.a[3][0] && l.a[3][1] == r.a[3][1] && l.a[3][2] == r.a[3][2] && l.a[3][3] == r.a[3][3];
+        }
+
+        template <typename T>
+        constexpr bool operator!=(const Matrix4<T>& l, const Matrix4<T>& r)
+        {
+            return l.a[0][0] != r.a[0][0] || l.a[0][1] != r.a[0][1] || l.a[0][2] != r.a[0][2] || l.a[0][3] != r.a[0][3]
+                || l.a[1][0] != r.a[1][0] || l.a[1][1] != r.a[1][1] || l.a[1][2] != r.a[1][2] || l.a[1][3] != r.a[1][3]
+                || l.a[2][0] != r.a[2][0] || l.a[2][1] != r.a[2][1] || l.a[2][2] != r.a[2][2] || l.a[2][3] != r.a[2][3]
+                || l.a[3][0] != r.a[3][0] || l.a[3][1] != r.a[3][1] || l.a[3][2] != r.a[3][2] || l.a[3][3] != r.a[3][3];
+        }
+
+        template <typename T>
+        Matrix4<T>& operator+=(Matrix4<T>& l, const Matrix4<T>& r)
+        {
+            l.a[0][0] += r.a[0][0];  l.a[0][1] += r.a[0][1];  l.a[0][2] += r.a[0][2];  l.a[0][3] += r.a[0][3];
+            l.a[1][0] += r.a[1][0];  l.a[1][1] += r.a[1][1];  l.a[1][2] += r.a[1][2];  l.a[1][3] += r.a[1][3];
+            l.a[2][0] += r.a[2][0];  l.a[2][1] += r.a[2][1];  l.a[2][2] += r.a[2][2];  l.a[2][3] += r.a[2][3];
+            l.a[3][0] += r.a[3][0];  l.a[3][1] += r.a[3][1];  l.a[3][2] += r.a[3][2];  l.a[3][3] += r.a[3][3];
+            return l;
+        }
+
+        template <typename T>
+        Matrix4<T>& operator-=(Matrix4<T>& l, const Matrix4<T>& r)
+        {
+            l.a[0][0] -= r.a[0][0];  l.a[0][1] -= r.a[0][1];  l.a[0][2] -= r.a[0][2];  l.a[0][3] -= r.a[0][3];
+            l.a[1][0] -= r.a[1][0];  l.a[1][1] -= r.a[1][1];  l.a[1][2] -= r.a[1][2];  l.a[1][3] -= r.a[1][3];
+            l.a[2][0] -= r.a[2][0];  l.a[2][1] -= r.a[2][1];  l.a[2][2] -= r.a[2][2];  l.a[2][3] -= r.a[2][3];
+            l.a[3][0] -= r.a[3][0];  l.a[3][1] -= r.a[3][1];  l.a[3][2] -= r.a[3][2];  l.a[3][3] -= r.a[3][3];
+            return l;
+        }
+
+        template <typename T>
+        Matrix4<T>& operator*=(Matrix4<T>& l, T r)
+        {
+            l.a[0][0] *= r;  l.a[0][1] *= r;  l.a[0][2] *= r;  l.a[0][3] *= r;
+            l.a[1][0] *= r;  l.a[1][1] *= r;  l.a[1][2] *= r;  l.a[1][3] *= r;
+            l.a[2][0] *= r;  l.a[2][1] *= r;  l.a[2][2] *= r;  l.a[2][3] *= r;
+            l.a[3][0] *= r;  l.a[3][1] *= r;  l.a[3][2] *= r;  l.a[3][3] *= r;
+            return l;
+        }
+
+        template <typename T>
+        Matrix4<T>& operator*=(Matrix4<T>& l, const Matrix4<T>& r)
+        {
+            l = l * r;
+            return l;
+        }
+
+        template <typename T>
+        Matrix4<T>& operator/=(Matrix4<T>& l, T r)
+        {
+            l.a[0][0] /= r;  l.a[0][1] /= r;  l.a[0][2] /= r;  l.a[0][3] /= r;
+            l.a[1][0] /= r;  l.a[1][1] /= r;  l.a[1][2] /= r;  l.a[1][3] /= r;
+            l.a[2][0] /= r;  l.a[2][1] /= r;  l.a[2][2] /= r;  l.a[2][3] /= r;
+            l.a[3][0] /= r;  l.a[3][1] /= r;  l.a[3][2] /= r;  l.a[3][3] /= r;
+            return l;
+        }
+
+        template <typename T>
+        Matrix4<T>& operator/=(Matrix4<T>& l, const Matrix4<T>& r)
+        {
+            l = l / r;
+            return l;
+        }
+
+        //////////////////////////////////////// </editor-fold>
 
         using Vec2 = Vector2<float>;
         using Vec3 = Vector3<float>;
+        using Vec4 = Vector4<float>;
         using Quat = Quaternion<float>;
+        using Mat4 = Matrix4<float>;
     }
 }
