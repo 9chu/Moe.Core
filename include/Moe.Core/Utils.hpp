@@ -418,19 +418,20 @@ namespace moe
 
     public:
         template <typename T>
-        TypeIndex()noexcept
+        static TypeIndex CreateFromType()noexcept
         {
             using RemoveCVType = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
-            m_uId = MakeTypeId<RemoveCVType>();
+            return TypeIndex(MakeTypeId<RemoveCVType>());
         }
-
-        TypeIndex(const TypeIndex &rhs)noexcept
-            : m_uId(rhs.m_uId)
-        {}
 
     private:
         TypeIndex(uintptr_t id)noexcept
             : m_uId(id)
+        {}
+
+    public:
+        TypeIndex(const TypeIndex &rhs)noexcept
+            : m_uId(rhs.m_uId)
         {}
 
     public:
