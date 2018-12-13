@@ -1858,7 +1858,7 @@ namespace moe
             /**
              * @brief 返回四元数本身的角度
              */
-            constexpr T Angle()const
+            T Angle()const
             {
                 if (Abs(w) > T(1))
                 {
