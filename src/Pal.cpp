@@ -34,10 +34,12 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifdef MOE_LINUX
+#if defined(MOE_LINUX)
 #include <sys/syscall.h>
-#elif MOE_FREEBSD
+#elif defined(MOE_FREEBSD)
 #include <sys/thr.h>
+#elif defined(MOE_EMSCRIPTEN)
+#include <emscripten.h>
 #endif
 #endif
 
@@ -149,6 +151,11 @@ std::pair<uint64_t, uint64_t> Pal::GetMonotonicClock()noexcept
     double frac, integer = 0.;
     frac = modf(static_cast<double>(counter.QuadPart) * freq, &integer);
     return make_pair<uint64_t, uint32_t>(static_cast<uint64_t>(integer), static_cast<uint32_t>(frac * 1000000.));
+#elif defined(MOE_EMSCRIPTEN)
+    auto now = ::emscripten_get_now();
+    double intpart = 0;
+    auto frac = modf(now, &intpart);
+    return make_pair<uint64_t, uint32_t>(static_cast<uint64_t>(intpart), static_cast<uint32_t>(frac * 1000000.));
 #elif defined(MOE_POSIX)
     ::timespec ts;
     memset(&ts, 0, sizeof(ts));

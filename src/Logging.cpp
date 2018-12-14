@@ -112,8 +112,12 @@ const size_t Logging::kAllocErrorMsgLength = strlen(kAllocErrorMsg);
 
 uint64_t Logging::Context::GetThreadIdCached()noexcept
 {
+#ifndef MOE_EMSCRIPTEN
     static thread_local const uint64_t s_ullTid = Pal::GetCurrentThreadId();
     return s_ullTid;
+#else
+    return Pal::GetCurrentThreadId();
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////// FormatterBase
@@ -335,7 +339,11 @@ void Logging::SinkBase::Log(Level level, const Context& context, const char* msg
         Sink(level, context, msg, msg, strlen(msg));
     else
     {
+#ifndef MOE_EMSCRIPTEN
         static thread_local string formatted;
+#else
+        static string formatted;  // NOTE: emscripten 模拟多线程
+#endif
 
         try
         {
@@ -486,7 +494,11 @@ namespace
     private:
         void PrintText(const char* start, size_t length)
         {
+#ifndef MOE_EMSCRIPTEN
             static thread_local wstring s_stBuffer;
+#else
+            static wstring s_stBuffer;  // NOTE: emscripten 模拟多线程
+#endif
             Encoding::Convert<Encoding::Utf8, Encoding::Utf16, char, wchar_t>(s_stBuffer,
                 ArrayView<char>(start, length),
                 Encoding::DefaultUnicodeFallbackHandler);
@@ -837,7 +849,11 @@ void Logging::Commit()
 
 std::string& Logging::GetFormatStringThreadCache()const noexcept
 {
+#ifndef MOE_EMSCRIPTEN
     static thread_local string s_stBuffer;
+#else
+    static string s_stBuffer;  // NOTE: emscripten 模拟多线程
+#endif
     return s_stBuffer;
 }
 

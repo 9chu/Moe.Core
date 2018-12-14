@@ -47,10 +47,13 @@
     #include <TargetConditionals.h>
     #if TARGET_IPHONE_SIMULATOR
         #define MOE_IOS
+        #define MOE_PLATFORM "apple_ios_sim"
     #elif TARGET_OS_IPHONE
         #define MOE_IOS
+        #define MOE_PLATFORM "apple_ios"
     #elif TARGET_OS_MAC
         #define MOE_MACOS
+        #define MOE_PLATFORM "apple_macos"
     #else
         #error "Unknown Apple platform"
     #endif

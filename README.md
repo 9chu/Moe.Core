@@ -28,7 +28,7 @@ MOE游戏开发计划：跨平台基础库。
 - Idna/Unicode: IDNA/Unicode支持
 - TextReader/Parser/Json/Xml: 解析器相关与实现
 - Logging: 全局日志接口
-- Math: 数学库**（TODO）**
+- Math: 数学库
 - Mdr: 二进制数据交换协议**（TODO）**
 - ObjectPool: 对象池
 - Pal: 平台无关抽象

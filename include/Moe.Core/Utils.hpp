@@ -400,6 +400,58 @@ namespace moe
         bool m_bDismiss = false;
     };
 
+
+    /**
+     * @brief 类型索引
+     *
+     * TypeIndex without RTTI
+     */
+    class TypeIndex
+    {
+    private:
+        template <typename T>
+        static uintptr_t MakeTypeId()noexcept
+        {
+            static int s_iStub;
+            return reinterpret_cast<uintptr_t>(&s_iStub);
+        }
+
+    public:
+        template <typename T>
+        static TypeIndex CreateFromType()noexcept
+        {
+            using RemoveCVType = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
+            return TypeIndex(MakeTypeId<RemoveCVType>());
+        }
+
+    private:
+        TypeIndex(uintptr_t id)noexcept
+            : m_uId(id)
+        {}
+
+    public:
+        TypeIndex()noexcept
+        {}
+
+        TypeIndex(const TypeIndex &rhs)noexcept
+            : m_uId(rhs.m_uId)
+        {}
+
+    public:
+        bool operator==(const TypeIndex &t)const noexcept { return m_uId == t.m_uId; }
+        bool operator!=(const TypeIndex &t)const noexcept { return m_uId != t.m_uId; }
+        bool operator<(const TypeIndex &t)const noexcept { return std::less<uintptr_t>()(m_uId, t.m_uId); }
+        bool operator<=(const TypeIndex &t)const noexcept { return !(t > *this); }
+        bool operator>(const TypeIndex &t)const noexcept { return t < *this; }
+        bool operator>=(const TypeIndex &t)const noexcept { return !(*this < t); }
+
+    public:
+        unsigned GetHashCode()const noexcept { return std::hash<uintptr_t>()(m_uId); }
+
+    private:
+        uintptr_t m_uId = 0;
+    };
+
     struct FileCloser
     {
         void operator()(FILE* p)const noexcept
