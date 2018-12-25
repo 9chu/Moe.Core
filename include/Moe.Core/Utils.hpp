@@ -446,7 +446,7 @@ namespace moe
         bool operator>=(const TypeIndex &t)const noexcept { return !(*this < t); }
 
     public:
-        unsigned GetHashCode()const noexcept { return std::hash<uintptr_t>()(m_uId); }
+        size_t GetHashCode()const noexcept { return std::hash<uintptr_t>()(m_uId); }
 
     private:
         uintptr_t m_uId = 0;
