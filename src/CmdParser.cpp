@@ -16,7 +16,7 @@ CmdParser& CmdParser::operator<<(Option&& opt)
         MOE_THROW(BadArgumentException, "Invalid option");
     if (m_stOptionTable.find(opt.LongOption) != m_stOptionTable.end())
         MOE_THROW(ObjectExistsException, "Option \"{0}\" exists", opt.LongOption);
-    if (m_stShortOptTable.find(opt.ShortOption) != m_stShortOptTable.end())
+    if (opt.ShortOption != '\0' && m_stShortOptTable.find(opt.ShortOption) != m_stShortOptTable.end())
         MOE_THROW(ObjectExistsException, "Short option '{0}' exists", opt.ShortOption);
 
     const char* longOption = opt.LongOption;
@@ -25,7 +25,8 @@ CmdParser& CmdParser::operator<<(Option&& opt)
 
     size_t index = m_stOptions.size() - 1;
     m_stOptionTable.emplace(longOption, index);
-    m_stShortOptTable.emplace(shortOpt, index);
+    if (shortOpt != '\0')
+        m_stShortOptTable.emplace(shortOpt, index);
     return *this;
 }
 

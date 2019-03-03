@@ -202,13 +202,10 @@ namespace moe
     {
         static const int kArgumentCount = 0;
 
-        static OptionReadResult OnStart(Any& target, const Any& defaultVal)
+        static OptionReadResult OnStart(Any& target, const Any&)
         {
             auto p = target.CastTo<bool*>();
-            if (defaultVal)
-                *p = !defaultVal.CastTo<bool>();
-            else
-                *p = true;
+            *p = true;
             return OptionReadResult::Terminated;
         }
 
