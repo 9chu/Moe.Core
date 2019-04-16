@@ -328,6 +328,14 @@ size_t CmdParser::Parse(uint32_t argc, const char* argv[], std::vector<std::stri
                             option->Set = true;
                             option = nullptr;
                             state = 0;
+
+                            // 读取掉末尾的其他字符
+                            while ((c = (*(++current))) != '\0')
+                            {
+                                if (!StringUtils::IsWhitespace(c))
+                                    MOE_THROW(CmdlineParseException, "Unexpected character '{0}'", c);
+                            }
+                            assert(current == end);
                             break;
                         case OptionReadResult::ParseError:
                             MOE_THROW(CmdlineParseException, "Option \"{0}\" parse error", option->LongOption);
