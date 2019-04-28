@@ -230,7 +230,7 @@ JsonValue& JsonValue::operator=(const JsonValue& rhs)
 {
     Reset();
 
-    switch (m_iType)
+    switch (rhs.m_iType)
     {
         case JsonValueTypes::Null:
             break;
@@ -262,7 +262,7 @@ JsonValue& JsonValue::operator=(JsonValue&& rhs)noexcept
 {
     Reset();
 
-    switch (m_iType)
+    switch (rhs.m_iType)
     {
         case JsonValueTypes::Null:
             break;
