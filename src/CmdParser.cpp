@@ -235,7 +235,7 @@ size_t CmdParser::Parse(uint32_t argc, const char* argv[], std::vector<std::stri
                         option = &m_stOptions[it->second];
 
                         // 读取掉末尾的其他字符
-                        while ((c = (*(++current))) != '\0')
+                        while (current < end && (c = (*(++current))) != '\0')
                         {
                             if (!StringUtils::IsWhitespace(c))
                                 MOE_THROW(CmdlineParseException, "Unexpected character '{0}'", c);
@@ -294,7 +294,7 @@ size_t CmdParser::Parse(uint32_t argc, const char* argv[], std::vector<std::stri
                                 state = 0;
 
                                 // 读取掉末尾的其他字符
-                                while ((c = (*(++current))) != '\0')
+                                while (current < end && (c = (*(++current))) != '\0')
                                 {
                                     if (!StringUtils::IsWhitespace(c))
                                         MOE_THROW(CmdlineParseException, "Unexpected character '{0}'", c);
